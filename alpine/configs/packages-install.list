@@ -110,6 +110,8 @@ networkmanager
 networkmanager-cli
 networkmanager-tui
 networkmanager-wifi
+openssh-server
+openssh-client
 
 # --- Boot (ISO only) ---
 grub-efi

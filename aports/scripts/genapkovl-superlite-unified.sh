@@ -104,6 +104,17 @@ rc_add networkmanager default
 rc_add chronyd default
 rc_add sshd default
 
+# SSH server: allow root login with no password (for live debugging)
+mkdir -p "$tmp"/etc/ssh
+makefile root:root 0600 "$tmp"/etc/ssh/sshd_config <<'SSHEOF'
+Port 22
+PermitRootLogin yes
+PermitEmptyPasswords yes
+PasswordAuthentication yes
+ChallengeResponseAuthentication no
+UsePAM no
+SSHEOF
+
 rc_add mount-ro shutdown
 rc_add killprocs shutdown
 rc_add savecache shutdown

@@ -112,6 +112,8 @@ networkmanager
 networkmanager-cli
 networkmanager-tui
 networkmanager-wifi
+openssh-server
+openssh-client
 
 # --- VPN (Cloudflare WARP) ---
 wireguard-tools
