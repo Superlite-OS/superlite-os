@@ -9,6 +9,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var installRoot string
+
 var installCmd = &cobra.Command{
 	Use:   "install [package or .deb file]",
 	Short: "Install a package or .deb file",
@@ -16,7 +18,8 @@ var installCmd = &cobra.Command{
 Examples:
   zapt install firefox-esr
   zapt install ./package.deb
-  zapt install https://example.com/package.deb`,
+  zapt install https://example.com/package.deb
+  zapt install --root /mnt ./package.deb`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		for _, arg := range args {
@@ -26,6 +29,10 @@ Examples:
 		}
 		return nil
 	},
+}
+
+func init() {
+	installCmd.Flags().StringVar(&installRoot, "root", "/", "Install root directory (default: /)")
 }
 
 func installPackage(target string) error {
@@ -57,7 +64,7 @@ func installDeb(target string) error {
 
 	// Extract and install
 	fmt.Printf("Installing %s...\n", target)
-	info, err := pkg.ExtractDeb(target)
+	info, err := pkg.ExtractDebToRoot(target, installRoot)
 	if err != nil {
 		return fmt.Errorf("extract .deb: %w", err)
 	}

@@ -144,6 +144,96 @@ func ExtractDeb(path string) (*DebInfo, error) {
 	return info, nil
 }
 
+// ExtractDebToRoot extracts a .deb file and installs it to a custom root directory.
+// This is useful for installing packages into a chroot or ISO build root.
+func ExtractDebToRoot(path, root string) (*DebInfo, error) {
+	// Create temp directory for extraction
+	tmpDir, err := os.MkdirTemp("", "zapt-deb-*")
+	if err != nil {
+		return nil, fmt.Errorf("create temp dir: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create backup directory
+	backupDir := filepath.Join(tmpDir, "backup")
+	if err := os.MkdirAll(backupDir, 0755); err != nil {
+		return nil, fmt.Errorf("create backup dir: %w", err)
+	}
+
+	// Extract .deb using ar
+	extractDir := filepath.Join(tmpDir, "extracted")
+	if err := os.MkdirAll(extractDir, 0755); err != nil {
+		return nil, err
+	}
+	if err := extractAr(path, extractDir); err != nil {
+		return nil, fmt.Errorf("extract ar: %w", err)
+	}
+
+	// Parse control file
+	info, err := parseControl(filepath.Join(extractDir, "control.tar.gz"))
+	if err != nil {
+		info, err = parseControl(filepath.Join(extractDir, "control.tar.xz"))
+		if err != nil {
+			info, err = parseControl(filepath.Join(extractDir, "control.tar.zst"))
+			if err != nil {
+				return nil, fmt.Errorf("parse control: %w", err)
+			}
+		}
+	}
+
+	// Extract data.tar.* to temp dir
+	dataFile := findDataTar(extractDir)
+	if dataFile == "" {
+		return nil, fmt.Errorf("data.tar.* not found in .deb")
+	}
+
+	dataDir := filepath.Join(tmpDir, "data")
+	if err := os.MkdirAll(dataDir, 0755); err != nil {
+		return nil, err
+	}
+	if err := extractDataToDir(dataFile, dataDir); err != nil {
+		return nil, fmt.Errorf("extract data: %w", err)
+	}
+
+	// Install files to custom root
+	fmt.Printf("Installing %s %s to %s...\n", info.Name, info.Version, root)
+	installed, skipped, err := installFilesToRoot(dataDir, backupDir, root)
+	if err != nil {
+		return nil, fmt.Errorf("install files: %w", err)
+	}
+
+	fmt.Printf("  Installed: %d files\n", installed)
+	if skipped > 0 {
+		fmt.Printf("  Skipped:   %d files\n", skipped)
+	}
+
+	// Check and install missing shared library dependencies
+	fmt.Printf("  Checking library dependencies...\n")
+	fixMissingLibs(dataDir)
+
+	// Run postinst if exists (only if installing to /)
+	if root == "/" {
+		postinst := findScript(extractDir, "postinst")
+		if postinst != "" {
+			fmt.Printf("  Running postinst: %s\n", postinst)
+			if err := exec.Command("sh", postinst, "configure").Run(); err != nil {
+				fmt.Fprintf(os.Stderr, "  Warning: postinst failed: %v\n", err)
+			}
+		}
+
+		// Update library cache
+		fmt.Printf("  Updating library cache...\n")
+		exec.Command("ldconfig").Run()
+	}
+
+	// Register in zapt database
+	if err := registerPackage(info); err != nil {
+		fmt.Fprintf(os.Stderr, "  Warning: register failed: %v\n", err)
+	}
+
+	return info, nil
+}
+
 // Allowed destination prefixes for .deb file extraction
 var allowedDestPrefixes = []string{
 	"/bin/", "/sbin/", "/lib/", "/lib64/", "/libexec/",
@@ -213,6 +303,63 @@ func installFilesWithSafety(dataDir, backupDir string) (installed, skipped int, 
 
 		// Copy file
 		if err := copyFileWithMode(path, destPath, info.Mode()); err != nil {
+			return err
+		}
+
+		installed++
+		return nil
+	})
+
+	return installed, skipped, err
+}
+
+// installFilesToRoot installs files to a custom root directory (e.g., /mnt for ISO builds)
+func installFilesToRoot(dataDir, backupDir, root string) (installed, skipped int, err error) {
+	err = filepath.Walk(dataDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		relPath, err := filepath.Rel(dataDir, path)
+		if err != nil {
+			return err
+		}
+
+		if relPath == "." {
+			return nil
+		}
+
+		// Map paths
+		destPath := mapDebPath(relPath)
+
+		// Validate destination path
+		if !isAllowedDestPath(destPath) {
+			skipped++
+			return nil
+		}
+
+		// Prepend root
+		fullPath := filepath.Join(root, destPath)
+
+		// Create directories
+		if info.IsDir() {
+			return os.MkdirAll(fullPath, info.Mode())
+		}
+
+		// Ensure parent directory exists
+		if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
+			return err
+		}
+
+		// Backup existing file
+		if _, err := os.Stat(fullPath); err == nil {
+			backupPath := filepath.Join(backupDir, relPath)
+			os.MkdirAll(filepath.Dir(backupPath), 0755)
+			os.Rename(fullPath, backupPath)
+		}
+
+		// Copy file
+		if err := copyFileWithMode(path, fullPath, info.Mode()); err != nil {
 			return err
 		}
 
