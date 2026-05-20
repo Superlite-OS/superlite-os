@@ -352,16 +352,77 @@ if [ -f /tmp/curl-impersonate.tar.gz ]; then
     rm -f /tmp/curl-impersonate.tar.gz
 fi
 
-# ── Install Chromium (native musl, from Alpine repos) ─────────────────────────
-echo "Installing Chromium..."
-apk add --root "$tmp" chromium 2>&1 || {
-    echo "Warning: chromium install failed (see output above)"
+# ── Install Google Chrome + glibc compat ──────────────────────────────────────
+CHROME_DEB="/tmp/google-chrome-stable.deb"
+echo "Downloading Google Chrome..."
+wget -q -O "$CHROME_DEB" "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb" 2>&1 || {
+    echo "Warning: Chrome download failed"
 }
-# Symlink chromium-browser to common names
-if [ -f "$tmp/usr/bin/chromium-browser" ]; then
-    ln -sf chromium-browser "$tmp/usr/bin/google-chrome-stable"
-    ln -sf chromium-browser "$tmp/usr/bin/google-chrome"
-    ln -sf chromium-browser "$tmp/usr/bin/chromium"
+
+if [ -f "$CHROME_DEB" ]; then
+    echo "Installing Chrome via zapt..."
+    "$tmp/usr/local/bin/zapt" install --root "$tmp" "$CHROME_DEB" 2>&1 || {
+        echo "Warning: Chrome install failed (see output above)"
+    }
+    chmod 4755 "$tmp/opt/google/chrome/chrome-sandbox" 2>/dev/null || true
+    mkdir -p "$tmp/usr/bin"
+    # Symlinks point to glibc wrapper (set LD_LIBRARY_PATH for glibc libs)
+    ln -sf /opt/google/chrome/chrome-glibc-wrapper "$tmp/usr/bin/google-chrome-stable"
+    ln -sf /opt/google/chrome/chrome-glibc-wrapper "$tmp/usr/bin/google-chrome"
+    rm -f "$CHROME_DEB"
+fi
+
+# ── Install glibc for Chrome (real glibc for glibc-linked binary) ─────────────
+echo "Downloading glibc for Chrome..."
+LIBC6_DEB="/tmp/libc6.deb"
+LIBC6_URL="https://deb.debian.org/debian/pool/main/g/glibc/libc6_2.36-9+deb12u14_amd64.deb"
+wget -q -O "$LIBC6_DEB" "$LIBC6_URL" 2>&1 || {
+    echo "Warning: libc6 download failed"
+}
+
+if [ -f "$LIBC6_DEB" ]; then
+    echo "Extracting glibc libraries..."
+    mkdir -p /tmp/glibc-extract
+    # .deb is ar archive; data.tar.xz uses Python built-in lzma
+    python3 -c "
+import tarfile, io, lzma
+with open('$LIBC6_DEB', 'rb') as f:
+    f.read(8)
+    hdr = f.read(60)
+    sz = int(hdr[48:58].strip())
+    data = f.read(sz)
+tar_data = lzma.decompress(data)
+tf = tarfile.open(fileobj=io.BytesIO(tar_data))
+libs = ['libc.so.6', 'ld-linux-x86-64.so.2', 'libm.so.6',
+        'libpthread.so.0', 'libdl.so.2', 'libresolv.so.2']
+for m in tf.getmembers():
+    base = m.name.rsplit('/', 1)[-1]
+    if base in libs or base.startswith('libnss_'):
+        tf.extract(m, '/tmp/glibc-extract')
+        print('  ' + m.name)
+" 2>&1 || echo "Warning: glibc extraction failed (python3/lzma missing)"
+
+    # Copy glibc libs to ISO overlay
+    if [ -d /tmp/glibc-extract ]; then
+        mkdir -p "$tmp/usr/lib/glibc"
+        for lib in libc.so.6 ld-linux-x86-64.so.2 libm.so.6 libpthread.so.0 libdl.so.2 libresolv.so.2; do
+            find /tmp/glibc-extract -name "$lib" -exec cp {} "$tmp/usr/lib/glibc/" \; 2>/dev/null
+        done
+        find /tmp/glibc-extract -name "libnss_*" -exec cp {} "$tmp/usr/lib/glibc/" \; 2>/dev/null
+        # Create ld-linux symlink in /lib64 for Chrome to find
+        mkdir -p "$tmp/lib64"
+        ln -sf /usr/lib/glibc/ld-linux-x86-64.so.2 "$tmp/lib64/ld-linux-x86-64.so.2"
+        # Set LD_LIBRARY_PATH for Chrome wrapper
+        cat > "$tmp/opt/google/chrome/chrome-glibc-wrapper" <<'GLIBC_WRAPPER'
+#!/bin/sh
+export LD_LIBRARY_PATH="/usr/lib/glibc:${LD_LIBRARY_PATH:-}"
+exec /opt/google/chrome/chrome "$@"
+GLIBC_WRAPPER
+        chmod +x "$tmp/opt/google/chrome/chrome-glibc-wrapper"
+        echo "  glibc libraries installed to /usr/lib/glibc/"
+    fi
+    rm -f "$LIBC6_DEB"
+    rm -rf /tmp/glibc-extract
 fi
 
 # Clone and install Chrome extensions
@@ -407,8 +468,8 @@ if command -v cargo >/dev/null 2>&1; then
     fi
 fi
 
-# Set up Chromium managed policies
-CHROME_POLICY_DIR="$tmp/etc/chromium/policies/managed"
+# Set up Chrome managed policies
+CHROME_POLICY_DIR="$tmp/etc/opt/chrome/policies/managed"
 mkdir -p "$CHROME_POLICY_DIR"
 
 cat > "$CHROME_POLICY_DIR/managed.json" << 'CHROME_POLICY'

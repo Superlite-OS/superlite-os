@@ -104,12 +104,10 @@ mpv
 lxappearance
 qt5ct
 
-# --- Glibc compat (for curl-impersonate) ---
+# --- Glibc compat (for curl-impersonate + Chrome) ---
 gcompat
 nss
-
-# --- Browser ---
-chromium
+zstd
 
 # --- Networking ---
 networkmanager
