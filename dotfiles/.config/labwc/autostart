@@ -28,7 +28,7 @@ brightnessctl set 80% 2>&1 &
 /usr/libexec/pipewire-launcher 2>&1 &
 #udiskie 2>&1 &
 
-gsettings set org.gnome.desktop.interface gtk-theme 'WhiteSur-Light' 2>&1 &
-gsettings set org.gnome.desktop.interface font-name 'JetBrains Mono 10' 2>&1 &
-gsettings set org.gnome.desktop.interface icon-theme 'SuperLite' 2>&1 &
-gsettings set org.gnome.desktop.interface cursor-theme 'simp1e-cursors' 2>&1 &
+command -v gsettings >/dev/null 2>&1 && gsettings set org.gnome.desktop.interface gtk-theme 'WhiteSur-Light' 2>&1 &
+command -v gsettings >/dev/null 2>&1 && gsettings set org.gnome.desktop.interface font-name 'JetBrains Mono 10' 2>&1 &
+command -v gsettings >/dev/null 2>&1 && gsettings set org.gnome.desktop.interface icon-theme 'SuperLite' 2>&1 &
+command -v gsettings >/dev/null 2>&1 && gsettings set org.gnome.desktop.interface cursor-theme 'simp1e-cursors' 2>&1 &

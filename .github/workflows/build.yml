@@ -40,6 +40,10 @@ jobs:
       - name: QEMU Smoke Test
         run: |
           ISO=$(find output -name "*.iso" -type f | head -1)
+          if [ -z "$ISO" ]; then
+            echo "::error::No ISO found in output/"
+            exit 1
+          fi
           echo "Testing ISO: $ISO"
 
           # Install QEMU + expect
@@ -145,7 +149,8 @@ jobs:
           # Run the test
           export ISO_PATH="$ISO"
           echo "Booting ISO in QEMU (expect-based interactive test)..."
-          if expect /tmp/qemu-test.exp 2>&1 | tee /tmp/qemu-boot.log; then
+          if expect /tmp/qemu-test.exp > /tmp/qemu-boot.log 2>&1; then
+            cat /tmp/qemu-boot.log
             echo ""
             echo "✓ QEMU smoke test PASSED"
           else

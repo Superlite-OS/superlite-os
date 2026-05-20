@@ -1,7 +1,7 @@
 .PHONY: help build build-legacy build-install build-parted docker docker-legacy docker-install docker-parted setup clean validate push release
 
 TAG     := latest
-DATE    := $(shell date +%Y%m%d)
+DATE    := $(shell date -u +%Y%m%d)
 ISO_DIR := output
 
 help: ## Show this help
@@ -48,6 +48,7 @@ push: ## Push staged changes to GitHub
 	git push
 
 release: ## Create GitHub release with ISO
+	@if [ -z "$$(ls $(ISO_DIR)/*.iso 2>/dev/null)" ]; then echo "No ISO files found in $(ISO_DIR)/"; exit 1; fi
 	gh release create "v$(DATE)" $(ISO_DIR)/*.iso \
 		--title "SuperLite OS $(DATE)" \
 		--notes "Alpine Linux + LabWC Wayland Desktop"

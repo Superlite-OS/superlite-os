@@ -1,4 +1,5 @@
 build/
+output/
 *.iso
 *.img
 *.tar.gz
@@ -14,8 +15,6 @@ tmp/
 iso/boot/
 iso/EFI/
 iso/live/
-build/
-*.iso
 
 # Go build artifacts
 zapt/zapt

@@ -103,8 +103,11 @@ _docker_build() {
             mkdir -p /build/output/${VARIANT}
             chown build:build /build/output/${VARIANT}
 
-            PUBKEY=$(ls /home/build/.abuild/build-*.rsa.pub 2>/dev/null | head -1)
-            PRIVKEY=$(ls /home/build/.abuild/build-*.rsa 2>/dev/null | head -1)
+            PUBKEY=$(find /home/build/.abuild -name "build-*.rsa.pub" -type f 2>/dev/null | head -1)
+            PRIVKEY=$(find /home/build/.abuild -name "build-*.rsa" -type f 2>/dev/null | head -1)
+            if [ -z "$PUBKEY" ] || [ -z "$PRIVKEY" ]; then
+                echo "ERROR: No signing keys found"; exit 1
+            fi
             cp "$PUBKEY" /etc/apk/keys/
 
             su build -c "
@@ -174,8 +177,11 @@ _native_build() {
     mkdir -p "$output_dir"
 
     cd /root/aports/scripts
-    PUBKEY=$(ls ~/.abuild/build-*.rsa.pub | head -1)
-    PRIVKEY=$(ls ~/.abuild/build-*.rsa | head -1)
+    PUBKEY=$(find ~/.abuild -name "build-*.rsa.pub" -type f 2>/dev/null | head -1)
+    PRIVKEY=$(find ~/.abuild -name "build-*.rsa" -type f 2>/dev/null | head -1)
+    if [ -z "$PUBKEY" ] || [ -z "$PRIVKEY" ]; then
+        log "ERROR: No signing keys found"; exit 1
+    fi
     cp "$PUBKEY" /etc/apk/keys/
     PACKAGER_PRIVKEY="$PRIVKEY" \
     PACKAGER_PUBKEY="$PUBKEY" \

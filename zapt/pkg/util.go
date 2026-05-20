@@ -40,8 +40,9 @@ func DownloadFile(url string) (string, error) {
 	}
 	defer tmp.Close()
 
-	// Copy response body to file
-	if _, err := io.Copy(tmp, resp.Body); err != nil {
+	// Copy response body to file (max 500MB)
+	maxSize := int64(500 * 1024 * 1024)
+	if _, err := io.Copy(tmp, io.LimitReader(resp.Body, maxSize)); err != nil {
 		os.Remove(tmp.Name())
 		return "", fmt.Errorf("download: %w", err)
 	}

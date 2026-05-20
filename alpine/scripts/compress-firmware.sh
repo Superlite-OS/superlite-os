@@ -8,7 +8,7 @@
 # compresses and deduplicates.
 # ============================================================================
 
-set -e
+set -eu
 
 FIRMWARE_DIR="${1:-/lib/firmware}"
 LIVE_LOG() { echo "[firmware] $*"; }

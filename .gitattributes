@@ -28,3 +28,18 @@
 *.gresource binary
 *.gif binary
 *.ico binary
+
+# SVG — treat as text
+*.svg text eol=lf
+
+# Documentation and data
+*.md text eol=lf
+*.txt text eol=lf
+*.list text eol=lf
+
+# Theme and service files
+*.theme text eol=lf
+*.service text eol=lf
+
+# Windows binaries
+*.exe binary

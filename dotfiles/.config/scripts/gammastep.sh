@@ -2,7 +2,10 @@
 
 if [[ $1 = "toggle" ]]; then
 	if pgrep -x "gammastep" > /dev/null; then
-		kill -15 $(pgrep -x "gammastep");
+		pid=$(pgrep -x "gammastep")
+		if [ -n "$pid" ]; then
+			kill -15 "$pid"
+		fi
 	else
 		gammastep -O 5600  2>/dev/null &
 	fi

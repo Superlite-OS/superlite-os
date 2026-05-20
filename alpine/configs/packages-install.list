@@ -45,7 +45,6 @@ linux-firmware-rtl_bt
 linux-firmware-brcm
 linux-firmware-cirrus
 linux-firmware-other
-udev
 eudev
 
 # --- Wayland Desktop ---
@@ -122,5 +121,4 @@ squashfs-tools
 xorriso
 mkinitfs
 mtools
-dosfstools
 lua5.4

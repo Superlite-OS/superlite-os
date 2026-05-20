@@ -117,7 +117,7 @@ func ExtractDeb(path string) (*DebInfo, error) {
 	// Run postinst if exists
 	postinst := findScript(extractDir, "postinst")
 	if postinst != "" {
-		fmt.Printf("  Running postinst...\n")
+		fmt.Printf("  Running postinst: %s\n", postinst)
 		if err := exec.Command("sh", postinst, "configure").Run(); err != nil {
 			fmt.Fprintf(os.Stderr, "  Warning: postinst failed: %v\n", err)
 		}

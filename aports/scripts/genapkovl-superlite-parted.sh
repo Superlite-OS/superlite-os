@@ -194,7 +194,7 @@ makefile root:root 0755 "$tmp"/usr/local/bin/partman <<'PARTMAN_EOF'
 # SuperLite OS — TUI Partition Manager
 # CRUD operations for disk partitions
 # ============================================================================
-set -e
+set +e
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -760,7 +760,7 @@ makefile root:root 0755 "$tmp"/sbin/init <<'INITEOF'
 mountpoint -q /proc || mount -t proc proc /proc
 mountpoint -q /sys  || mount -t sysfs sysfs /sys
 mountpoint -q /dev  || mount -t devtmpfs devtmpfs /dev
-for mod in loop squashfs overlay; do modprobe $mod 2>/dev/null; done
+for mod in loop squashfs overlay; do modprobe "$mod" 2>/dev/null; done
 exec /sbin/openrc sysinit
 INITEOF
 

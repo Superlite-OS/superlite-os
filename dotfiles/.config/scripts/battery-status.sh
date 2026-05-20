@@ -21,6 +21,11 @@ if [ -z "$CAPACITY" ]; then
     exit 0
 fi
 
+# Validate CAPACITY is a number
+case "$CAPACITY" in
+    ''|*[!0-9]*) exit 0 ;;
+esac
+
 CLASS="battery"
 ICON=""
 

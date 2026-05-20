@@ -39,7 +39,6 @@ util-linux
 wipefs
 blkid
 findmnt
-hdparm
 sdparm
 nvme-cli
 hd-idle
@@ -52,7 +51,6 @@ fuse3
 
 # --- Kernel (minimal) ---
 linux-lts
-udev
 eudev
 
 # --- Networking (for remote management) ---
@@ -75,5 +73,4 @@ squashfs-tools
 xorriso
 mkinitfs
 mtools
-dosfstools
 lua5.4

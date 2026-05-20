@@ -104,12 +104,12 @@ rc_add networkmanager default
 rc_add chronyd default
 rc_add sshd default
 
-# SSH server: allow root login with no password (for live debugging)
+# SSH server: allow root login for live debugging (password required)
 mkdir -p "$tmp"/etc/ssh
 makefile root:root 0600 "$tmp"/etc/ssh/sshd_config <<'SSHEOF'
 Port 22
 PermitRootLogin yes
-PermitEmptyPasswords yes
+PermitEmptyPasswords no
 PasswordAuthentication yes
 ChallengeResponseAuthentication no
 UsePAM no
@@ -968,7 +968,7 @@ makefile root:root 0755 "$tmp"/sbin/init <<'INITEOF'
 mountpoint -q /proc || mount -t proc proc /proc
 mountpoint -q /sys  || mount -t sysfs sysfs /sys
 mountpoint -q /dev  || mount -t devtmpfs devtmpfs /dev
-for mod in loop squashfs overlay; do modprobe $mod 2>/dev/null; done
+for mod in loop squashfs overlay; do modprobe "$mod" 2>/dev/null; done
 exec /sbin/openrc sysinit
 INITEOF
 

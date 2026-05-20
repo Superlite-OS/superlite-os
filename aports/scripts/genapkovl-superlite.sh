@@ -333,7 +333,7 @@ mountpoint -q /dev  || mount -t devtmpfs devtmpfs /dev
 
 # Load modules
 for mod in loop squashfs overlay; do
-    modprobe $mod 2>/dev/null
+    modprobe "$mod" 2>/dev/null
 done
 
 # Switch to OpenRC init
