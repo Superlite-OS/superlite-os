@@ -67,7 +67,7 @@
         "format-disconnected": " Offline",
         "tooltip-format": "{essid} [{signalStrength}%] — {ipaddr}",
         "on-click-right": "foot sudo nmtui",
-        "on-click": "sudo nmcli networking connectivity | grep -q none && sudo nmcli networking on && notify-send 'Wi-Fi On' || sudo nmcli networking off"
+        "on-click": "if sudo nmcli networking connectivity | grep -q none; then sudo nmcli networking on && notify-send 'Wi-Fi On'; else sudo nmcli networking off && notify-send 'Wi-Fi Off'; fi"
     },
     "custom/battery": {
         "format": "{}",

@@ -24,32 +24,32 @@ LIVE_LOG "Firmware size before optimization: ${BEFORE_SIZE}MB"
 # ── Step 1: Remove duplicate firmware (keep .xz if both exist) ───────────────
 LIVE_LOG "Removing duplicates..."
 dup_count=0
-find "$FIRMWARE_DIR" -name "*.xz" -type f | while read -r xzfile; do
-    base=$(echo "$xzfile" | sed 's/\.xz$//')
+while IFS= read -r xzfile; do
+    [ -f "$xzfile" ] || continue
+    base="${xzfile%.xz}"
     if [ -f "$base" ]; then
         rm -f "$base"
         dup_count=$((dup_count + 1))
     fi
-done 2>/dev/null || true
+done <<XZLIST
+$(find "$FIRMWARE_DIR" -name "*.xz" -type f 2>/dev/null)
+XZLIST
 
 # ── Step 2: Compress uncompressed firmware with xz ──────────────────────────
 LIVE_LOG "Compressing firmware with xz..."
 compress_count=0
-find "$FIRMWARE_DIR" -type f \( \
-    -name "*.bin" -o \
-    -name "*.fw" -o \
-    -name "*.img" -o \
-    -name "*.ucode" \
-\) ! -name "*.xz" ! -name "*.zst" | while read -r fwfile; do
-    # Skip if already compressed or too small to matter
+while IFS= read -r fwfile; do
+    [ -f "$fwfile" ] || continue
+    # Skip if too small to matter
     fsize=$(stat -c%s "$fwfile" 2>/dev/null || stat -f%z "$fwfile" 2>/dev/null || echo 0)
-    if [ "$fsize" -lt 4096 ]; then
-        continue
-    fi
-
+    [ "$fsize" -lt 4096 ] && continue
     # Compress with xz (kernel supports xz-compressed firmware since 5.3+)
-    xz -T1 -f "$fwfile" 2>/dev/null && compress_count=$((compress_count + 1)) || true
-done
+    if xz -T1 -f "$fwfile" 2>/dev/null; then
+        compress_count=$((compress_count + 1))
+    fi
+done <<FWLIST
+$(find "$FIRMWARE_DIR" -type f \( -name "*.bin" -o -name "*.fw" -o -name "*.img" -o -name "*.ucode" \) ! -name "*.xz" ! -name "*.zst" 2>/dev/null)
+FWLIST
 
 LIVE_LOG "Compressed $compress_count firmware files"
 

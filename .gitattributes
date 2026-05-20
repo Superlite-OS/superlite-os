@@ -1,0 +1,30 @@
+# Force LF line endings for all text files (prevents CRLF breakage on Windows)
+* text=auto eol=lf
+
+# Shell scripts — must be LF for Alpine/Linux
+*.sh text eol=lf
+*.bash text eol=lf
+
+# Go source
+*.go text eol=lf
+
+# Config files
+*.conf text eol=lf
+*.ini text eol=lf
+*.xml text eol=lf
+*.css text eol=lf
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.toml text eol=lf
+*.desktop text eol=lf
+
+# Binary files — do not normalize
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.otb binary
+*.gresource binary
+*.gif binary
+*.ico binary
