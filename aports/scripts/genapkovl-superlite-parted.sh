@@ -596,7 +596,7 @@ auto_partition() {
 
     # Partition device names
     case "$dev" in
-        *nvme*) sep="p" ;;
+        *nvme*|*mmcblk*|*md*) sep="p" ;;
         *) sep="" ;;
     esac
 

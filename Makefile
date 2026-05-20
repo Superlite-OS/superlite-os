@@ -44,8 +44,8 @@ clean: ## Remove build artifacts
 validate: ## Validate project structure
 	bash tests/validate-build.sh
 
-push: ## Push to GitHub
-	git add -A && git commit -m "build: $(DATE)" && git push
+push: ## Push staged changes to GitHub
+	git push
 
 release: ## Create GitHub release with ISO
 	gh release create "v$(DATE)" $(ISO_DIR)/*.iso \

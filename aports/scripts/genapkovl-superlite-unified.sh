@@ -311,8 +311,8 @@ done
 
 if [ -n "$ZAPT_DIR" ] && command -v go >/dev/null 2>&1; then
     echo "Building zapt..."
-    (cd "$ZAPT_DIR" && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o "$tmp"/usr/local/bin/zapt .) 2>/dev/null || {
-        echo "Warning: zapt build failed"
+    (cd "$ZAPT_DIR" && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o "$tmp"/usr/local/bin/zapt .) 2>&1 || {
+        echo "Warning: zapt build failed (see output above)"
     }
 
     # Install zapt config
@@ -646,7 +646,7 @@ while true; do
                 swap_end=$((513 + swap_mb))
                 parted -s "$DISK" mkpart primary linux-swap 513MiB "${swap_end}MiB"
                 parted -s "$DISK" mkpart primary ext4 "${swap_end}MiB" 100%
-                case "$DISK" in *nvme*) sep="p";; *) sep="";; esac
+                case "$DISK" in *nvme*|*mmcblk*|*md*) sep="p";; *) sep="";; esac
 
                 # Phase 2: Format (25-40%)
                 echo "25" ; echo "# Formatting partitions..."
@@ -656,9 +656,16 @@ while true; do
 
                 # Phase 3: Mount (40-50%)
                 echo "40" ; echo "# Mounting partitions..."
-                mount "${DISK}${sep}3" /mnt
+                if ! mount "${DISK}${sep}3" /mnt; then
+                    yad --title="$TITLE" --error --text="Gagal mount root partition!\nLihat log: $INSTALL_LOG" --width=$WIDTH --center 2>/dev/null
+                    continue
+                fi
                 mkdir -p /mnt/boot/efi
-                mount "${DISK}${sep}1" /mnt/boot/efi
+                if ! mount "${DISK}${sep}1" /mnt/boot/efi; then
+                    yad --title="$TITLE" --error --text="Gagal mount EFI partition!\nLihat log: $INSTALL_LOG" --width=$WIDTH --center 2>/dev/null
+                    umount /mnt 2>/dev/null
+                    continue
+                fi
                 swapon "${DISK}${sep}2" >> "$INSTALL_LOG" 2>&1
 
                 # Phase 4: Install system (50-85%)
@@ -713,9 +720,13 @@ while true; do
                 # Mount EFI variables for grub-install
                 mount -t efivarfs efivarfs /mnt/sys/firmware/efi/efivars 2>/dev/null || true
                 # Install UEFI GRUB with --removable for fallback boot path compatibility
-                chroot /mnt grub-install --target=x86_64-efi --efi-directory=/boot/efi --removable >> "$INSTALL_LOG" 2>&1 || \
-                chroot /mnt grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=superlite >> "$INSTALL_LOG" 2>&1 || \
-                chroot /mnt grub-install --target=i386-pc "$DISK" >> "$INSTALL_LOG" 2>&1 || true
+                grub_ok=false
+                chroot /mnt grub-install --target=x86_64-efi --efi-directory=/boot/efi --removable >> "$INSTALL_LOG" 2>&1 && grub_ok=true || \
+                chroot /mnt grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=superlite >> "$INSTALL_LOG" 2>&1 && grub_ok=true || \
+                chroot /mnt grub-install --target=i386-pc "$DISK" >> "$INSTALL_LOG" 2>&1 && grub_ok=true || true
+                if [ "$grub_ok" != "true" ]; then
+                    echo "WARNING: All grub-install attempts failed" >> "$INSTALL_LOG"
+                fi
                 # Also ensure fallback path exists
                 if [ -d /mnt/boot/efi/EFI/BOOT ]; then
                     echo "# EFI fallback boot path OK" >> "$INSTALL_LOG"

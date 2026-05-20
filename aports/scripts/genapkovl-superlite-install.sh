@@ -382,7 +382,7 @@ auto_partition() {
     # Format
     # Handle nvme naming (nvme0n1p1 vs sda1)
     case "$dev" in
-        *nvme*) sep="p" ;;
+        *nvme*|*mmcblk*|*md*) sep="p" ;;
         *) sep="" ;;
     esac
 
