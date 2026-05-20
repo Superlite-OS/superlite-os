@@ -108,6 +108,9 @@ qt5ct
 gcompat
 nss
 
+# --- Browser ---
+chromium
+
 # --- Networking ---
 networkmanager
 networkmanager-cli

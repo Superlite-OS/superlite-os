@@ -352,26 +352,16 @@ if [ -f /tmp/curl-impersonate.tar.gz ]; then
     rm -f /tmp/curl-impersonate.tar.gz
 fi
 
-# ── Install Google Chrome + extensions ────────────────────────────────────────
-CHROME_DEB="/tmp/google-chrome-stable.deb"
-echo "Downloading Google Chrome..."
-wget -q -O "$CHROME_DEB" "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb" 2>&1 || {
-    echo "Warning: Chrome download failed"
+# ── Install Chromium (native musl, from Alpine repos) ─────────────────────────
+echo "Installing Chromium..."
+apk add --root "$tmp" chromium 2>&1 || {
+    echo "Warning: chromium install failed (see output above)"
 }
-
-if [ -f "$CHROME_DEB" ]; then
-    echo "Installing Chrome via zapt..."
-    # Use zapt to install .deb to ISO root
-    "$tmp/usr/local/bin/zapt" install --root "$tmp" "$CHROME_DEB" 2>&1 || {
-        echo "Warning: Chrome install failed (see output above)"
-    }
-    # Fix Chrome sandbox permissions
-    chmod 4755 "$tmp/opt/google/chrome/chrome-sandbox" 2>/dev/null || true
-    # Create symlinks so Chrome is in PATH
-    mkdir -p "$tmp/usr/bin"
-    ln -sf /opt/google/chrome/google-chrome-stable "$tmp/usr/bin/google-chrome-stable"
-    ln -sf /opt/google/chrome/google-chrome-stable "$tmp/usr/bin/google-chrome"
-    rm -f "$CHROME_DEB"
+# Symlink chromium-browser to common names
+if [ -f "$tmp/usr/bin/chromium-browser" ]; then
+    ln -sf chromium-browser "$tmp/usr/bin/google-chrome-stable"
+    ln -sf chromium-browser "$tmp/usr/bin/google-chrome"
+    ln -sf chromium-browser "$tmp/usr/bin/chromium"
 fi
 
 # Clone and install Chrome extensions
@@ -417,8 +407,8 @@ if command -v cargo >/dev/null 2>&1; then
     fi
 fi
 
-# Set up Chrome managed policies
-CHROME_POLICY_DIR="$tmp/etc/opt/chrome/policies/managed"
+# Set up Chromium managed policies
+CHROME_POLICY_DIR="$tmp/etc/chromium/policies/managed"
 mkdir -p "$CHROME_POLICY_DIR"
 
 cat > "$CHROME_POLICY_DIR/managed.json" << 'CHROME_POLICY'
