@@ -531,404 +531,49 @@ case "$MODE" in
 esac
 MOTDEOF
 
-# ── GUI Installer (yad) ──────────────────────────────────────────────────────
-mkdir -p "$tmp"/usr/local/bin
-makefile root:root 0755 "$tmp"/usr/local/bin/superlite-gui-installer <<'INSTALLER_EOF'
-#!/bin/sh
-# ============================================================================
-# SuperLite OS — GUI Installer (yad)
-# Wizard with Previous/Next navigation
-# ============================================================================
-set +e
-
-TITLE="SuperLite OS Installer"
-WIDTH=480
-STEP=1
-DISK=""
-SELECTED=""
-
-# ── Build disk list ──────────────────────────────────────────────────────────
-build_disk_list() {
-    DISK_LIST=""
-    while IFS= read -r line; do
-        name=$(echo "$line" | awk '{print $1}')
-        size=$(echo "$line" | awk '{print $2}')
-        model=$(echo "$line" | awk '{for(i=3;i<=NF;i++) printf "%s ", $i}' | sed 's/ *$//')
-        [ -z "$model" ] && model="(unknown)"
-        DISK_LIST="$DISK_LIST FALSE /dev/$name $size $model"
-    done <<EOF
-$(lsblk -dno NAME,SIZE,MODEL 2>/dev/null | grep -v "loop\|rom\|sr")
-EOF
-}
-
-# ── Main wizard loop ─────────────────────────────────────────────────────────
-while true; do
-    case "$STEP" in
-        1)
-            # Welcome
-            yad --title="$TITLE" \
-                --text="<b><big>Welcome to SuperLite OS</big></b>\n\nThis wizard will install SuperLite OS to your computer.\n\n<b>Warning:</b> All data on the selected disk will be erased!\n\n<tt>Alpine Linux + LabWC Wayland</tt>" \
-                --image="drive-harddisk" \
-                --button="Next!go-next:0" --button="Cancel!cancel:1" \
-                --width=$WIDTH --center 2>/dev/null
-            RC=$?
-            if [ $RC -eq 1 ] || [ $RC -eq 252 ]; then
-                exit 0
-            fi
-            STEP=2
-            ;;
-        2)
-            # Select disk
-            build_disk_list
-            if [ -z "$DISK_LIST" ]; then
-                yad --title="$TITLE" --error --text="No disks found!" --width=$WIDTH --center 2>/dev/null
-                exit 1
-            fi
-
-            SELECTED=$(yad --title="$TITLE" \
-                --text="<b>Select the target disk:</b>\n<i>Click a row to select, then click Next.</i>" \
-                --list --radiolist --selectable-labels \
-                --column="" --column="Device" --column="Size" --column="Model" \
-                --print-column=2 --separator="|" \
-                --button="Previous!go-previous:2" --button="Next!go-next:0" --button="Cancel!cancel:1" \
-                --width=$WIDTH --height=300 --center 2>/dev/null \
-                $DISK_LIST)
-            RC=$?
-            if [ $RC -eq 1 ] || [ $RC -eq 252 ]; then
-                exit 0
-            elif [ $RC -eq 2 ]; then
-                STEP=1
-                continue
-            fi
-            DISK=$(echo "$SELECTED" | sed 's/^ *//;s/ *$//')
-            if [ -z "$DISK" ] || [ ! -b "$DISK" ]; then
-                yad --title="$TITLE" \
-                    --warning \
-                    --text="<b>No disk selected!</b>\n\nPlease select a disk from the list to continue.\nClick <b>Next</b> after selecting a disk." \
-                    --button="OK:0" \
-                    --width=$WIDTH --center 2>/dev/null
-                continue
-            fi
-            STEP=3
-            ;;
-        3)
-            # Confirm
-            DISK_SIZE=$(lsblk -dno SIZE "$DISK" 2>/dev/null | tr -d ' ')
-            DISK_MODEL=$(lsblk -dno MODEL "$DISK" 2>/dev/null | sed 's/^ *//;s/ *$//')
-
-            yad --title="$TITLE" \
-                --text="<b><big>Confirm Installation</big></b>\n\n<b>Target:</b> $DISK ($DISK_SIZE)\n<b>Model:</b> $DISK_MODEL\n\n<b><span color='red'>ALL DATA ON THIS DISK WILL BE ERASED!</span></b>\n\nThe disk will be partitioned automatically:\n- EFI System Partition (512 MB)\n- Swap (${DISK_SIZE} / 10, max 2 GB)\n- Root filesystem (ext4, remaining space)" \
-                --image="dialog-warning" \
-                --question --button="Previous!go-previous:2" --button="Install!apply:0" --button="Cancel!cancel:1" \
-                --width=$WIDTH --center 2>/dev/null
-            RC=$?
-            if [ $RC -eq 1 ] || [ $RC -eq 252 ]; then
-                exit 0
-            elif [ $RC -eq 2 ]; then
-                STEP=2
-                continue
-            fi
-            STEP=4
-            ;;
-        4)
-            # Install
-            INSTALL_LOG="/tmp/superlite-install.log"
-            INSTALL_SENTINEL="/tmp/.superlite-install-result"
-            rm -f "$INSTALL_SENTINEL"
-
-            {
-                # Phase 1: Partition (0-25%)
-                echo "5" ; echo "# Partitioning $DISK..."
-                wipefs -a "$DISK" 2>/dev/null || true
-                parted -s "$DISK" mklabel gpt
-                parted -s "$DISK" mkpart ESP fat32 1MiB 513MiB
-                parted -s "$DISK" set 1 esp on
-                size_mb=$(blockdev --getsize64 "$DISK" | awk '{printf "%.0f", $1/1024/1024}')
-                swap_mb=$((size_mb / 10)); [ "$swap_mb" -gt 2048 ] && swap_mb=2048
-                swap_end=$((513 + swap_mb))
-                parted -s "$DISK" mkpart primary linux-swap 513MiB "${swap_end}MiB"
-                parted -s "$DISK" mkpart primary ext4 "${swap_end}MiB" 100%
-                case "$DISK" in *nvme*|*mmcblk*|*md*) sep="p";; *) sep="";; esac
-
-                # Phase 2: Format (25-40%)
-                echo "25" ; echo "# Formatting partitions..."
-                mkfs.fat -F32 "${DISK}${sep}1" >> "$INSTALL_LOG" 2>&1
-                mkswap "${DISK}${sep}2" >> "$INSTALL_LOG" 2>&1
-                mkfs.ext4 -F "${DISK}${sep}3" >> "$INSTALL_LOG" 2>&1
-
-                # Phase 3: Mount (40-50%)
-                echo "40" ; echo "# Mounting partitions..."
-                if ! mount "${DISK}${sep}3" /mnt; then
-                    echo "FAIL: mount root" >> "$INSTALL_LOG"
-                    echo "FAIL" > "$INSTALL_SENTINEL"
-                    echo "100" ; echo "# Gagal mount root partition!"
-                    break
-                fi
-                mkdir -p /mnt/boot/efi
-                if ! mount "${DISK}${sep}1" /mnt/boot/efi; then
-                    echo "FAIL: mount efi" >> "$INSTALL_LOG"
-                    echo "FAIL" > "$INSTALL_SENTINEL"
-                    umount /mnt 2>/dev/null
-                    echo "100" ; echo "# Gagal mount EFI partition!"
-                    break
-                fi
-                swapon "${DISK}${sep}2" >> "$INSTALL_LOG" 2>&1
-
-                # Phase 4: Install system (50-85%)
-                echo "50" ; echo "# Installing base system (this may take a few minutes)..."
-                setup-disk -m sys /mnt >> "$INSTALL_LOG" 2>&1
-
-                # Phase 5: Copy desktop config (85-95%)
-                echo "85" ; echo "# Installing desktop environment..."
-
-                # Copy all dotfiles from skel to installed root
-                if [ -d /etc/skel ]; then
-                    mkdir -p /mnt/root
-                    for item in /etc/skel/.*; do
-                        name="$(basename "$item")"
-                        [ "$name" = "." ] || [ "$name" = ".." ] && continue
-                        cp -a "$item" /mnt/root/ 2>/dev/null || true
-                    done
-                fi
-
-                # Copy live session configs (may have runtime changes)
-                mkdir -p /mnt/root/.config
-                for item in /root/.config/*; do
-                    [ -e "$item" ] && cp -a "$item" /mnt/root/.config/ 2>/dev/null || true
-                done
-
-                # Copy wallpapers, icons, fonts
-                [ -d /root/Pictures ] && cp -a /root/Pictures /mnt/root/ 2>/dev/null || true
-                [ -d /root/.icons ] && cp -a /root/.icons /mnt/root/ 2>/dev/null || true
-
-                # Copy system-wide assets
-                [ -d /usr/share/fonts ] && cp -a /usr/share/fonts /mnt/usr/share/ 2>/dev/null || true
-                [ -d /usr/share/icons ] && cp -a /usr/share/icons /mnt/usr/share/ 2>/dev/null || true
-
-                # Copy MOTD
-                cp /etc/motd /mnt/etc/motd 2>/dev/null || true
-
-                # Ensure correct ownership
-                chroot /mnt chown -R root:root /root 2>/dev/null || true
-
-                # Verify dotfiles installed
-                echo "# Verifying installation..."
-                _missing=""
-                for f in .profile .config/labwc/autostart .config/labwc/rc.xml .config/waybar/config .config/foot/foot.ini; do
-                    [ ! -f "/mnt/root/$f" ] && _missing="$_missing $f"
-                done
-                if [ -n "$_missing" ]; then
-                    echo "# WARNING: Missing files:$_missing" >> "$INSTALL_LOG"
-                fi
-
-                # Phase 6: Bootloader (95-100%)
-                echo "95" ; echo "# Installing bootloader..."
-                # Mount EFI variables for grub-install
-                mount -t efivarfs efivarfs /mnt/sys/firmware/efi/efivars 2>/dev/null || true
-                # Install UEFI GRUB with --removable for fallback boot path compatibility
-                grub_ok=false
-                chroot /mnt grub-install --target=x86_64-efi --efi-directory=/boot/efi --removable >> "$INSTALL_LOG" 2>&1 && grub_ok=true || \
-                chroot /mnt grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=superlite >> "$INSTALL_LOG" 2>&1 && grub_ok=true || \
-                chroot /mnt grub-install --target=i386-pc "$DISK" >> "$INSTALL_LOG" 2>&1 && grub_ok=true || true
-                if [ "$grub_ok" != "true" ]; then
-                    echo "WARNING: All grub-install attempts failed" >> "$INSTALL_LOG"
-                fi
-                # Also ensure fallback path exists
-                if [ -d /mnt/boot/efi/EFI/BOOT ]; then
-                    echo "# EFI fallback boot path OK" >> "$INSTALL_LOG"
-                elif [ -f /mnt/boot/efi/EFI/superlite/grubx64.efi ]; then
-                    mkdir -p /mnt/boot/efi/EFI/BOOT
-                    cp /mnt/boot/efi/EFI/superlite/grubx64.efi /mnt/boot/efi/EFI/BOOT/BOOTX64.EFI 2>/dev/null || true
-                fi
-                chroot /mnt grub-mkconfig -o /boot/grub/grub.cfg >> "$INSTALL_LOG" 2>&1 || true
-                # Unmount efivarfs
-                umount /mnt/sys/firmware/efi/efivars 2>/dev/null || true
-
-                echo "100" ; echo "# Installation complete!"
-            } | yad --progress \
-                --title="$TITLE" \
-                --text="<b>Installing SuperLite OS to $DISK</b>\n\nPlease wait..." \
-                --percentage=0 --auto-close --auto-kill \
-                --button="Cancel!cancel:1" \
-                --width=$WIDTH --center 2>/dev/null
-
-            INSTALL_RESULT=$?
-
-            # Check sentinel file for installation failures
-            if [ -f "$INSTALL_SENTINEL" ] || [ $INSTALL_RESULT -ne 0 ]; then
-                rm -f "$INSTALL_SENTINEL"
-                yad --title="$TITLE" \
-                    --text="<b><span color='red'>Installation failed!</span></b>\n\nCheck the log for details:" \
-                    --text-info --filename="$INSTALL_LOG" \
-                    --button="Close:0" \
-                    --width=600 --height=400 --center 2>/dev/null
-                exit 1
-            fi
-            STEP=5
-            ;;
-        5)
-            # Done
-            yad --title="$TITLE" \
-                --text="<b><big>Installation Complete!</big></b>\n\nSuperLite OS has been installed successfully to $DISK.\n\nYou can now reboot into your new system." \
-                --image="object-select" \
-                --button="Reboot!system-reboot:0" --button="Close!window-close:1" \
-                --width=$WIDTH --center 2>/dev/null
-
-            [ $? -eq 0 ] && reboot
-            exit 0
-            ;;
-        *)
-            exit 0
-            ;;
-    esac
+# ── Build GUI Installer (Go) ─────────────────────────────────────────────────
+INSTALLER_DIR=""
+for _candidate in \
+    "$SCRIPT_DIR/../../installer" \
+    "$SCRIPT_DIR/../installer" \
+    "/build/installer" \
+    "./installer"; do
+    if [ -d "$_candidate" ] && [ -f "$_candidate/main.go" ]; then
+        INSTALLER_DIR="$_candidate"
+        break
+    fi
 done
-INSTALLER_EOF
 
-# ── TUI Partition Manager ────────────────────────────────────────────────────
-makefile root:root 0755 "$tmp"/usr/local/bin/partman <<'PARTMAN_EOF'
-#!/bin/sh
-# ============================================================================
-# SuperLite OS — Partition Manager
-# ============================================================================
-set -e
+if [ -n "$INSTALLER_DIR" ] && command -v go >/dev/null 2>&1; then
+    echo "Building superlite-gui-installer..."
+    (cd "$INSTALLER_DIR" && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o "$tmp"/usr/local/bin/superlite-gui-installer .) 2>&1 || {
+        echo "Warning: installer build failed (see output above)"
+    }
+else
+    echo "Warning: installer source not found or Go not installed"
+fi
 
-RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
-
-header() { printf "\n${CYAN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n${CYAN}${BOLD}  %s${NC}\n${CYAN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n\n" "$1"; }
-ok()   { printf "  ${GREEN}✓${NC} %s\n" "$1"; }
-fail() { printf "  ${RED}✗${NC} %s\n" "$1"; }
-warn() { printf "  ${YELLOW}!${NC} %s\n" "$1"; }
-info() { printf "  ${CYAN}→${NC} %s\n" "$1"; }
-pause() { printf "\n  Press Enter to continue..."; read -r _; }
-confirm() { printf "  ${BOLD}%s${NC} [y/N] " "$1"; read -r ans; case "$ans" in y|Y|yes|YES) return 0;; *) return 1;; esac; }
-
-list_disks() {
-    header "Available Disks"
-    printf "  ${BOLD}%-12s %-10s %-30s %-8s${NC}\n" "DEVICE" "SIZE" "MODEL" "TYPE"
-    printf "  %s\n" "$(printf '─%.0s' $(seq 1 65))"
-    lsblk -dno NAME,SIZE,MODEL,TYPE | grep -v loop | while read -r n s m t; do printf "  %-12s %-10s %-30s %-8s\n" "$n" "$s" "$m" "$t"; done
-    echo ""
-}
-
-show_partitions() {
-    header "Partitions"
-    printf "  ${BOLD}%-15s %-10s %-10s %-15s %-20s${NC}\n" "PARTITION" "SIZE" "FSTYPE" "MOUNT" "LABEL"
-    printf "  %s\n" "$(printf '─%.0s' $(seq 1 75))"
-    lsblk -no NAME,SIZE,FSTYPE,MOUNTPOINT,LABEL | grep -v "^loop" | while read -r n s f m l; do
-        printf "  %-15s %-10s %-10s %-15s %-20s\n" "$n" "$s" "${f:-—}" "${m:-—}" "${l:-—}"
-    done
-    echo ""
-}
-
-create_partition() {
-    header "Create Partition"
-    list_disks
-    printf "  ${BOLD}Target disk:${NC} " && read -r disk && dev="/dev/$disk"
-    [ ! -b "$dev" ] && { fail "Not found"; return 1; }
-    pttype=$(blkid -s PTTYPE -o value "$dev" 2>/dev/null || echo "none")
-    info "Partition table: $pttype"
-    printf "  1) GPT  2) MBR  3) Keep existing\n  Choose [1-3]: " && read -r pt
-    case "$pt" in
-        1) confirm "Create GPT on $dev?" && { parted -s "$dev" mklabel gpt; ok "GPT"; } ;;
-        2) confirm "Create MBR on $dev?" && { parted -s "$dev" mklabel msdos; ok "MBR"; } ;;
-        3) ;;
-    esac
-    info "Current partitions:"; parted -s "$dev" print free 2>/dev/null | tail -n +3
-    printf "  ${BOLD}Start:${NC} " && read -r start; [ "$start" = "auto" ] && start="1MiB"
-    printf "  ${BOLD}End:${NC} " && read -r end; [ "$end" = "100%" ] && end="100%"
-    printf "  1)ext4 2)ext3 3)ext2 4)FAT32 5)NTFS 6)Btrfs 7)XFS 8)F2FS 9)swap 10)none\n  Choose: " && read -r fc
-    case "$fc" in
-        1) fs="ext4"; mk="mkfs.ext4 -F";; 2) fs="ext3"; mk="mkfs.ext3 -F";; 3) fs="ext2"; mk="mkfs.ext2 -F";;
-        4) fs="fat32"; mk="mkfs.fat -F32";; 5) fs="ntfs"; mk="mkfs.ntfs -f";; 6) fs="btrfs"; mk="mkfs.btrfs -f";;
-        7) fs="xfs"; mk="mkfs.xfs -f";; 8) fs="f2fs"; mk="mkfs.f2fs -f";; 9) fs="swap"; mk="mkswap";;
-        10) fs=""; mk="";; *) fail "Invalid"; return 1;;
-    esac
-    printf "  ${BOLD}Label (optional):${NC} " && read -r label
-    pnum=$(parted -s "$dev" print 2>/dev/null | grep -c "^[[:space:]]*[0-9]" || echo 0); pnum=$((pnum + 1))
-    parted -s "$dev" mkpart primary "$start" "$end"
-    case "$dev" in *nvme*|*mmcblk*|*md*) pd="${dev}p${pnum}";; *) pd="${dev}${pnum}";; esac
-    sleep 1; [ -n "$mk" ] && $mk "$pd"
-    [ -n "$label" ] && case "$fs" in ext4|ext3|ext2) e2label "$pd" "$label";; fat32) fatlabel "$pd" "$label";; esac
-    ok "Created $pd"; lsblk "$pd" 2>/dev/null || true
-}
-
-delete_partition() {
-    header "Delete Partition"; show_partitions
-    printf "  ${BOLD}Partition:${NC} " && read -r part && dev="/dev/$part"
-    [ ! -b "$dev" ] && { fail "Not found"; return 1; }
-    parent=$(lsblk -no PKNAME "$dev" 2>/dev/null | head -1); num=$(echo "$part" | grep -o '[0-9]*$')
-    mountpoint -q "$dev" 2>/dev/null && { warn "Mounted"; confirm "Unmount?" && umount "$dev" || { fail "Cannot delete"; return 1; }; }
-    confirm "DELETE $dev?" && { parted -s "/dev/$parent" rm "$num"; ok "Deleted $dev"; }
-}
-
-resize_partition() {
-    header "Resize Partition"; show_partitions
-    printf "  ${BOLD}Partition:${NC} " && read -r part && dev="/dev/$part"
-    [ ! -b "$dev" ] && { fail "Not found"; return 1; }
-    parent=$(lsblk -no PKNAME "$dev" 2>/dev/null | head -1); num=$(echo "$part" | grep -o '[0-9]*$')
-    printf "  ${BOLD}New size:${NC} " && read -r ns
-    mountpoint -q "$dev" 2>/dev/null && umount "$dev"
-    parted -s "/dev/$parent" resizepart "$num" "$ns"; ok "Resized"
-    fstype=$(blkid -s TYPE -o value "$dev" 2>/dev/null)
-    confirm "Resize $fstype filesystem?" && case "$fstype" in
-        ext4|ext3|ext2) resize2fs "$dev";; btrfs) btrfs filesystem resize max "$dev";; xfs) xfs_growfs "$dev";; esac
-}
-
-auto_partition() {
-    header "Auto Partition (EFI + swap + root)"; list_disks
-    printf "  ${BOLD}Disk:${NC} " && read -r disk && dev="/dev/$disk"
-    [ ! -b "$dev" ] && { fail "Not found"; return 1; }
-    confirm "ERASE $dev completely?" || { info "Cancelled"; return 0; }
-    size_mb=$(blockdev --getsize64 "$dev" | awk '{printf "%.0f", $1/1024/1024}')
-    wipefs -a "$dev" 2>/dev/null || true; parted -s "$dev" mklabel gpt
-    parted -s "$dev" mkpart ESP fat32 1MiB 513MiB; parted -s "$dev" set 1 esp on
-    swap_mb=$((size_mb / 10)); [ "$swap_mb" -gt 2048 ] && swap_mb=2048; swap_end=$((513 + swap_mb))
-    parted -s "$dev" mkpart primary linux-swap 513MiB "${swap_end}MiB"
-    parted -s "$dev" mkpart primary ext4 "${swap_end}MiB" 100%
-    case "$dev" in *nvme*|*mmcblk*|*md*) s="p";; *) s="";; esac; sleep 1
-    mkfs.fat -F32 "${dev}${s}1"; mkswap "${dev}${s}2"; mkfs.ext4 -F "${dev}${s}3"
-    ok "EFI:${dev}${s}1 | Swap:${dev}${s}2 (${swap_mb}MB) | Root:${dev}${s}3"
-    lsblk "$dev"
-}
-
-wipe_disk() {
-    header "Wipe Disk"; list_disks
-    printf "  ${BOLD}Disk:${NC} " && read -r disk && dev="/dev/$disk"
-    [ ! -b "$dev" ] && { fail "Not found"; return 1; }
-    printf "  Type ${BOLD}YES${NC}: " && read -r c; [ "$c" != "YES" ] && { info "Cancelled"; return 0; }
-    wipefs -a "$dev"; dd if=/dev/zero of="$dev" bs=1M count=1 2>/dev/null; ok "Wiped $dev"
-}
-
-benchmark_disk() {
-    header "Benchmark"; printf "  ${BOLD}Partition:${NC} " && read -r part && dev="/dev/$part"
-    [ ! -b "$dev" ] && { fail "Not found"; return 1; }
-    tm="/tmp/bench_$$"; mkdir -p "$tm"; mount "$dev" "$tm" 2>/dev/null || true
-    info "Write 128MB..."; dd if=/dev/zero of="$tm/.bench" bs=1M count=128 conv=fdatasync 2>&1 | grep -E "bytes|copied"
-    info "Read 128MB..."; dd if="$tm/.bench" of=/dev/null bs=1M 2>&1 | grep -E "bytes|copied"
-    rm -f "$tm/.bench"; umount "$tm" 2>/dev/null; rmdir "$tm" 2>/dev/null; ok "Done"
-}
-
-while true; do
-    clear
-    printf "${BOLD}${CYAN}  ╔══════════════════════════════════════════╗\n  ║       SuperLite Partition Manager        ║\n  ╚══════════════════════════════════════════╝${NC}\n\n"
-    printf "  ${BOLD}View:${NC}    1) Disks  2) Partitions  3) Info\n"
-    printf "  ${BOLD}Modify:${NC}  4) Create  5) Delete  6) Resize  7) Auto\n"
-    printf "  ${BOLD}FS:${NC}     8) Mount  9) Unmount  10) Wipe  11) Benchmark\n"
-    printf "  ${BOLD}Tools:${NC}  12) cfdisk  13) sgdisk  14) Shell\n"
-    printf "  ${BOLD}Boot:${NC}   0) Shutdown\n\n  Choose: "
-    read -r c
-    case "$c" in
-        1) list_disks; pause ;; 2) show_partitions; pause ;; 3)
-            header "Info"; printf "  Device: " && read -r d && echo "" && lsblk -f "/dev/$d" && blkid "/dev/$d" && pause ;;
-        4) create_partition; pause ;; 5) delete_partition; pause ;; 6) resize_partition; pause ;;
-        7) auto_partition; pause ;; 8)
-            printf "  Partition: " && read -r p && printf "  Mount at: " && read -r m && mkdir -p "$m" && mount "/dev/$p" "$m" && ok "Mounted"; pause ;;
-        9) printf "  Target: " && read -r t && umount "$t" && ok "Unmounted"; pause ;;
-        10) wipe_disk; pause ;; 11) benchmark_disk; pause ;;
-        12) cfdisk ;; 13) sgdisk ;; 14) /bin/sh ;; 0) poweroff ;; *) warn "Invalid"; sleep 1 ;;
-    esac
+# ── Build Partition Manager (Go) ────────────────────────────────────────────
+PARTMAN_DIR=""
+for _candidate in \
+    "$SCRIPT_DIR/../../partman" \
+    "$SCRIPT_DIR/../partman" \
+    "/build/partman" \
+    "./partman"; do
+    if [ -d "$_candidate" ] && [ -f "$_candidate/main.go" ]; then
+        PARTMAN_DIR="$_candidate"
+        break
+    fi
 done
-PARTMAN_EOF
+
+if [ -n "$PARTMAN_DIR" ] && command -v go >/dev/null 2>&1; then
+    echo "Building partman..."
+    (cd "$PARTMAN_DIR" && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o "$tmp"/usr/local/bin/partman .) 2>&1 || {
+        echo "Warning: partman build failed (see output above)"
+    }
+else
+    echo "Warning: partman source not found or Go not installed"
+fi
 
 # ── MOTD ──────────────────────────────────────────────────────────────────────
 makefile root:root 0644 "$tmp"/etc/motd <<'EOF'

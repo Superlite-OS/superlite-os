@@ -98,6 +98,8 @@ _docker_build() {
             chmod +x /home/build/aports/scripts/genapkovl-${VARIANT}.sh
             ln -sf /build/dotfiles /home/build/aports/scripts/dotfiles
             ln -sf /build/alpine /home/build/aports/scripts/alpine
+            ln -sf /build/installer /home/build/aports/scripts/installer
+            ln -sf /build/partman /home/build/aports/scripts/partman
             chown -R build:build /home/build/aports
 
             mkdir -p /build/output/${VARIANT}
@@ -165,6 +167,16 @@ _native_build() {
     if [[ -d "${SCRIPT_DIR}/zapt" ]]; then
         ln -sf "${SCRIPT_DIR}/zapt" /root/aports/scripts/zapt 2>/dev/null || \
             cp -r "${SCRIPT_DIR}/zapt" /root/aports/scripts/zapt
+    fi
+
+    if [[ -d "${SCRIPT_DIR}/installer" ]]; then
+        ln -sf "${SCRIPT_DIR}/installer" /root/aports/scripts/installer 2>/dev/null || \
+            cp -r "${SCRIPT_DIR}/installer" /root/aports/scripts/installer
+    fi
+
+    if [[ -d "${SCRIPT_DIR}/partman" ]]; then
+        ln -sf "${SCRIPT_DIR}/partman" /root/aports/scripts/partman 2>/dev/null || \
+            cp -r "${SCRIPT_DIR}/partman" /root/aports/scripts/partman
     fi
 
     if [[ "$SETUP_ONLY" == true ]]; then
