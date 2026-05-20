@@ -9,8 +9,18 @@ ACCENT="${1:-#22AA99}"
 
 # Derived colors (lighter/darker variants)
 # Teal palette: accent=#22AA99, light=#5EEAD4, dark=#0F766E, muted=#94A3B8
-LIGHT=$(echo "$ACCENT" | sed 's/#\(..\)\(..\)\(..\)/printf "#%02x%02x%02x" $((0x\1+60>255?255:0x\1+60)) $((0x\2+60>255?255:0x\2+60)) $((0x\3+60>255?255:0x\3+60))/e' 2>/dev/null || echo "#5EEAD4")
-DARK=$(echo "$ACCENT" | sed 's/#\(..\)\(..\)\(..\)/printf "#%02x%02x%02x" $((0x\1-30<0?0:0x\1-30)) $((0x\2-30<0?0:0x\2-30)) $((0x\3-30<0?0:0x\3-30))/e' 2>/dev/null || echo "#0F766E")
+# Parse hex color and compute lighter/darker variants using shell arithmetic
+_hex_r=$((16#${ACCENT:1:2}))
+_hex_g=$((16#${ACCENT:3:2}))
+_hex_b=$((16#${ACCENT:5:2}))
+_r=$((_hex_r+60>255?255:_hex_r+60))
+_g=$((_hex_g+60>255?255:_hex_g+60))
+_b=$((_hex_b+60>255?255:_hex_b+60))
+LIGHT=$(printf "#%02x%02x%02x" "$_r" "$_g" "$_b")
+_r=$((_hex_r-30<0?0:_hex_r-30))
+_g=$((_hex_g-30<0?0:_hex_g-30))
+_b=$((_hex_b-30<0?0:_hex_b-30))
+DARK=$(printf "#%02x%02x%02x" "$_r" "$_g" "$_b")
 
 if [ ! -d "$ICON_DIR" ]; then
     echo "Icon dir not found: $ICON_DIR"
@@ -20,7 +30,7 @@ fi
 echo "Recoloring SVGs in $ICON_DIR (accent=$ACCENT)..."
 
 # Recolor folder icons to use accent color
-find "$ICON_DIR/places" -name "*.svg" 2>/dev/null | while read f; do
+find "$ICON_DIR/places" -name "*.svg" 2>/dev/null | while IFS= read -r f; do
     sed -i \
         -e "s/fill=\"#8B5CF6\"/fill=\"$ACCENT\"/g" \
         -e "s/fill=\"#7C3AED\"/fill=\"$DARK\"/g" \
@@ -40,7 +50,7 @@ find "$ICON_DIR/places" -name "*.svg" 2>/dev/null | while read f; do
 done
 
 # Recolor mimetype icons
-find "$ICON_DIR/mimetypes" -name "*.svg" 2>/dev/null | while read f; do
+find "$ICON_DIR/mimetypes" -name "*.svg" 2>/dev/null | while IFS= read -r f; do
     sed -i \
         -e "s/fill=\"#D1FAE5\"/fill=\"#CCFBF1\"/g" \
         -e "s/fill=\"#A7F3D0\"/fill=\"#99F6E4\"/g" \

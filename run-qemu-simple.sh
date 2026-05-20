@@ -36,6 +36,7 @@ if [[ -z "$ISO" ]]; then
 fi
 
 [[ -z "$ISO" ]] && { echo "ERROR: No ISO found. Build first with: ./build.sh --docker"; exit 1; }
+[[ -f "$ISO" ]] || { echo "ERROR: ISO file not found: $ISO"; exit 1; }
 
 echo "╔══════════════════════════════════════════════════════════════╗"
 echo "║         SuperLite OS — QEMU Simple Debug                   ║"

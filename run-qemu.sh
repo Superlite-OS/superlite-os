@@ -127,9 +127,11 @@ if [[ "$GUI" == true ]]; then
     QEMU_ARGS+=(-vga virtio)
     if [[ "$DEBUG" == true ]]; then
         # Also add serial console to file
-        QEMU_ARGS+=(-serial file:/tmp/superlite-serial.log)
-        echo "[*] Serial output will be logged to: /tmp/superlite-serial.log"
-        echo "[*] Monitor with: tail -f /tmp/superlite-serial.log"
+        SERIAL_LOG=$(mktemp /tmp/superlite-serial-XXXXXX.log)
+        chmod 600 "$SERIAL_LOG"
+        QEMU_ARGS+=(-serial "file:$SERIAL_LOG")
+        echo "[*] Serial output will be logged to: $SERIAL_LOG"
+        echo "[*] Monitor with: tail -f $SERIAL_LOG"
     fi
 else
     # Serial console mode

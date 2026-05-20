@@ -3,14 +3,14 @@
 
 # Wallpaper — use wpaperd for random rotation, fallback to swaybg
 DEFAULT_WP="$HOME/Pictures/wallpapers/default.png"
-if [ -d "$HOME/Pictures/wallpapers" ] && ls "$HOME/Pictures/wallpapers"/*.{jpg,png,webp} >/dev/null 2>&1; then
+if [ -d "$HOME/Pictures/wallpapers" ] && ls "$HOME/Pictures/wallpapers"/*.jpg "$HOME/Pictures/wallpapers"/*.png "$HOME/Pictures/wallpapers"/*.webp >/dev/null 2>&1; then
     # Count wallpapers — use wpaperd if multiple, swaybg if single
-    WP_COUNT=$(ls "$HOME/Pictures/wallpapers"/*.{jpg,png,webp} 2>/dev/null | wc -l)
+    WP_COUNT=$(ls "$HOME/Pictures/wallpapers"/*.jpg "$HOME/Pictures/wallpapers"/*.png "$HOME/Pictures/wallpapers"/*.webp 2>/dev/null | wc -l)
     if [ "$WP_COUNT" -gt 1 ] && command -v wpaperd >/dev/null 2>&1; then
         wpaperd >/dev/null 2>&1 &
     else
         # Single wallpaper or wpaperd not available
-        WP=$(ls "$HOME/Pictures/wallpapers"/*.{jpg,png,webp} 2>/dev/null | shuf -n1)
+        WP=$(ls "$HOME/Pictures/wallpapers"/*.jpg "$HOME/Pictures/wallpapers"/*.png "$HOME/Pictures/wallpapers"/*.webp 2>/dev/null | shuf -n1)
         swaybg -i "$WP" -m fill >/dev/null 2>&1 &
     fi
 elif [ -f "$DEFAULT_WP" ]; then
@@ -20,6 +20,8 @@ fi
 waybar >/dev/null 2>&1 &
 mako >/dev/null 2>&1 &
 gammastep -O 5600 >/dev/null 2>&1 &
+# NOTE: requires passwordless sudo for suspend: add to /etc/sudoers:
+#   username ALL=(ALL) NOPASSWD: /usr/bin/zzz, /usr/bin/reboot, /usr/bin/poweroff
 swayidle -w timeout 600 'sudo zzz' 2>&1 &
 brightnessctl set 80% 2>&1 &
 

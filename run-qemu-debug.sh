@@ -77,9 +77,9 @@ QEMU_ARGS=(
     -no-reboot
     -vga virtio
     -display none
-    -serial unix:/tmp/qemu-serial.sock,server,nowait
-    -monitor unix:/tmp/qemu-monitor.sock,server,nowait
-    -chardev socket,id=serial1,path=/tmp/qemu-serial1.sock,server,nowait
+    -serial "unix:/tmp/qemu-${$}-serial.sock,server,nowait"
+    -monitor "unix:/tmp/qemu-${$}-monitor.sock,server,nowait"
+    -chardev socket,id=serial1,"path=/tmp/qemu-${$}-serial1.sock,server,nowait"
     -serial chardev:serial1
 )
 
@@ -91,7 +91,7 @@ else
 fi
 
 # Cleanup old sockets
-rm -f /tmp/qemu-serial.sock /tmp/qemu-monitor.sock /tmp/qemu-serial1.sock
+rm -f "/tmp/qemu-${$}-serial.sock" "/tmp/qemu-${$}-monitor.sock" "/tmp/qemu-${$}-serial1.sock"
 
 # Start QEMU in background
 echo "[*] Starting QEMU..."
@@ -113,19 +113,19 @@ echo "[*] Setting up tmux session..."
 
 # Window 0: Serial Console (ttyS0)
 tmux new-session -d -s "$SESSION" -n "serial-ttyS0" \
-    "echo '=== Serial Console (ttyS0) ===' && socat - UNIX-CONNECT:/tmp/qemu-serial.sock"
+    "echo '=== Serial Console (ttyS0) ===' && socat - UNIX-CONNECT:/tmp/qemu-${$}-serial.sock"
 
 # Window 1: Serial Console 2 (ttyS1)
 tmux new-window -t "$SESSION" -n "serial-ttyS1" \
-    "echo '=== Serial Console (ttyS1) ===' && socat - UNIX-CONNECT:/tmp/qemu-serial1.sock"
+    "echo '=== Serial Console (ttyS1) ===' && socat - UNIX-CONNECT:/tmp/qemu-${$}-serial1.sock"
 
 # Window 2: QEMU Monitor
 tmux new-window -t "$SESSION" -n "qemu-monitor" \
-    "echo '=== QEMU Monitor ===' && socat - UNIX-CONNECT:/tmp/qemu-monitor.sock"
+    "echo '=== QEMU Monitor ===' && socat - UNIX-CONNECT:/tmp/qemu-${$}-monitor.sock"
 
 # Window 3: Boot Log (capture serial output to file)
 tmux new-window -t "$SESSION" -n "boot-log" \
-    "echo '=== Boot Log (live) ===' && touch /tmp/superlite-boot.log && tail -f /tmp/superlite-boot.log"
+    "echo '=== Boot Log (live) ===' && touch /tmp/superlite-boot-${$}.log && tail -f /tmp/superlite-boot-${$}.log"
 
 # Window 4: VGA via VNC (optional - connect with vncviewer)
 tmux new-window -t "$SESSION" -n "vga-info" \
@@ -136,7 +136,7 @@ tmux new-window -t "$SESSION" -n "tty-switcher" \
     "echo '=== TTY Switcher ===' && echo '' && echo 'Quick commands (type in QEMU monitor window):' && echo '  sendkey alt-f1  → tty1 (VGA console)' && echo '  sendkey alt-f2  → tty2' && echo '  sendkey alt-f3  → tty3' && echo '  sendkey alt-f4  → tty4' && echo '  sendkey alt-f5  → tty5' && echo '  sendkey alt-f6  → tty6' && echo '' && echo 'Other useful commands:' && echo '  info status    → VM status' && echo '  info network   → Network info' && echo '  screendump     → Save screenshot' && echo '  quit           → Exit QEMU' && echo '' && echo 'Press Ctrl+C to exit' && cat"
 
 # Start logging serial output to file
-socat UNIX-CONNECT:/tmp/qemu-serial.sock STDOUT >> /tmp/superlite-boot.log 2>&1 &
+socat UNIX-CONNECT:/tmp/qemu-${$}-serial.sock STDOUT >> /tmp/superlite-boot-${$}.log 2>&1 &
 LOG_PID=$!
 
 # Select first window
@@ -161,5 +161,5 @@ echo ""
 echo "[*] Cleaning up..."
 kill $QEMU_PID 2>/dev/null || true
 kill $LOG_PID 2>/dev/null || true
-rm -f /tmp/qemu-serial.sock /tmp/qemu-monitor.sock /tmp/qemu-serial1.sock /tmp/superlite-boot.log
+rm -f "/tmp/qemu-${$}-serial.sock" "/tmp/qemu-${$}-monitor.sock" "/tmp/qemu-${$}-serial1.sock" /tmp/superlite-boot-${$}.log
 echo "[*] Done"

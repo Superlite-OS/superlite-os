@@ -846,7 +846,7 @@ create_partition() {
     printf "  ${BOLD}Label (optional):${NC} " && read -r label
     pnum=$(parted -s "$dev" print 2>/dev/null | grep -c "^[[:space:]]*[0-9]" || echo 0); pnum=$((pnum + 1))
     parted -s "$dev" mkpart primary "$start" "$end"
-    case "$dev" in *nvme*) pd="${dev}p${pnum}";; *) pd="${dev}${pnum}";; esac
+    case "$dev" in *nvme*|*mmcblk*|*md*) pd="${dev}p${pnum}";; *) pd="${dev}${pnum}";; esac
     sleep 1; [ -n "$mk" ] && $mk "$pd"
     [ -n "$label" ] && case "$fs" in ext4|ext3|ext2) e2label "$pd" "$label";; fat32) fatlabel "$pd" "$label";; esac
     ok "Created $pd"; lsblk "$pd" 2>/dev/null || true
@@ -885,7 +885,7 @@ auto_partition() {
     swap_mb=$((size_mb / 10)); [ "$swap_mb" -gt 2048 ] && swap_mb=2048; swap_end=$((513 + swap_mb))
     parted -s "$dev" mkpart primary linux-swap 513MiB "${swap_end}MiB"
     parted -s "$dev" mkpart primary ext4 "${swap_end}MiB" 100%
-    case "$dev" in *nvme*) s="p";; *) s="";; esac; sleep 1
+    case "$dev" in *nvme*|*mmcblk*|*md*) s="p";; *) s="";; esac; sleep 1
     mkfs.fat -F32 "${dev}${s}1"; mkswap "${dev}${s}2"; mkfs.ext4 -F "${dev}${s}3"
     ok "EFI:${dev}${s}1 | Swap:${dev}${s}2 (${swap_mb}MB) | Root:${dev}${s}3"
     lsblk "$dev"

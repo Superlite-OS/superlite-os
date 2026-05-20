@@ -181,7 +181,18 @@ tape:x:1001:
 EOF
 
 # ── Copy dotfiles ─────────────────────────────────────────────────────────────
-DOTFILES_DIR="$SCRIPT_DIR/../../dotfiles"
+# Try multiple paths (original repo, aports tree symlink, Docker build)
+DOTFILES_DIR=""
+for _candidate in \
+    "$SCRIPT_DIR/../../dotfiles" \
+    "$SCRIPT_DIR/../dotfiles" \
+    "/build/dotfiles" \
+    "./dotfiles"; do
+    if [ -d "$_candidate" ] && [ -f "$_candidate/.profile" ]; then
+        DOTFILES_DIR="$_candidate"
+        break
+    fi
+done
 
 if [ -d "$DOTFILES_DIR" ]; then
     mkdir -p "$tmp"/etc/skel
@@ -293,7 +304,7 @@ confirm() {
 # ── Main Menu ─────────────────────────────────────────────────────────────────
 show_disks() {
     header "Available Disks"
-    lsblk -dno NAME,SIZE,MODEL,TYPE | grep -E 'disk|loop' | while read -r line; do
+    lsblk -dno NAME,SIZE,MODEL,TYPE | grep 'disk$' | while read -r line; do
         printf "  %s\n" "$line"
     done
     echo ""

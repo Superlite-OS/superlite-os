@@ -343,7 +343,7 @@ create_partition() {
 
     # Get partition device name
     case "$dev" in
-        *nvme*) part_dev="${dev}p${part_num}" ;;
+        *nvme*|*mmcblk*|*md*) part_dev="${dev}p${part_num}" ;;
         *) part_dev="${dev}${part_num}" ;;
     esac
 

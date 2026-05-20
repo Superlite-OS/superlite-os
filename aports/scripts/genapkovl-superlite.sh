@@ -196,7 +196,18 @@ EOF
 
 # ── Copy dotfiles to skel + root ──────────────────────────────────────────────
 # NOTE: Dotfiles are copied FIRST, then overlay files below overwrite as needed
-DOTFILES_DIR="$SCRIPT_DIR/../../dotfiles"
+# Try multiple paths (original repo, aports tree symlink, Docker build)
+DOTFILES_DIR=""
+for _candidate in \
+    "$SCRIPT_DIR/../../dotfiles" \
+    "$SCRIPT_DIR/../dotfiles" \
+    "/build/dotfiles" \
+    "./dotfiles"; do
+    if [ -d "$_candidate" ] && [ -f "$_candidate/.profile" ]; then
+        DOTFILES_DIR="$_candidate"
+        break
+    fi
+done
 
 if [ -d "$DOTFILES_DIR" ]; then
     mkdir -p "$tmp"/etc/skel
@@ -368,5 +379,5 @@ wifi.backend=wpa_supplicant
 EOF
 
 # ── Generate apkovl ───────────────────────────────────────────────────────────
-tar -c -C "$tmp" etc root | gzip -9n > "$HOSTNAME.apkovl.tar.gz"
+tar -c -C "$tmp" etc root usr | gzip -9n > "$HOSTNAME.apkovl.tar.gz"
 echo "[overlay] Generated: $HOSTNAME.apkovl.tar.gz"
