@@ -193,7 +193,7 @@ fi
 header "8. Autostart ↔ Wallpaper Extension Match"
 # ============================================================
 if [ -f "$AUTOSTART" ] && [ -f "$WALLPAPER" ]; then
-  AUTOSTART_EXT=$(grep "DEFAULT_WP=" "$AUTOSTART" | grep -oP '\.\w+"?$' | tr -d '"')
+  AUTOSTART_EXT=$(grep "DEFAULT_WP=" "$AUTOSTART" | grep -o '\.[a-zA-Z0-9]*"*$' | tr -d '"')
   ACTUAL_EXT=".${WALLPAPER##*.}"
   if [ "$AUTOSTART_EXT" = "$ACTUAL_EXT" ]; then
     ok "Extension match: autostart=$AUTOSTART_EXT file=$ACTUAL_EXT"

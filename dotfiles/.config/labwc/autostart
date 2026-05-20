@@ -19,7 +19,7 @@ fi
 
 waybar >/dev/null 2>&1 &
 mako >/dev/null 2>&1 &
-gammastep -O 5600 2>&1 &
+gammastep -O 5600 >/dev/null 2>&1 &
 swayidle -w timeout 600 'sudo zzz' 2>&1 &
 brightnessctl set 80% 2>&1 &
 

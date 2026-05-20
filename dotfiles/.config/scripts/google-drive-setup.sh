@@ -28,8 +28,8 @@ if [ ! -f "$CREDENTIALS" ]; then
 fi
 
 # Extract client_id and client_secret from credentials.json
-CLIENT_ID=$(python3 -c "import json; d=json.load(open('$CREDENTIALS')); print(d['installed']['client_id'])" 2>/dev/null)
-CLIENT_SECRET=$(python3 -c "import json; d=json.load(open('$CREDENTIALS')); print(d['installed']['client_secret'])" 2>/dev/null)
+CLIENT_ID=$(python3 -c "import json,sys; d=json.load(sys.stdin); print(d['installed']['client_id'])" < "$CREDENTIALS" 2>/dev/null)
+CLIENT_SECRET=$(python3 -c "import json,sys; d=json.load(sys.stdin); print(d['installed']['client_secret'])" < "$CREDENTIALS" 2>/dev/null)
 
 if [ -z "$CLIENT_ID" ] || [ -z "$CLIENT_SECRET" ]; then
     echo "Error: Gagal membaca credentials.json"
@@ -56,7 +56,7 @@ if [ -z "$AUTH_CODE" ]; then
 fi
 
 # Exchange code for tokens
-TOKEN_RESPONSE=$(curl -s -X POST "https://oauth2.googleapis.com/token" \
+TOKEN_RESPONSE=$(curl -s --connect-timeout 10 --max-time 30 -X POST "https://oauth2.googleapis.com/token" \
     -H "Content-Type: application/x-www-form-urlencoded" \
     -d "code=${AUTH_CODE}" \
     -d "client_id=${CLIENT_ID}" \
@@ -67,8 +67,8 @@ TOKEN_RESPONSE=$(curl -s -X POST "https://oauth2.googleapis.com/token" \
 # Save token
 echo "$TOKEN_RESPONSE" > "$TOKEN_FILE"
 
-ACCESS_TOKEN=$(python3 -c "import json; d=json.load(open('$TOKEN_FILE')); print(d.get('access_token',''))" 2>/dev/null)
-REFRESH_TOKEN=$(python3 -c "import json; d=json.load(open('$TOKEN_FILE')); print(d.get('refresh_token',''))" 2>/dev/null)
+ACCESS_TOKEN=$(python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('access_token',''))" < "$TOKEN_FILE" 2>/dev/null)
+REFRESH_TOKEN=$(python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('refresh_token',''))" < "$TOKEN_FILE" 2>/dev/null)
 
 if [ -n "$ACCESS_TOKEN" ] && [ -n "$REFRESH_TOKEN" ]; then
     echo ""

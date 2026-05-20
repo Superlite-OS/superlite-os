@@ -23,20 +23,20 @@ EXT="${BASENAME##*.}"
 EXT_LOWER=$(echo "$EXT" | tr '[:upper:]' '[:lower:]')
 
 # Get fresh access token (refresh if needed)
-ACCESS_TOKEN=$(python3 -c "import json; d=json.load(open('$TOKEN_FILE')); print(d.get('access_token',''))" 2>/dev/null)
-REFRESH_TOKEN=$(python3 -c "import json; d=json.load(open('$TOKEN_FILE')); print(d.get('refresh_token',''))" 2>/dev/null)
-CLIENT_ID=$(python3 -c "import json; d=json.load(open('$CREDENTIALS')); print(d['installed']['client_id'])" 2>/dev/null)
-CLIENT_SECRET=$(python3 -c "import json; d=json.load(open('$CREDENTIALS')); print(d['installed']['client_secret'])" 2>/dev/null)
+ACCESS_TOKEN=$(python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('access_token',''))" < "$TOKEN_FILE" 2>/dev/null)
+REFRESH_TOKEN=$(python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('refresh_token',''))" < "$TOKEN_FILE" 2>/dev/null)
+CLIENT_ID=$(python3 -c "import json,sys; d=json.load(sys.stdin); print(d['installed']['client_id'])" < "$CREDENTIALS" 2>/dev/null)
+CLIENT_SECRET=$(python3 -c "import json,sys; d=json.load(sys.stdin); print(d['installed']['client_secret'])" < "$CREDENTIALS" 2>/dev/null)
 
 # Refresh token if expired
-REFRESH_RESPONSE=$(curl -s -X POST "https://oauth2.googleapis.com/token" \
+REFRESH_RESPONSE=$(curl -s --connect-timeout 10 --max-time 30 -X POST "https://oauth2.googleapis.com/token" \
     -H "Content-Type: application/x-www-form-urlencoded" \
     -d "client_id=${CLIENT_ID}" \
     -d "client_secret=${CLIENT_SECRET}" \
     -d "refresh_token=${REFRESH_TOKEN}" \
     -d "grant_type=refresh_token")
 
-NEW_ACCESS_TOKEN=$(python3 -c "import json; d=json.loads('$(echo "$REFRESH_RESPONSE" | sed "s/'/\\\\'/g")'); print(d.get('access_token',''))" 2>/dev/null)
+NEW_ACCESS_TOKEN=$(echo "$REFRESH_RESPONSE" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('access_token',''))" 2>/dev/null)
 if [ -n "$NEW_ACCESS_TOKEN" ]; then
     ACCESS_TOKEN="$NEW_ACCESS_TOKEN"
 fi
@@ -89,21 +89,21 @@ notify-send "Uploading to $SERVICE" "$BASENAME"
 # Upload file to Google Drive
 if [ "$CONVERT" = "true" ]; then
     # Upload with conversion to Google format
-    RESPONSE=$(curl -s -X POST \
+    RESPONSE=$(curl -s --connect-timeout 10 --max-time 300 -X POST \
         "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart" \
         -H "Authorization: Bearer $ACCESS_TOKEN" \
         -F "metadata={\"name\":\"$BASENAME\",\"mimeType\":\"$GOOGLE_MIME\"};type=application/json;charset=UTF-8" \
         -F "file=@$FILE;type=$MIME_TYPE")
 else
     # Upload without conversion
-    RESPONSE=$(curl -s -X POST \
+    RESPONSE=$(curl -s --connect-timeout 10 --max-time 300 -X POST \
         "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart" \
         -H "Authorization: Bearer $ACCESS_TOKEN" \
         -F "metadata={\"name\":\"$BASENAME\"};type=application/json;charset=UTF-8" \
         -F "file=@$FILE;type=$MIME_TYPE")
 fi
 
-FILE_ID=$(python3 -c "import json; d=json.loads('$(echo "$RESPONSE" | sed "s/'/\\\\'/g")'); print(d.get('id',''))" 2>/dev/null)
+FILE_ID=$(echo "$RESPONSE" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('id',''))" 2>/dev/null)
 
 if [ -z "$FILE_ID" ]; then
     echo "Error: Gagal upload file"
@@ -113,7 +113,7 @@ if [ -z "$FILE_ID" ]; then
 fi
 
 # Make file accessible via link
-curl -s -X POST \
+curl -s --connect-timeout 10 --max-time 30 -X POST \
     "https://www.googleapis.com/drive/v3/files/$FILE_ID/permissions" \
     -H "Authorization: Bearer $ACCESS_TOKEN" \
     -H "Content-Type: application/json" \
