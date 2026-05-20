@@ -235,9 +235,11 @@ func detectFSType(devPath string) string {
 	}
 
 	// btrfs: magic "_BHRfS_M" at offset 0x10040
-	if len(buf) > 0x47 {
-		btrfsMagic := []byte("_BHRfS_M")
-		// Check at offset 0x10040 in a second read
+	btrfsBuf := make([]byte, 8)
+	if _, err := f.ReadAt(btrfsBuf, 0x10040); err == nil {
+		if string(btrfsBuf) == "_BHRfS_M" {
+			return "btrfs"
+		}
 	}
 
 	// ntfs: "NTFS" at offset 0x03
