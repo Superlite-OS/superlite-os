@@ -209,6 +209,9 @@ func ExtractDebToRoot(path, root string) (*DebInfo, error) {
 	if skipped > 0 {
 		fmt.Printf("  Skipped:   %d files\n", skipped)
 	}
+	if skipped > 0 && skipped < 20 {
+		fmt.Printf("  (run with -v to see which files were skipped)\n")
+	}
 
 	// Check and install missing shared library dependencies
 	fmt.Printf("  Checking library dependencies...\n")
@@ -282,12 +285,14 @@ func installFilesWithSafety(dataDir, backupDir string) (installed, skipped int, 
 
 		// Validate destination path (prevent path traversal)
 		if !isAllowedDestPath(destPath) {
+			fmt.Printf("  SKIP [not allowed]: %s -> %s\n", relPath, destPath)
 			skipped++
 			return nil
 		}
 
 		// Check if this is a protected library
 		if isProtectedLib(destPath) {
+			fmt.Printf("  SKIP [protected]: %s -> %s\n", relPath, destPath)
 			skipped++
 			return nil
 		}
@@ -358,6 +363,7 @@ func installFilesToRoot(dataDir, backupDir, root string) (installed, skipped int
 
 		// Validate destination path
 		if !isAllowedDestPath(destPath) {
+			fmt.Printf("  SKIP [not allowed]: %s -> %s\n", relPath, destPath)
 			skipped++
 			return nil
 		}
