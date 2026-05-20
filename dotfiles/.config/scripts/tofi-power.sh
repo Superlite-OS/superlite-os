@@ -17,7 +17,7 @@
     # exec systemctl poweroff -i;;
 # esac
 
-case $(printf "%s\n" "Logout" "Reboot" "Suspend" "Shutdown" | tofi -c ~/.config/tofi/config_power_bottom $@) in
+case $(printf "%s\n" "Logout" "Reboot" "Suspend" "Shutdown" | tofi -c "$HOME/.config/tofi/config_power_bottom" "$@") in
 	"Logout")
 		labwc --exit
 		;;

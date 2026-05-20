@@ -185,9 +185,6 @@
     <layoutScope>global</layoutScope>
     <repeatRate>25</repeatRate>
     <repeatDelay>600</repeatDelay>
-    <keybind key="W-Tab">
-      <action name="NextWindow"/>
-    </keybind>
     <keybind key="W-Return">
       <action name="Execute" command="foot"/>
     </keybind>
@@ -207,7 +204,7 @@
       <action name="Execute" command="labwc -r"/>
     </keybind>
     <keybind key="W-S-e">
-      <action name="Execute" command="~/.config/scripts/tofi-power.sh"/>
+      <action name="Execute" command="$HOME/.config/scripts/tofi-power.sh"/>
     </keybind>
     <!-- <keybind key="W-a"> -->
     <!--   <action name="ToggleMaximize"/> -->
@@ -291,8 +288,7 @@
       <action name="Execute" command="brightnessctl set 10%-"/>
     </keybind>    
     <keybind key="W-P">
-      <action name="Execute" command="grim -l 1"/>
-      <action name="Execute" command="notify-send 'Screenshot!'"/>
+      <action name="Execute" command="sh -c 'grim -l 1 && notify-send Screenshot!'"/>
     </keybind>
     <keybind key="XF86FullScreen">
 	<action name="ToggleFullscreen"/>

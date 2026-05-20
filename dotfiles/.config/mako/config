@@ -11,7 +11,7 @@ border-color=#000000
 border-radius=0
 icons=0
 default-timeout=3000
-font=Misc Ohsnap 9
+font=JetBrains Mono 9
 text-alignment=center
 
 [urgency=high]

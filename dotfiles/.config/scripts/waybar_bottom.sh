@@ -4,4 +4,4 @@
 # Preparato per la community Patreon: patreon.com/riccardopalombo
 #
 
-waybar -c $HOME/.config/waybar/config -s $HOME/.config/waybar/style.css &
+waybar -c "$HOME/.config/waybar/config" -s "$HOME/.config/waybar/style.css" &
