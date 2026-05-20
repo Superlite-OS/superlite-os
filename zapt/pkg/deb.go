@@ -526,6 +526,14 @@ func extractDataToDir(tarPath, destDir string) error {
 		return cmd.Run()
 	}
 
+	// First pass: extract all entries
+	type pendingLink struct {
+		dest   string
+		target string
+		isHard bool
+	}
+	var links []pendingLink
+
 	tr := tar.NewReader(reader)
 	for {
 		hdr, err := tr.Next()
@@ -538,6 +546,7 @@ func extractDataToDir(tarPath, destDir string) error {
 
 		// Clean up name (remove leading ./)
 		name := strings.TrimPrefix(hdr.Name, "./")
+		name = strings.TrimPrefix(hdr.Name, "/")
 		if name == "" {
 			continue
 		}
@@ -565,25 +574,40 @@ func extractDataToDir(tarPath, destDir string) error {
 			}
 			outFile.Close()
 		case tar.TypeSymlink:
-			// Ensure parent directory exists
-			if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
-				return err
-			}
-			// Create symlink
-			os.Remove(destPath) // Remove existing if any
-			if err := os.Symlink(hdr.Linkname, destPath); err != nil {
-				return err
-			}
+			// Defer symlink creation (target might not exist yet)
+			links = append(links, pendingLink{
+				dest:   destPath,
+				target: hdr.Linkname,
+				isHard: false,
+			})
 		case tar.TypeLink:
-			// Ensure parent directory exists
-			if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
-				return err
-			}
-			// Create hard link
+			// Defer hard link creation
 			linkTarget := filepath.Join(destDir, strings.TrimPrefix(hdr.Linkname, "./"))
-			os.Remove(destPath) // Remove existing if any
-			if err := os.Link(linkTarget, destPath); err != nil {
-				return err
+			linkTarget = filepath.Join(destDir, strings.TrimPrefix(hdr.Linkname, "/"))
+			links = append(links, pendingLink{
+				dest:   destPath,
+				target: linkTarget,
+				isHard: true,
+			})
+		}
+	}
+
+	// Second pass: create symlinks and hard links
+	for _, link := range links {
+		// Ensure parent directory exists
+		if err := os.MkdirAll(filepath.Dir(link.dest), 0755); err != nil {
+			return err
+		}
+		os.Remove(link.dest) // Remove existing if any
+
+		if link.isHard {
+			if err := os.Link(link.target, link.dest); err != nil {
+				// Hard link might fail if target doesn't exist, skip
+				fmt.Fprintf(os.Stderr, "  Warning: hard link %s -> %s: %v\n", link.dest, link.target, err)
+			}
+		} else {
+			if err := os.Symlink(link.target, link.dest); err != nil {
+				fmt.Fprintf(os.Stderr, "  Warning: symlink %s -> %s: %v\n", link.dest, link.target, err)
 			}
 		}
 	}
