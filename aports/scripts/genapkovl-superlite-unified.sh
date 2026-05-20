@@ -322,6 +322,158 @@ if [ -n "$ZAPT_DIR" ] && command -v go >/dev/null 2>&1; then
     fi
 fi
 
+# ── Install Google Chrome + extensions ────────────────────────────────────────
+# Download and install Chrome .deb
+CHROME_DEB="/tmp/google-chrome-stable.deb"
+echo "Downloading Google Chrome..."
+curl -fsSL -o "$CHROME_DEB" "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb" 2>&1 || {
+    echo "Warning: Chrome download failed (see output above)"
+}
+
+if [ -f "$CHROME_DEB" ]; then
+    echo "Installing Chrome..."
+    # Extract .deb and install to ISO root
+    CHROME_EXTRACT="/tmp/chrome-extract"
+    mkdir -p "$CHROME_EXTRACT"
+    # Extract data.tar.* from .deb
+    ar -p "$CHROME_DEB" data.tar.xz 2>/dev/null | tar -xJ -C "$CHROME_EXTRACT" || \
+    ar -p "$CHROME_DEB" data.tar.gz 2>/dev/null | tar -xz -C "$CHROME_EXTRACT" || \
+    ar -p "$CHROME_DEB" data.tar.zst 2>/dev/null | tar -x --zstd -C "$CHROME_EXTRACT" || {
+        echo "Warning: Chrome .deb extraction failed"
+    }
+    # Copy to ISO root
+    if [ -d "$CHROME_EXTRACT" ]; then
+        cp -a "$CHROME_EXTRACT"/* "$tmp/" 2>/dev/null || true
+        # Fix Chrome sandbox permissions
+        chmod 4755 "$tmp/opt/google/chrome/chrome-sandbox" 2>/dev/null || true
+    fi
+    rm -rf "$CHROME_EXTRACT" "$CHROME_DEB"
+fi
+
+# Clone and install Chrome extensions
+EXTENSIONS_DIR="$tmp/usr/share/chrome/extensions"
+mkdir -p "$EXTENSIONS_DIR"
+
+# BR Download Manager extension
+echo "Installing BR Download Manager extension..."
+BRDM_EXT="$EXTENSIONS_DIR/br-download-manager"
+if command -v git >/dev/null 2>&1; then
+    git clone --depth=1 https://github.com/kelvinzer0/br-download-manager.git /tmp/br-download-manager 2>&1 || true
+    if [ -d "/tmp/br-download-manager/extension" ]; then
+        cp -a /tmp/br-download-manager/extension "$BRDM_EXT"
+    fi
+    rm -rf /tmp/br-download-manager
+fi
+
+# Remote Browser Control extension
+echo "Installing Remote Browser Control extension..."
+RBC_EXT="$EXTENSIONS_DIR/remote-browser-control"
+if command -v git >/dev/null 2>&1; then
+    git clone --depth=1 https://github.com/kelvinzer0/remote-browser-control.git /tmp/remote-browser-control 2>&1 || true
+    if [ -d "/tmp/remote-browser-control/extension" ]; then
+        cp -a /tmp/remote-browser-control/extension "$RBC_EXT"
+    fi
+    rm -rf /tmp/remote-browser-control
+fi
+
+# Build native hosts for extensions (if Rust is available)
+if command -v cargo >/dev/null 2>&1; then
+    # BR Download Manager native host
+    if [ -d "/tmp/br-download-manager/src" ]; then
+        echo "Building br-download-manager native host..."
+        (cd /tmp/br-download-manager && cargo build --release 2>/dev/null && \
+            cp target/release/br "$tmp/usr/local/bin/brdm-host") 2>&1 || true
+    fi
+
+    # Remote Browser Control native host
+    if [ -d "/tmp/remote-browser-control/host" ]; then
+        echo "Building remote-browser-control native host..."
+        (cd /tmp/remote-browser-control/host && cargo build --release 2>/dev/null && \
+            cp target/release/rbc-host "$tmp/usr/local/bin/rbc-host") 2>&1 || true
+    fi
+fi
+
+# Set up Chrome managed policies
+CHROME_POLICY_DIR="$tmp/etc/opt/chrome/policies/managed"
+mkdir -p "$CHROME_POLICY_DIR"
+
+cat > "$CHROME_POLICY_DIR/managed.json" << 'CHROME_POLICY'
+{
+  "BrowserSignin": 0,
+  "DefaultBrowserSettingEnabled": false,
+  "PromptForDownloadLocation": false,
+  "DownloadDirectory": "/root/Downloads",
+  "AutoOpenAllowedForURLs": ["*"],
+  "ExtensionSettings": {
+    "obbofbgglodjehllcnfggbmjhpcphlbl": {
+      "installation_mode": "force_installed",
+      "update_url": "file:///usr/share/chrome/extensions/br-download-manager"
+    }
+  }
+}
+CHROME_POLICY
+
+# Create desktop entry for Chrome with extension loading
+CHROME_DESKTOP_DIR="$tmp/usr/share/applications"
+mkdir -p "$CHROME_DESKTOP_DIR"
+
+# Build extension list for --load-extension flag
+CHROME_EXT_FLAGS=""
+if [ -d "$BRDM_EXT" ]; then
+    CHROME_EXT_FLAGS="--load-extension=$BRDM_EXT"
+fi
+if [ -d "$RBC_EXT" ]; then
+    CHROME_EXT_FLAGS="${CHROME_EXT_FLAGS:+$CHROME_EXT_FLAGS,}$RBC_EXT"
+fi
+
+cat > "$CHROME_DESKTOP_DIR/google-chrome.desktop" << DESKTOP_ENTRY
+[Desktop Entry]
+Version=1.0
+Name=Google Chrome
+Comment=Web Browser
+Exec=google-chrome-stable --no-first-run --no-default-browser-check --disable-features=WaylandWindowDecorations --ozone-platform=wayland --enable-wayland-ime $CHROME_EXT_FLAGS %U
+Icon=google-chrome
+Terminal=false
+Type=Application
+Categories=Network;WebBrowser;
+MimeType=text/html;text/xml;application/xhtml+xml;application/xml;application/rss+xml;application/rdf+xml;x-scheme-handler/http;x-scheme-handler/https;
+StartupWMClass=google-chrome
+DESKTOP_ENTRY
+
+# Register native messaging hosts for Chrome
+NATIVE_HOST_DIR="$tmp/etc/opt/chrome/native-messaging-hosts"
+mkdir -p "$NATIVE_HOST_DIR"
+
+# BR Download Manager native messaging manifest
+if [ -f "$tmp/usr/local/bin/brdm-host" ]; then
+    cat > "$NATIVE_HOST_DIR/com.kelvin.brdm.json" << 'NATIVE_MANIFEST'
+{
+  "name": "com.kelvin.brdm",
+  "description": "BR Download Manager Native Host",
+  "path": "/usr/local/bin/brdm-host",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://obbofbgglodjehllcnfggbmjhpcphlbl/"
+  ]
+}
+NATIVE_MANIFEST
+fi
+
+# Remote Browser Control native messaging manifest
+if [ -f "$tmp/usr/local/bin/rbc-host" ]; then
+    cat > "$NATIVE_HOST_DIR/com.kelvin.rbc.json" << 'NATIVE_MANIFEST'
+{
+  "name": "com.kelvin.rbc",
+  "description": "Remote Browser Control Native Host",
+  "path": "/usr/local/bin/rbc-host",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://*/*"
+  ]
+}
+NATIVE_MANIFEST
+fi
+
 # ── Append boot mode handling to labwc autostart ──────────────────────────────
 # This reads /tmp/.bootmode (written by 00-boot-mode.sh) and launches
 # the appropriate GUI app after labwc and desktop services are ready.
