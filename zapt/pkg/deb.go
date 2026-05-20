@@ -254,7 +254,7 @@ func isAllowedDestPath(destPath string) bool {
 	}
 	// Must be an absolute path under one of the allowed prefixes
 	for _, prefix := range allowedDestPrefixes {
-		if strings.HasPrefix(destPath, prefix) {
+		if strings.HasPrefix(destPath, prefix) || destPath+"/" == prefix {
 			return true
 		}
 	}
