@@ -335,9 +335,27 @@ if ! command -v curl-impersonate-chrome >/dev/null 2>&1; then
         tar -xzf /tmp/curl-impersonate.tar.gz -C "$tmp/usr/local/lib/curl-impersonate" 2>/dev/null || true
         if [ -f "$tmp/usr/local/lib/curl-impersonate/curl-impersonate-chrome" ]; then
             chmod +x "$tmp/usr/local/lib/curl-impersonate/curl-impersonate-chrome"
-            ln -sf /usr/local/lib/curl-impersonate/curl-impersonate-chrome "$tmp/usr/local/bin/curl-impersonate-chrome"
+            # Create wrapper script that sets LD_LIBRARY_PATH for glibc compat
+            mkdir -p "$tmp/usr/local/bin"
+            cat > "$tmp/usr/local/bin/curl-impersonate-chrome" <<'WRAPPER'
+#!/bin/sh
+exec /usr/local/lib/curl-impersonate/curl-impersonate-chrome "$@"
+WRAPPER
+            chmod +x "$tmp/usr/local/bin/curl-impersonate-chrome"
+            # Symlink curl → curl-impersonate-chrome wrapper
+            ln -sf /usr/local/bin/curl-impersonate-chrome "$tmp/usr/local/bin/curl"
+            # Install wrapper scripts (curl_chrome116, etc.)
+            for wrapper in "$tmp"/usr/local/lib/curl-impersonate/curl_*; do
+                [ -f "$wrapper" ] || continue
+                wname="$(basename "$wrapper")"
+                cat > "$tmp/usr/local/bin/$wname" <<WEOF
+#!/bin/sh
+exec /usr/local/lib/curl-impersonate/$wname "\$@"
+WEOF
+                chmod +x "$tmp/usr/local/bin/$wname"
+            done
             CURL_IMP_BIN="$tmp/usr/local/bin/curl-impersonate-chrome"
-            echo "  curl-impersonate installed"
+            echo "  curl-impersonate installed (curl → curl-impersonate-chrome)"
         fi
         rm -f /tmp/curl-impersonate.tar.gz
     fi
@@ -702,13 +720,6 @@ case "$MODE" in
     *)       printf '  Mode: \033[1mdesktop\033[0m\n\n' ;;
 esac
 MOTDEOF
-
-# ── Install Calamares (system installer) ──────────────────────────────────────
-echo "Installing Calamares..."
-apk add calamares calamares-branding 2>&1 || {
-    echo "Warning: calamares package install failed"
-}
-
 
 # ── MOTD ──────────────────────────────────────────────────────────────────────
 makefile root:root 0644 "$tmp"/etc/motd <<'EOF'

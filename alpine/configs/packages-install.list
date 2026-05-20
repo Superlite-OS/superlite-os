@@ -104,6 +104,13 @@ mpv
 lxappearance
 qt5ct
 
+# --- Installer ---
+calamares
+
+# --- Glibc compat (for curl-impersonate) ---
+gcompat
+nss
+
 # --- Networking ---
 networkmanager
 networkmanager-cli
