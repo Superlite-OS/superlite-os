@@ -83,7 +83,7 @@ _docker_build() {
             set -e
             apk add --no-cache alpine-sdk build-base apk-tools alpine-conf \
                 busybox fakeroot syslinux xorriso squashfs-tools mtools dosfstools \
-                grub-efi grub-bios lua5.4 git go librsvg
+                grub-efi grub-bios lua5.4 git go librsvg xz binutils
 
             adduser -D build
             addgroup build abuild 2>/dev/null || true
