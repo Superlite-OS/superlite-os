@@ -9,6 +9,9 @@ import (
 
 // ApkSearch searches Alpine repos using apk
 func ApkSearch(query string) ([]Package, error) {
+	if err := ValidatePackageName(query); err != nil {
+		return nil, err
+	}
 	cmd := exec.Command("apk", "search", "-v", query)
 	out, err := cmd.Output()
 	if err != nil {
@@ -55,6 +58,9 @@ func ApkListInstalled() ([]Package, error) {
 
 // ApkInfo gets info about a package
 func ApkInfo(name string) (*Package, error) {
+	if err := ValidatePackageName(name); err != nil {
+		return nil, err
+	}
 	cmd := exec.Command("apk", "info", "-a", name)
 	out, err := cmd.Output()
 	if err != nil {
@@ -77,6 +83,9 @@ func ApkInfo(name string) (*Package, error) {
 
 // ApkInstall installs a package via apk
 func ApkInstall(name string) error {
+	if err := ValidatePackageName(name); err != nil {
+		return err
+	}
 	cmd := exec.Command("apk", "add", name)
 	cmd.Stdout = nil
 	cmd.Stderr = nil
@@ -89,6 +98,9 @@ func ApkInstall(name string) error {
 
 // ApkRemove removes a package via apk
 func ApkRemove(name string) error {
+	if err := ValidatePackageName(name); err != nil {
+		return err
+	}
 	cmd := exec.Command("apk", "del", name)
 	cmd.Stdout = nil
 	cmd.Stderr = nil

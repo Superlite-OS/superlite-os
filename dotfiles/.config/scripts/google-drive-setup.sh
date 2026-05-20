@@ -58,13 +58,14 @@ fi
 # Exchange code for tokens
 TOKEN_RESPONSE=$(curl -s --connect-timeout 10 --max-time 30 -X POST "https://oauth2.googleapis.com/token" \
     -H "Content-Type: application/x-www-form-urlencoded" \
-    -d "code=${AUTH_CODE}" \
-    -d "client_id=${CLIENT_ID}" \
-    -d "client_secret=${CLIENT_SECRET}" \
-    -d "redirect_uri=${REDIRECT_URI}" \
-    -d "grant_type=authorization_code")
+    --data-urlencode "code=${AUTH_CODE}" \
+    --data-urlencode "client_id=${CLIENT_ID}" \
+    --data-urlencode "client_secret=${CLIENT_SECRET}" \
+    --data-urlencode "redirect_uri=${REDIRECT_URI}" \
+    --data-urlencode "grant_type=authorization_code")
 
-# Save token
+# Save token with restricted permissions
+umask 077
 echo "$TOKEN_RESPONSE" > "$TOKEN_FILE"
 
 ACCESS_TOKEN=$(python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('access_token',''))" < "$TOKEN_FILE" 2>/dev/null)

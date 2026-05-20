@@ -140,6 +140,27 @@ func ExtractDeb(path string) (*DebInfo, error) {
 	return info, nil
 }
 
+// Allowed destination prefixes for .deb file extraction
+var allowedDestPrefixes = []string{
+	"/bin/", "/sbin/", "/lib/", "/lib64/", "/libexec/",
+	"/usr/", "/etc/", "/opt/", "/share/",
+}
+
+// isAllowedDestPath checks if a destination path is within allowed system directories
+func isAllowedDestPath(destPath string) bool {
+	// Reject path traversal
+	if strings.Contains(destPath, "..") {
+		return false
+	}
+	// Must be an absolute path under one of the allowed prefixes
+	for _, prefix := range allowedDestPrefixes {
+		if strings.HasPrefix(destPath, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
 // installFilesWithSafety installs files with backup and protection
 func installFilesWithSafety(dataDir, backupDir string) (installed, skipped int, err error) {
 	// Walk the data directory
@@ -161,6 +182,12 @@ func installFilesWithSafety(dataDir, backupDir string) (installed, skipped int, 
 
 		// Map paths: usr/bin → bin, usr/lib → lib, etc.
 		destPath := mapDebPath(relPath)
+
+		// Validate destination path (prevent path traversal)
+		if !isAllowedDestPath(destPath) {
+			skipped++
+			return nil
+		}
 
 		// Check if this is a protected library
 		if isProtectedLib(destPath) {

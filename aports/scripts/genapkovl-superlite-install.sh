@@ -472,7 +472,7 @@ install_system() {
     fi
 
     info "Installing Alpine base system..."
-    setup-disk /mnt
+    setup-disk -m sys /mnt
 
     info "Copying SuperLite overlay..."
     # Copy current live system config to installed system

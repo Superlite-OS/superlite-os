@@ -36,7 +36,7 @@ func DebianSearch(src Source, query string) ([]Package, error) {
 
 	// Search across multiple architectures
 	for _, arch := range DebianArchitectures {
-		url := fmt.Sprintf("http://%s/dists/%s/%s/binary-%s/Packages.gz", src.URL, dist, comp, arch)
+		url := fmt.Sprintf("https://%s/dists/%s/%s/binary-%s/Packages.gz", src.URL, dist, comp, arch)
 
 		pkgs, err := searchDebianURL(url, query, arch)
 		if err != nil {
@@ -51,7 +51,7 @@ func DebianSearch(src Source, query string) ([]Package, error) {
 
 // searchDebianURL searches a specific Debian Packages.gz URL
 func searchDebianURL(url, query, arch string) ([]Package, error) {
-	resp, err := http.Get(url)
+	resp, err := HTTPClient.Get(url)
 	if err != nil {
 		return nil, err
 	}

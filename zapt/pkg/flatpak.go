@@ -9,6 +9,9 @@ import (
 
 // FlatpakSearch searches Flatpak repositories
 func FlatpakSearch(query string) ([]Package, error) {
+	if err := ValidatePackageName(query); err != nil {
+		return nil, err
+	}
 	// Check if flatpak is installed
 	if _, err := exec.LookPath("flatpak"); err != nil {
 		return nil, fmt.Errorf("flatpak not installed")

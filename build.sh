@@ -74,10 +74,12 @@ _docker_build() {
 
     docker run --rm \
         --privileged \
+        -e VARIANT="$variant" \
+        -e TAG="$tag" \
         -v "${SCRIPT_DIR}:/build" \
         -w /build \
         alpine:edge \
-        sh -c "
+        sh -c '
             set -e
             apk add --no-cache alpine-sdk build-base apk-tools alpine-conf \
                 busybox fakeroot syslinux xorriso squashfs-tools mtools dosfstools \
@@ -85,40 +87,40 @@ _docker_build() {
 
             adduser -D build
             addgroup build abuild 2>/dev/null || true
-            echo 'build:build' | chpasswd
-            echo 'build ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
+            passwd -d build
+            echo "build ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
-            su build -c 'abuild-keygen -a -n'
-            git clone --depth=1 git://git.alpinelinux.org/aports /home/build/aports
+            su build -c "abuild-keygen -a -n"
+            git clone --depth=1 https://git.alpinelinux.org/aports /home/build/aports
 
-            cp /build/aports/scripts/mkimg.${variant}.sh /home/build/aports/scripts/
-            cp /build/aports/scripts/genapkovl-${variant}.sh /home/build/aports/scripts/
-            chmod +x /home/build/aports/scripts/genapkovl-${variant}.sh
+            cp /build/aports/scripts/mkimg.${VARIANT}.sh /home/build/aports/scripts/
+            cp /build/aports/scripts/genapkovl-${VARIANT}.sh /home/build/aports/scripts/
+            chmod +x /home/build/aports/scripts/genapkovl-${VARIANT}.sh
             ln -sf /build/dotfiles /home/build/aports/scripts/dotfiles
             ln -sf /build/alpine /home/build/aports/scripts/alpine
             chown -R build:build /home/build/aports
 
-            mkdir -p /build/output/${variant}
-            chown build:build /build/output/${variant}
+            mkdir -p /build/output/${VARIANT}
+            chown build:build /build/output/${VARIANT}
 
-            PUBKEY=\$(ls /home/build/.abuild/build-*.rsa.pub 2>/dev/null | head -1)
-            PRIVKEY=\$(ls /home/build/.abuild/build-*.rsa 2>/dev/null | head -1)
-            cp \"\$PUBKEY\" /etc/apk/keys/
+            PUBKEY=$(ls /home/build/.abuild/build-*.rsa.pub 2>/dev/null | head -1)
+            PRIVKEY=$(ls /home/build/.abuild/build-*.rsa 2>/dev/null | head -1)
+            cp "$PUBKEY" /etc/apk/keys/
 
-            su build -c \"
-                PACKAGER_PRIVKEY=\$PRIVKEY \\
-                PACKAGER_PUBKEY=\$PUBKEY \\
+            su build -c "
+                PACKAGER_PRIVKEY=$PRIVKEY \\
+                PACKAGER_PUBKEY=$PUBKEY \\
                 cd /home/build/aports/scripts && ./mkimage.sh \\
-                    --profile ${variant} \\
+                    --profile ${VARIANT} \\
                     --arch x86_64 \\
                     --hostkeys \\
-                    --repository http://dl-cdn.alpinelinux.org/alpine/edge/main \\
-                    --repository http://dl-cdn.alpinelinux.org/alpine/edge/community \\
-                    --repository http://dl-cdn.alpinelinux.org/alpine/edge/testing \\
-                    --outdir /build/output/${variant}/ \\
-                    --tag '${tag}'
-            \"
-        "
+                    --repository https://dl-cdn.alpinelinux.org/alpine/edge/main \\
+                    --repository https://dl-cdn.alpinelinux.org/alpine/edge/community \\
+                    --repository https://dl-cdn.alpinelinux.org/alpine/edge/testing \\
+                    --outdir /build/output/${VARIANT}/ \\
+                    --tag ${TAG}
+            "
+        '
     log "ISO built at: ${output_dir}/"
 }
 
@@ -144,7 +146,7 @@ _native_build() {
 
     if [[ ! -d /root/aports ]]; then
         log "Cloning aports..."
-        git clone --depth=1 git://git.alpinelinux.org/aports /root/aports
+        git clone --depth=1 https://git.alpinelinux.org/aports /root/aports
     fi
 
     log "Installing ${variant} profile..."
@@ -181,9 +183,9 @@ _native_build() {
         --profile "$variant" \
         --arch x86_64 \
         --hostkeys \
-        --repository http://dl-cdn.alpinelinux.org/alpine/edge/main \
-        --repository http://dl-cdn.alpinelinux.org/alpine/edge/community \
-        --repository http://dl-cdn.alpinelinux.org/alpine/edge/testing \
+        --repository https://dl-cdn.alpinelinux.org/alpine/edge/main \
+        --repository https://dl-cdn.alpinelinux.org/alpine/edge/community \
+        --repository https://dl-cdn.alpinelinux.org/alpine/edge/testing \
         --outdir "$output_dir" \
         --tag "$tag"
 }

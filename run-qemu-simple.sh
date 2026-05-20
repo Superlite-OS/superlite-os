@@ -64,5 +64,4 @@ exec qemu-system-x86_64 \
     -no-reboot \
     -vga virtio \
     -nographic \
-    -serial mon:stdio \
-    -append "console=ttyS0,115200 console=tty0"
+    -serial mon:stdio

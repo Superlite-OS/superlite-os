@@ -7,7 +7,13 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 )
+
+// HTTPClient is the shared HTTP client with timeouts
+var HTTPClient = &http.Client{
+	Timeout: 30 * time.Second,
+}
 
 // RunCommand runs a command and returns its output
 func RunCommand(name string, args ...string) ([]byte, error) {
@@ -17,7 +23,7 @@ func RunCommand(name string, args ...string) ([]byte, error) {
 
 // DownloadFile downloads a URL to a temporary file
 func DownloadFile(url string) (string, error) {
-	resp, err := http.Get(url)
+	resp, err := HTTPClient.Get(url)
 	if err != nil {
 		return "", fmt.Errorf("http get: %w", err)
 	}

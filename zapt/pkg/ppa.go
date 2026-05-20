@@ -21,7 +21,7 @@ func PPASearch(src Source, query string) ([]Package, error) {
 	url := fmt.Sprintf("https://ppa.launchpadcontent.net/%s/%s/ubuntu/dists/jammy/main/binary-amd64/Packages.gz", user, repo)
 
 	// Download Packages.gz
-	resp, err := http.Get(url)
+	resp, err := HTTPClient.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("http get: %w", err)
 	}

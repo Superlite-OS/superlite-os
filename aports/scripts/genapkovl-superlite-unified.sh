@@ -633,6 +633,8 @@ while true; do
         4)
             # Install
             INSTALL_LOG="/tmp/superlite-install.log"
+            INSTALL_SENTINEL="/tmp/.superlite-install-result"
+            rm -f "$INSTALL_SENTINEL"
 
             {
                 # Phase 1: Partition (0-25%)
@@ -657,14 +659,18 @@ while true; do
                 # Phase 3: Mount (40-50%)
                 echo "40" ; echo "# Mounting partitions..."
                 if ! mount "${DISK}${sep}3" /mnt; then
-                    yad --title="$TITLE" --error --text="Gagal mount root partition!\nLihat log: $INSTALL_LOG" --width=$WIDTH --center 2>/dev/null
-                    continue
+                    echo "FAIL: mount root" >> "$INSTALL_LOG"
+                    echo "FAIL" > "$INSTALL_SENTINEL"
+                    echo "100" ; echo "# Gagal mount root partition!"
+                    break
                 fi
                 mkdir -p /mnt/boot/efi
                 if ! mount "${DISK}${sep}1" /mnt/boot/efi; then
-                    yad --title="$TITLE" --error --text="Gagal mount EFI partition!\nLihat log: $INSTALL_LOG" --width=$WIDTH --center 2>/dev/null
+                    echo "FAIL: mount efi" >> "$INSTALL_LOG"
+                    echo "FAIL" > "$INSTALL_SENTINEL"
                     umount /mnt 2>/dev/null
-                    continue
+                    echo "100" ; echo "# Gagal mount EFI partition!"
+                    break
                 fi
                 swapon "${DISK}${sep}2" >> "$INSTALL_LOG" 2>&1
 
@@ -748,7 +754,9 @@ while true; do
 
             INSTALL_RESULT=$?
 
-            if [ $INSTALL_RESULT -ne 0 ]; then
+            # Check sentinel file for installation failures
+            if [ -f "$INSTALL_SENTINEL" ] || [ $INSTALL_RESULT -ne 0 ]; then
+                rm -f "$INSTALL_SENTINEL"
                 yad --title="$TITLE" \
                     --text="<b><span color='red'>Installation failed!</span></b>\n\nCheck the log for details:" \
                     --text-info --filename="$INSTALL_LOG" \

@@ -86,22 +86,24 @@ esac
 
 notify-send "Uploading to $SERVICE" "$BASENAME"
 
-# Upload file to Google Drive
+# Build JSON metadata safely using python3 to avoid injection
+METADATA_FILE=$(mktemp /tmp/zapt-metadata-XXXXXX.json)
+trap "rm -f '$METADATA_FILE'" EXIT
+
 if [ "$CONVERT" = "true" ]; then
-    # Upload with conversion to Google format
-    RESPONSE=$(curl -s --connect-timeout 10 --max-time 300 -X POST \
-        "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart" \
-        -H "Authorization: Bearer $ACCESS_TOKEN" \
-        -F "metadata={\"name\":\"$BASENAME\",\"mimeType\":\"$GOOGLE_MIME\"};type=application/json;charset=UTF-8" \
-        -F "file=@$FILE;type=$MIME_TYPE")
+    python3 -c "import json,sys; json.dump({'name': sys.argv[1], 'mimeType': sys.argv[2]}, open(sys.argv[3], 'w'))" \
+        "$BASENAME" "$GOOGLE_MIME" "$METADATA_FILE"
 else
-    # Upload without conversion
-    RESPONSE=$(curl -s --connect-timeout 10 --max-time 300 -X POST \
-        "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart" \
-        -H "Authorization: Bearer $ACCESS_TOKEN" \
-        -F "metadata={\"name\":\"$BASENAME\"};type=application/json;charset=UTF-8" \
-        -F "file=@$FILE;type=$MIME_TYPE")
+    python3 -c "import json,sys; json.dump({'name': sys.argv[1]}, open(sys.argv[2], 'w'))" \
+        "$BASENAME" "$METADATA_FILE"
 fi
+
+# Upload file to Google Drive
+RESPONSE=$(curl -s --connect-timeout 10 --max-time 300 -X POST \
+    "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart" \
+    -H "Authorization: Bearer $ACCESS_TOKEN" \
+    -F "metadata=@${METADATA_FILE};type=application/json;charset=UTF-8" \
+    -F "file=@$FILE;type=$MIME_TYPE")
 
 FILE_ID=$(echo "$RESPONSE" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('id',''))" 2>/dev/null)
 
