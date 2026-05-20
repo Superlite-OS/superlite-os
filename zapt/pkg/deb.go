@@ -8,7 +8,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
+
+	"github.com/ulikunitz/xz"
 )
 
 // DebInfo holds .deb package metadata
@@ -429,14 +432,72 @@ func copyFileWithMode(src, dst string, mode os.FileMode) error {
 	return err
 }
 
-// extractAr extracts an ar archive
+// extractAr extracts an ar archive (.deb file) using pure Go implementation.
+// .deb format: "!<arch>\n" header followed by ar entries.
+// Each entry: 60-byte header (name16, timestamp12, owner6, group6, mode8, size10, magic2)
+// followed by file data padded to 2-byte boundary.
 func extractAr(debPath, destDir string) error {
-	cmd := exec.Command("ar", "x", debPath)
-	cmd.Dir = destDir
-	return cmd.Run()
+	f, err := os.Open(debPath)
+	if err != nil {
+		return fmt.Errorf("open deb: %w", err)
+	}
+	defer f.Close()
+
+	// Read and verify ar magic "!<arch>\n"
+	magic := make([]byte, 8)
+	if _, err := io.ReadFull(f, magic); err != nil {
+		return fmt.Errorf("read ar magic: %w", err)
+	}
+	if string(magic) != "!<arch>\n" {
+		return fmt.Errorf("not a valid ar archive (got %q)", string(magic))
+	}
+
+	// Read entries
+	for {
+		// Read 60-byte header
+		header := make([]byte, 60)
+		n, err := io.ReadFull(f, header)
+		if err != nil {
+			if err == io.EOF || n == 0 {
+				break
+			}
+			return fmt.Errorf("read ar header: %w", err)
+		}
+
+		// Parse header fields
+		name := strings.TrimSpace(string(header[0:16]))
+		sizeStr := strings.TrimSpace(string(header[48:58]))
+
+		size, err := strconv.ParseInt(sizeStr, 10, 64)
+		if err != nil {
+			return fmt.Errorf("parse ar entry size %q: %w", sizeStr, err)
+		}
+
+		// Clean up name (remove trailing / if present)
+		name = strings.TrimSuffix(name, "/")
+
+		// Read file data
+		data := make([]byte, size)
+		if _, err := io.ReadFull(f, data); err != nil {
+			return fmt.Errorf("read ar entry %q data: %w", name, err)
+		}
+
+		// Write to destination
+		destPath := filepath.Join(destDir, name)
+		if err := os.WriteFile(destPath, data, 0644); err != nil {
+			return fmt.Errorf("write ar entry %q: %w", name, err)
+		}
+
+		// Skip padding (ar entries are 2-byte aligned)
+		if size%2 != 0 {
+			f.Seek(1, io.SeekCurrent)
+		}
+	}
+
+	return nil
 }
 
-// extractDataToDir extracts data.tar.* to a specific directory
+// extractDataToDir extracts data.tar.* to a specific directory using pure Go
 func extractDataToDir(tarPath, destDir string) error {
 	f, err := os.Open(tarPath)
 	if err != nil {
@@ -444,19 +505,90 @@ func extractDataToDir(tarPath, destDir string) error {
 	}
 	defer f.Close()
 
-	var cmd *exec.Cmd
+	var reader io.Reader = f
 	if strings.HasSuffix(tarPath, ".gz") {
-		cmd = exec.Command("tar", "xzf", "-", "-C", destDir)
+		gz, err := gzip.NewReader(f)
+		if err != nil {
+			return err
+		}
+		defer gz.Close()
+		reader = gz
 	} else if strings.HasSuffix(tarPath, ".xz") {
-		cmd = exec.Command("tar", "xJf", "-", "-C", destDir)
+		xzReader, err := xz.NewReader(f)
+		if err != nil {
+			return err
+		}
+		reader = xzReader
 	} else if strings.HasSuffix(tarPath, ".zst") {
-		cmd = exec.Command("tar", "--zstd", "xf", "-", "-C", destDir)
-	} else {
-		cmd = exec.Command("tar", "xf", "-", "-C", destDir)
+		// Fallback to system tar for zstd
+		cmd := exec.Command("tar", "--zstd", "xf", "-", "-C", destDir)
+		cmd.Stdin = f
+		return cmd.Run()
 	}
 
-	cmd.Stdin = f
-	return cmd.Run()
+	tr := tar.NewReader(reader)
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+
+		// Clean up name (remove leading ./)
+		name := strings.TrimPrefix(hdr.Name, "./")
+		if name == "" {
+			continue
+		}
+
+		destPath := filepath.Join(destDir, name)
+
+		switch hdr.Typeflag {
+		case tar.TypeDir:
+			if err := os.MkdirAll(destPath, os.FileMode(hdr.Mode)); err != nil {
+				return err
+			}
+		case tar.TypeReg:
+			// Ensure parent directory exists
+			if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+				return err
+			}
+			// Extract file
+			outFile, err := os.OpenFile(destPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, os.FileMode(hdr.Mode))
+			if err != nil {
+				return err
+			}
+			if _, err := io.Copy(outFile, tr); err != nil {
+				outFile.Close()
+				return err
+			}
+			outFile.Close()
+		case tar.TypeSymlink:
+			// Ensure parent directory exists
+			if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+				return err
+			}
+			// Create symlink
+			os.Remove(destPath) // Remove existing if any
+			if err := os.Symlink(hdr.Linkname, destPath); err != nil {
+				return err
+			}
+		case tar.TypeLink:
+			// Ensure parent directory exists
+			if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+				return err
+			}
+			// Create hard link
+			linkTarget := filepath.Join(destDir, strings.TrimPrefix(hdr.Linkname, "./"))
+			os.Remove(destPath) // Remove existing if any
+			if err := os.Link(linkTarget, destPath); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 // findScript finds a script in the control archive
@@ -476,7 +608,7 @@ func findScript(dir, name string) string {
 	return ""
 }
 
-// parseControl parses the control.tar.gz to get package info
+// parseControl parses the control.tar.* to get package info
 func parseControl(tarPath string) (*DebInfo, error) {
 	f, err := os.Open(tarPath)
 	if err != nil {
@@ -492,6 +624,12 @@ func parseControl(tarPath string) (*DebInfo, error) {
 		}
 		defer gz.Close()
 		reader = gz
+	} else if strings.HasSuffix(tarPath, ".xz") {
+		xzReader, err := xz.NewReader(f)
+		if err != nil {
+			return nil, err
+		}
+		reader = xzReader
 	}
 
 	tr := tar.NewReader(reader)
