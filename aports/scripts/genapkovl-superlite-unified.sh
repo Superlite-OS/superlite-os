@@ -389,14 +389,27 @@ if [ -f "$LIBC6_DEB" ]; then
     }
 
     # Copy glibc libs to ISO overlay
+    # zapt maps: usr/lib64 -> /lib64, usr/lib -> /lib, etc.
+    # Debian libc6 has: lib/x86_64-linux-gnu/libc.so.6, lib64/ld-linux-x86-64.so.2
     GLIBC_DIR="$tmp/usr/lib/glibc"
     mkdir -p "$GLIBC_DIR"
-    for lib in libc.so.6 ld-linux-x86-64.so.2 libm.so.6 libpthread.so.0 libdl.so.2 libresolv.so.2; do
-        found="$(find "$GLIBC_ROOT" -name "$lib" -print -quit 2>/dev/null || true)"
-        [ -n "$found" ] && cp "$found" "$GLIBC_DIR/" || true
+    for libpath in \
+        "$GLIBC_ROOT/lib/x86_64-linux-gnu/libc.so.6" \
+        "$GLIBC_ROOT/lib64/ld-linux-x86-64.so.2" \
+        "$GLIBC_ROOT/lib/x86_64-linux-gnu/libm.so.6" \
+        "$GLIBC_ROOT/lib/x86_64-linux-gnu/libpthread.so.0" \
+        "$GLIBC_ROOT/lib/x86_64-linux-gnu/libdl.so.2" \
+        "$GLIBC_ROOT/lib/x86_64-linux-gnu/libresolv.so.2" \
+        "$GLIBC_ROOT/lib/x86_64-linux-gnu/libnss_compat.so.2" \
+        "$GLIBC_ROOT/lib/x86_64-linux-gnu/libnss_dns.so.2" \
+        "$GLIBC_ROOT/lib/x86_64-linux-gnu/libnss_files.so.2" \
+        "$GLIBC_ROOT/lib/x86_64-linux-gnu/libnss_hesiod.so.2" \
+    ; do
+        [ -f "$libpath" ] && cp "$libpath" "$GLIBC_DIR/" || true
     done
-    for nss in $(find "$GLIBC_ROOT" -name "libnss_*" 2>/dev/null || true); do
-        cp "$nss" "$GLIBC_DIR/" || true
+    # Also copy any nss libs we might have missed
+    for nss in "$GLIBC_ROOT"/lib/x86_64-linux-gnu/libnss_*.so.*; do
+        [ -f "$nss" ] && cp "$nss" "$GLIBC_DIR/" || true
     done
 
     if [ -f "$GLIBC_DIR/libc.so.6" ]; then
