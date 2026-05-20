@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"syscall"
 )
 
 const installLog = "/tmp/superlite-install.log"
@@ -57,7 +59,7 @@ func runInstall(ctx context.Context, disk Disk, ch chan<- Progress) error {
 	}
 	defer func() {
 		for i := len(mounts) - 1; i >= 0; i-- {
-			exec.Command("umount", mounts[i]).Run()
+			syscall.Unmount(mounts[i], 0)
 		}
 	}()
 	if err := checkCtx(); err != nil {
@@ -177,8 +179,7 @@ func phaseMount(disk Disk, ch chan<- Progress, log func(string, ...interface{}))
 
 	// Mount root
 	log("mount %s /mnt", root)
-	if out, err := exec.Command("mount", root, "/mnt").CombinedOutput(); err != nil {
-		log("ERROR: %s", string(out))
+	if err := syscall.Mount(root, "/mnt", "ext4", 0, ""); err != nil {
 		return mounts, fmt.Errorf("mount root: %w", err)
 	}
 	mounts = append(mounts, "/mnt")
@@ -187,8 +188,7 @@ func phaseMount(disk Disk, ch chan<- Progress, log func(string, ...interface{}))
 	efiDir := "/mnt/boot/efi"
 	os.MkdirAll(efiDir, 0755)
 	log("mount %s %s", efi, efiDir)
-	if out, err := exec.Command("mount", efi, efiDir).CombinedOutput(); err != nil {
-		log("ERROR: %s", string(out))
+	if err := syscall.Mount(efi, efiDir, "vfat", 0, ""); err != nil {
 		return mounts, fmt.Errorf("mount efi: %w", err)
 	}
 	mounts = append(mounts, efiDir)
@@ -244,12 +244,12 @@ func phaseCopyDesktop(ch chan<- Progress, log func(string, ...interface{})) erro
 	for _, p := range copyPairs {
 		if _, err := os.Stat(p.src); err == nil {
 			log("cp -a %s %s", p.src, p.dst)
-			exec.Command("cp", "-a", p.src, p.dst).Run()
+			copyDir(p.src, p.dst, log)
 		}
 	}
 
 	// Copy MOTD
-	exec.Command("cp", "/etc/motd", "/mnt/etc/motd").Run()
+	copyFile("/etc/motd", "/mnt/etc/motd")
 
 	// Fix ownership
 	exec.Command("chroot", "/mnt", "chown", "-R", "root:root", "/root").Run()
@@ -264,8 +264,8 @@ func phaseBootloader(disk Disk, ch chan<- Progress, log func(string, ...interfac
 	// Mount efivarfs for grub-install
 	efivarsDir := "/mnt/sys/firmware/efi/efivars"
 	os.MkdirAll(efivarsDir, 0755)
-	exec.Command("mount", "-t", "efivarfs", "efivarfs", efivarsDir).Run()
-	defer exec.Command("umount", efivarsDir).Run()
+	syscall.Mount("efivarfs", efivarsDir, "efivarfs", 0, "")
+	defer syscall.Unmount(efivarsDir, 0)
 
 	// Try grub-install with fallbacks
 	grubOK := false
@@ -299,7 +299,7 @@ func phaseBootloader(disk Disk, ch chan<- Progress, log func(string, ...interfac
 	if _, err := os.Stat(efiBoot); os.IsNotExist(err) {
 		if _, err := os.Stat(efiSuperlite); err == nil {
 			os.MkdirAll(efiBoot, 0755)
-			exec.Command("cp", efiSuperlite, filepath.Join(efiBoot, "BOOTX64.EFI")).Run()
+			copyFile(efiSuperlite, filepath.Join(efiBoot, "BOOTX64.EFI"))
 		}
 	}
 
@@ -311,22 +311,54 @@ func phaseBootloader(disk Disk, ch chan<- Progress, log func(string, ...interfac
 	return nil
 }
 
-// copyDir recursively copies src to dst using cp -a.
+// copyDir recursively copies src to dst, preserving file modes.
 func copyDir(src, dst string, log func(string, ...interface{})) {
-	entries, err := os.ReadDir(src)
-	if err != nil {
-		return
-	}
-	for _, entry := range entries {
-		name := entry.Name()
-		if name == "." || name == ".." {
-			continue
+	filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
 		}
-		srcPath := filepath.Join(src, name)
-		dstPath := filepath.Join(dst, name)
-		if err := exec.Command("cp", "-a", srcPath, dstPath).Run(); err != nil {
-			log("WARNING: cp %s -> %s: %v", srcPath, dstPath, err)
+		rel, _ := filepath.Rel(src, path)
+		dstPath := filepath.Join(dst, rel)
+
+		if info.IsDir() {
+			os.MkdirAll(dstPath, info.Mode())
+			return nil
 		}
-	}
+		if info.Mode()&os.ModeSymlink != 0 {
+			link, _ := os.Readlink(path)
+			os.Symlink(link, dstPath)
+			return nil
+		}
+		if err := copyFileWithMode(path, dstPath, info.Mode()); err != nil {
+			log("WARNING: cp %s -> %s: %v", path, dstPath, err)
+		}
+		return nil
+	})
 }
 
+// copyFile copies a single file.
+func copyFile(src, dst string) error {
+	info, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+	return copyFileWithMode(src, dst, info.Mode())
+}
+
+// copyFileWithMode copies a single file preserving mode bits.
+func copyFileWithMode(src, dst string, mode os.FileMode) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, in)
+	return err
+}

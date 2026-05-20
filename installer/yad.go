@@ -68,14 +68,10 @@ func YadSelectDisk(disks []Disk) (string, error) {
 		return "", fmt.Errorf("no disks available")
 	}
 
-	// Build list data: FALSE /dev/sda 500G Samsung SSD
-	var rows []string
-	for _, d := range disks {
-		rows = append(rows, fmt.Sprintf("FALSE %s %s %s", d.Path, d.Size, d.Model))
-	}
-
-	out, rc := yadRun(
-		"--title="+title,
+	// Build list data: each row as separate argument
+	// Use FALSE for all; if only one disk, auto-select it
+	args := []string{
+		"--title=" + title,
 		"--text=<b>Select the target disk:</b>\n<i>Click the radio button to select, then click Next.</i>",
 		"--list", "--radiolist",
 		"--column=", "--column=Device", "--column=Size", "--column=Model",
@@ -86,8 +82,16 @@ func YadSelectDisk(disks []Disk) (string, error) {
 		fmt.Sprintf("--width=%d", width),
 		"--height=300",
 		"--center",
-		strings.Join(rows, " "),
-	)
+	}
+	for _, d := range disks {
+		radio := "FALSE"
+		if len(disks) == 1 {
+			radio = "TRUE"
+		}
+		args = append(args, fmt.Sprintf("%s %s %s %s", radio, d.Path, d.Size, d.Model))
+	}
+
+	out, rc := yadRun(args...)
 
 	switch rc {
 	case 1, 252: // Cancel or window close

@@ -57,25 +57,23 @@ func actionListDisks() {
 		return
 	}
 
-	var rows []string
-	for _, d := range disks {
-		rows = append(rows, fmt.Sprintf("%s\t%s\t%s", d.Path, d.Size, d.Model))
-	}
-
-	if len(rows) == 0 {
+	if len(disks) == 0 {
 		YadInfo("No disks found.")
 		return
 	}
 
-	_, _ = yadRun(
-		"--title="+title+" — Disks",
+	args := []string{
+		"--title=" + title + " — Disks",
 		"--list", "--column=Device", "--column=Size", "--column=Model",
 		"--button=Close:0",
 		fmt.Sprintf("--width=%d", width),
 		"--height=300",
 		"--center",
-		joinRows(rows),
-	)
+	}
+	for _, d := range disks {
+		args = append(args, fmt.Sprintf("%s\t%s\t%s", d.Path, d.Size, d.Model))
+	}
+	_, _ = yadRun(args...)
 }
 
 func actionListPartitions() {
@@ -95,7 +93,19 @@ func actionListPartitions() {
 		return
 	}
 
-	var rows []string
+	if len(parts) == 0 {
+		YadInfo("No partitions found on " + diskPath)
+		return
+	}
+
+	args := []string{
+		"--title=" + title + " — Partitions",
+		"--list", "--column=Partition", "--column=Size", "--column=FS", "--column=Mount", "--column=Label",
+		"--button=Close:0",
+		fmt.Sprintf("--width=%d", width),
+		"--height=300",
+		"--center",
+	}
 	for _, p := range parts {
 		mount := p.MountPoint
 		if mount == "" {
@@ -105,23 +115,9 @@ func actionListPartitions() {
 		if label == "" {
 			label = "—"
 		}
-		rows = append(rows, fmt.Sprintf("%s\t%s\t%s\t%s\t%s", p.Path, p.Size, p.FSType, mount, label))
+		args = append(args, fmt.Sprintf("%s\t%s\t%s\t%s\t%s", p.Path, p.Size, p.FSType, mount, label))
 	}
-
-	if len(rows) == 0 {
-		YadInfo("No partitions found on " + diskPath)
-		return
-	}
-
-	_, _ = yadRun(
-		"--title="+title+" — Partitions",
-		"--list", "--column=Partition", "--column=Size", "--column=FS", "--column=Mount", "--column=Label",
-		"--button=Close:0",
-		fmt.Sprintf("--width=%d", width),
-		"--height=300",
-		"--center",
-		joinRows(rows),
-	)
+	_, _ = yadRun(args...)
 }
 
 func actionCreatePartition() {
@@ -542,10 +538,6 @@ func actionShell() {
 }
 
 // Helper functions
-
-func joinRows(rows []string) string {
-	return strings.Join(rows, "\n")
-}
 
 func pathExists(path string) bool {
 	_, err := os.Stat(path)

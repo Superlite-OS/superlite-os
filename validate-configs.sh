@@ -132,10 +132,36 @@ RCXML="$DOTFILES/.config/labwc/rc.xml"
 
 if [ -f "$RCXML" ]; then
   ok "rc.xml exists"
+
+  # XML well-formedness check
+  if command -v xmllint >/dev/null 2>&1; then
+    if xmllint --noout "$RCXML" 2>/dev/null; then
+      ok "rc.xml is well-formed XML"
+    else
+      fail "rc.xml has XML parse errors!"
+      xmllint --noout "$RCXML" 2>&1 | head -3
+    fi
+  elif command -v python3 >/dev/null 2>&1; then
+    if python3 -c "import xml.etree.ElementTree as ET; ET.parse('$RCXML')" 2>/dev/null; then
+      ok "rc.xml is well-formed XML"
+    else
+      fail "rc.xml has XML parse errors!"
+    fi
+  fi
+
+  # Check for unescaped & in command attributes (common source of XML parser errors)
+  UNESCAPED=$(grep -n 'command="[^"]*&[^a]' "$RCXML" | grep -v '&amp;\|&lt;\|&gt;\|&quot;\|&apos;' || true)
+  if [ -n "$UNESCAPED" ]; then
+    fail "rc.xml has unescaped '&' in command attributes (causes xmlParseEntityRef errors):"
+    echo "$UNESCAPED" | head -3
+  else
+    ok "No unescaped '&' in command attributes"
+  fi
+
   KEYBINDS=$(grep -c '<keybind' "$RCXML")
   MOUSEBINDS=$(grep -c '<mousebind' "$RCXML")
   ok "$KEYBINDS keybindings, $MOUSEBINDS mousebindings"
-  
+
   # Check essential keybinds
   for key in "W-Return" "W-Space" "W-f" "A-F4"; do
     if grep -q "key=\"$key\"" "$RCXML"; then
@@ -155,7 +181,23 @@ MENUXML="$DOTFILES/.config/labwc/menu.xml"
 
 if [ -f "$MENUXML" ]; then
   ok "menu.xml exists"
-  
+
+  # XML well-formedness check
+  if command -v xmllint >/dev/null 2>&1; then
+    if xmllint --noout "$MENUXML" 2>/dev/null; then
+      ok "menu.xml is well-formed XML"
+    else
+      fail "menu.xml has XML parse errors!"
+      xmllint --noout "$MENUXML" 2>&1 | head -3
+    fi
+  elif command -v python3 >/dev/null 2>&1; then
+    if python3 -c "import xml.etree.ElementTree as ET; ET.parse('$MENUXML')" 2>/dev/null; then
+      ok "menu.xml is well-formed XML"
+    else
+      fail "menu.xml has XML parse errors!"
+    fi
+  fi
+
   if grep -q "Wallpaper" "$MENUXML"; then
     ok "Wallpaper menu found"
     if grep -q "Default Wallpaper" "$MENUXML"; then
@@ -240,6 +282,29 @@ if command -v swaybg >/dev/null 2>&1; then
   fi
 else
   fail "swaybg binary NOT FOUND"
+fi
+
+# ============================================================
+header "11. Tofi Config Validation (genapkovl)"
+# ============================================================
+# Check for known-invalid tofi options that cause runtime errors
+INVALID_TOFI_OPTS="result-padding|result-count|result-active-padding"
+GENAPKOVL="/superlite-os/aports/scripts/genapkovl-superlite-unified.sh"
+if [ -f "$GENAPKOVL" ]; then
+  FOUND_INVALID=$(grep -nE "($INVALID_TOFI_OPTS)" "$GENAPKOVL" || true)
+  if [ -n "$FOUND_INVALID" ]; then
+    fail "Invalid tofi options found in genapkovl script:"
+    echo "$FOUND_INVALID"
+  else
+    ok "No known-invalid tofi options"
+  fi
+
+  # Check for duplicate options in tofi heredocs
+  DUPLICATES=$(sed -n '/TOFI_EOF/,/TOFI_EOF/p' "$GENAPKOVL" | grep -v 'TOFI_EOF' | grep -v '^$' | grep -v '^#' | sort | uniq -d || true)
+  if [ -n "$DUPLICATES" ]; then
+    warn "Duplicate tofi options found:"
+    echo "$DUPLICATES"
+  fi
 fi
 
 # ============================================================

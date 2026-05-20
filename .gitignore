@@ -20,3 +20,9 @@ iso/live/
 zapt/zapt
 zapt/zapt.exe
 zapt/*.exe
+installer/installer
+installer/installer.exe
+installer/*.exe
+partman/partman
+partman/partman.exe
+partman/*.exe

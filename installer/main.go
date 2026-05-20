@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/exec"
+	"syscall"
 )
 
 var version = "dev"
@@ -120,7 +120,7 @@ func main() {
 			}
 
 			if YadDone(*selectedDisk) {
-				if err := exec.Command("reboot").Run(); err != nil {
+				if err := syscall.Reboot(syscall.LINUX_REBOOT_CMD_RESTART); err != nil {
 					log.Printf("reboot failed: %v", err)
 				}
 			}

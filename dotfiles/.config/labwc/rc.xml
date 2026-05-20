@@ -288,7 +288,7 @@
       <action name="Execute" command="brightnessctl set 10%-"/>
     </keybind>    
     <keybind key="W-P">
-      <action name="Execute" command="sh -c 'grim -l 1 && notify-send Screenshot!'"/>
+      <action name="Execute" command="sh -c 'grim -l 1 &amp;&amp; notify-send Screenshot!'"/>
     </keybind>
     <keybind key="XF86FullScreen">
 	<action name="ToggleFullscreen"/>

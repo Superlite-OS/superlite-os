@@ -203,14 +203,9 @@ button:hover {
     color: #94e2d5;
 }
 
-@keyframes pulse-critical {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
-}
-
 #battery.critical:not(.charging) {
     color: #f38ba8;
-    animation: pulse-critical 1.5s ease-in-out infinite;
+    background: rgba(243, 139, 168, 0.15);
 }
 
 #battery.warning:not(.charging) {

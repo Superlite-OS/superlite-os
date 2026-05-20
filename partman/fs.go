@@ -7,13 +7,14 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 )
 
 // FSType represents a supported filesystem type.
 type FSType struct {
-	Name   string
-	Mkfs   string
-	Label  string // label command format: "e2label", "fatlabel", etc.
+	Name  string
+	Mkfs  string
+	Label string // label command format: "e2label", "fatlabel", etc.
 }
 
 var filesystems = []FSType{
@@ -51,16 +52,16 @@ func Mkfs(device, fsType, label string) error {
 // MountDevice mounts a device at a given mountpoint.
 func MountDevice(device, mountpoint string) error {
 	os.MkdirAll(mountpoint, 0755)
-	if out, err := exec.Command("mount", device, mountpoint).CombinedOutput(); err != nil {
-		return fmt.Errorf("mount %s: %s: %w", device, string(out), err)
+	if err := syscall.Mount(device, mountpoint, "", 0, ""); err != nil {
+		return fmt.Errorf("mount %s: %w", device, err)
 	}
 	return nil
 }
 
 // UnmountDevice unmounts a device or mountpoint.
 func UnmountDevice(target string) error {
-	if out, err := exec.Command("umount", target).CombinedOutput(); err != nil {
-		return fmt.Errorf("umount %s: %s: %w", target, string(out), err)
+	if err := syscall.Unmount(target, 0); err != nil {
+		return fmt.Errorf("umount %s: %w", target, err)
 	}
 	return nil
 }
@@ -73,7 +74,6 @@ func IsMounted(device string) bool {
 	}
 	defer f.Close()
 
-	// Resolve to real path for symlink matching
 	realDev, _ := filepath.EvalSymlinks(device)
 	if realDev == "" {
 		realDev = device
@@ -93,7 +93,6 @@ func IsMounted(device string) bool {
 }
 
 // Benchmark runs a read/write benchmark on a partition.
-// Returns write and read speed strings.
 func Benchmark(device string) (writeSpeed, readSpeed string, err error) {
 	// Create temp mount
 	tmpDir := "/tmp/partman_bench"
@@ -128,7 +127,6 @@ func extractDDSpeed(output string) string {
 	lines := strings.Split(output, "\n")
 	for _, line := range lines {
 		if strings.Contains(line, "bytes") || strings.Contains(line, "copied") {
-			// Look for speed pattern like "128 MB/s" or "128 bytes/s"
 			parts := strings.Fields(line)
 			for i, p := range parts {
 				if (p == "MB/s" || p == "GB/s" || p == "kB/s" || p == "bytes/s") && i > 0 {

@@ -66,22 +66,21 @@ func YadDiskSelect(disks []Disk) string {
 		return ""
 	}
 
-	var rows []string
-	for _, d := range disks {
-		rows = append(rows, fmt.Sprintf("%s\t%s\t%s", d.Path, d.Size, d.Model))
-	}
-
-	out, rc := yadRun(
-		"--title="+title,
+	args := []string{
+		"--title=" + title,
 		"--text=<b>Select a disk:</b>",
 		"--list", "--column=Device", "--column=Size", "--column=Model",
-		"--print-column=1", "--separator=",
+		"--print-column=1", "--separator=|",
 		"--button=OK!go-next:0", "--button=Cancel!cancel:1",
 		fmt.Sprintf("--width=%d", width),
 		"--height=300",
 		"--center",
-		strings.Join(rows, "\n"),
-	)
+	}
+	for _, d := range disks {
+		args = append(args, fmt.Sprintf("%s\t%s\t%s", d.Path, d.Size, d.Model))
+	}
+
+	out, rc := yadRun(args...)
 
 	if rc != 0 {
 		return ""
@@ -98,7 +97,16 @@ func YadPartitionSelect(diskPath string) string {
 		return ""
 	}
 
-	var rows []string
+	args := []string{
+		"--title=" + title,
+		"--text=<b>Select a partition:</b>",
+		"--list", "--column=Partition", "--column=Size", "--column=FS", "--column=Mount", "--column=Label",
+		"--print-column=1", "--separator=|",
+		"--button=OK!go-next:0", "--button=Cancel!cancel:1",
+		fmt.Sprintf("--width=%d", width),
+		"--height=300",
+		"--center",
+	}
 	for _, p := range parts {
 		mount := p.MountPoint
 		if mount == "" {
@@ -108,20 +116,10 @@ func YadPartitionSelect(diskPath string) string {
 		if label == "" {
 			label = "—"
 		}
-		rows = append(rows, fmt.Sprintf("%s\t%s\t%s\t%s\t%s", p.Path, p.Size, p.FSType, mount, label))
+		args = append(args, fmt.Sprintf("%s\t%s\t%s\t%s\t%s", p.Path, p.Size, p.FSType, mount, label))
 	}
 
-	out, rc := yadRun(
-		"--title="+title,
-		"--text=<b>Select a partition:</b>",
-		"--list", "--column=Partition", "--column=Size", "--column=FS", "--column=Mount", "--column=Label",
-		"--print-column=1", "--separator=",
-		"--button=OK!go-next:0", "--button=Cancel!cancel:1",
-		fmt.Sprintf("--width=%d", width),
-		"--height=300",
-		"--center",
-		strings.Join(rows, "\n"),
-	)
+	out, rc := yadRun(args...)
 
 	if rc != 0 {
 		return ""
