@@ -52,8 +52,11 @@ if [ -d "${TOP_DIR}/dotfiles/usr/share/fonts/ohsnap" ]; then pass "OhSnap font";
 echo ""
 echo "QEMU Scripts:"
 if [ -f "${TOP_DIR}/run-qemu.sh" ]; then pass "run-qemu.sh"; else fail "run-qemu.sh missing"; fi
+if [ -x "${TOP_DIR}/run-qemu.sh" ]; then pass "run-qemu.sh is executable"; else fail "run-qemu.sh not executable"; fi
 if [ -f "${TOP_DIR}/run-qemu-simple.sh" ]; then pass "run-qemu-simple.sh"; else fail "run-qemu-simple.sh missing"; fi
+if [ -x "${TOP_DIR}/run-qemu-simple.sh" ]; then pass "run-qemu-simple.sh is executable"; else fail "run-qemu-simple.sh not executable"; fi
 if [ -f "${TOP_DIR}/run-qemu-debug.sh" ]; then pass "run-qemu-debug.sh"; else fail "run-qemu-debug.sh missing"; fi
+if [ -x "${TOP_DIR}/run-qemu-debug.sh" ]; then pass "run-qemu-debug.sh is executable"; else fail "run-qemu-debug.sh not executable"; fi
 
 echo ""
 echo "CI/CD:"

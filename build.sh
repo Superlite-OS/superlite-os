@@ -176,24 +176,26 @@ _native_build() {
     log "Building ${variant} ISO..."
     mkdir -p "$output_dir"
 
-    cd /root/aports/scripts
     PUBKEY=$(find ~/.abuild -name "build-*.rsa.pub" -type f 2>/dev/null | head -1)
     PRIVKEY=$(find ~/.abuild -name "build-*.rsa" -type f 2>/dev/null | head -1)
     if [ -z "$PUBKEY" ] || [ -z "$PRIVKEY" ]; then
         log "ERROR: No signing keys found"; exit 1
     fi
     cp "$PUBKEY" /etc/apk/keys/
-    PACKAGER_PRIVKEY="$PRIVKEY" \
-    PACKAGER_PUBKEY="$PUBKEY" \
-    ./mkimage.sh \
-        --profile "$variant" \
-        --arch x86_64 \
-        --hostkeys \
-        --repository https://dl-cdn.alpinelinux.org/alpine/edge/main \
-        --repository https://dl-cdn.alpinelinux.org/alpine/edge/community \
-        --repository https://dl-cdn.alpinelinux.org/alpine/edge/testing \
-        --outdir "$output_dir" \
-        --tag "$tag"
+    (
+        cd /root/aports/scripts
+        PACKAGER_PRIVKEY="$PRIVKEY" \
+        PACKAGER_PUBKEY="$PUBKEY" \
+        ./mkimage.sh \
+            --profile "$variant" \
+            --arch x86_64 \
+            --hostkeys \
+            --repository https://dl-cdn.alpinelinux.org/alpine/edge/main \
+            --repository https://dl-cdn.alpinelinux.org/alpine/edge/community \
+            --repository https://dl-cdn.alpinelinux.org/alpine/edge/testing \
+            --outdir "$output_dir" \
+            --tag "$tag"
+    )
 }
 
 # ── Main ──────────────────────────────────────────────────────────────────────

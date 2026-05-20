@@ -34,11 +34,8 @@ lvm2
 mdadm
 smartmontools
 hdparm
-lsblk
-util-linux
-wipefs
-blkid
-findmnt
+sdparm
+# wipefs, blkid, findmnt, lsblk are part of util-linux (already listed)
 sdparm
 nvme-cli
 hd-idle

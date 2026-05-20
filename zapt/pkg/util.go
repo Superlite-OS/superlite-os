@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"strings"
 	"time"
 )
 
@@ -61,42 +60,4 @@ func RequireRoot() error {
 		return fmt.Errorf("this operation requires root privileges")
 	}
 	return nil
-}
-
-// PrintTable prints a formatted table
-func PrintTable(headers []string, rows [][]string) {
-	// Calculate column widths
-	widths := make([]int, len(headers))
-	for i, h := range headers {
-		widths[i] = len(h)
-	}
-	for _, row := range rows {
-		for i, cell := range row {
-			if i < len(widths) && len(cell) > widths[i] {
-				widths[i] = len(cell)
-			}
-		}
-	}
-
-	// Print header
-	for i, h := range headers {
-		fmt.Printf("%-*s  ", widths[i], h)
-	}
-	fmt.Println()
-
-	// Print separator
-	for i := range headers {
-		fmt.Printf("%s  ", strings.Repeat("-", widths[i]))
-	}
-	fmt.Println()
-
-	// Print rows
-	for _, row := range rows {
-		for i, cell := range row {
-			if i < len(widths) {
-				fmt.Printf("%-*s  ", widths[i], cell)
-			}
-		}
-		fmt.Println()
-	}
 }

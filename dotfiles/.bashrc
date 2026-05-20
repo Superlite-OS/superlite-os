@@ -1,26 +1,11 @@
-#
-# ~/.bashrc
-#
-# Riccardo Palombo - https://riccardo.im
-# Preparato per la community Patreon: patreon.com/riccardopalombo
-# Qualche alias utile (bisogna installare exa!)
-#
+# ~/.bashrc — sourced by interactive bash shells
+# Common aliases and shell config are in .profile
 
- alias ls='ls --color=auto'
- alias ll='ls -lav --ignore=..'   # show long listing of all except ".."
- alias l='ls -lav --ignore=.?*'   # show long listing but no hidden dotfiles except "."
- alias reboot='sudo reboot'
- alias conf='micro ~/.config/labwc/rc.xml'
- alias conf-bar='micro ~/.config/waybar/config'
- alias conf-term='micro ~/.config/foot/foot.ini'
- alias waykill='killall waybar && waybar &'
- alias gdrive-setup='~/.config/scripts/google-drive-setup.sh'
+# Source .profile for shared aliases and setup
+[ -f "$HOME/.profile" ] && . "$HOME/.profile"
 
-#alias dots='cd ~/code/dotfiles && lazygit'
-#alias labwc='dbus-launch --exit-with-session labwc'
+# Google Drive setup shortcut
+alias gdrive-setup='~/.config/scripts/google-drive-setup.sh'
 
-
-
-#PS1='[\u@\h \W]\$ '
-#PS1='[\u@\W]\$ '
+# Prompt
 PS1='\[\e[1;37m\][\u@\W]\$\[\e[0m\] '

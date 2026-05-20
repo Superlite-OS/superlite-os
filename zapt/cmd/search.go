@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"strings"
+
 	"github.com/spf13/cobra"
 )
 
@@ -10,6 +12,6 @@ var searchCmd = &cobra.Command{
 	Long:  "Search for packages across all sources. This is an alias for the query command.",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return runQuery(args[0])
+		return runQuery(strings.Join(args, " "))
 	},
 }

@@ -245,7 +245,7 @@ fi
 # ============================================================
 header "Summary"
 # ============================================================
-if [ $ERRORS -eq 0 ]; then
+if [ "$ERRORS" -eq 0 ]; then
   echo -e "  ${GREEN}${BOLD}All checks passed!${NC}"
 else
   echo -e "  ${RED}${BOLD}$ERRORS issue(s) found${NC}"

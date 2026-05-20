@@ -127,9 +127,9 @@ tmux new-window -t "$SESSION" -n "qemu-monitor" \
 tmux new-window -t "$SESSION" -n "boot-log" \
     "echo '=== Boot Log (live) ===' && touch /tmp/superlite-boot-${$}.log && tail -f /tmp/superlite-boot-${$}.log"
 
-# Window 4: VGA via VNC (optional - connect with vncviewer)
+# Window 4: VGA info (no VNC — display is disabled)
 tmux new-window -t "$SESSION" -n "vga-info" \
-    "echo '=== VGA Output ===' && echo '' && echo 'VGA is available via VNC on localhost:5900' && echo 'Connect with: vncviewer localhost:5900' && echo '' && echo 'Or use QEMU monitor to send keystrokes:' && echo '  sendkey alt-f1  (switch to tty1)' && echo '  sendkey alt-f2  (switch to tty2)' && echo '  sendkey alt-f3  (switch to tty3)' && echo '  sendkey alt-f4  (switch to tty4)' && echo '  sendkey alt-f5  (switch to tty5)' && echo '  sendkey alt-f6  (switch to tty6)' && echo '' && echo 'QEMU PID: $QEMU_PID' && echo '' && echo 'Press Ctrl+C to exit' && cat"
+    "echo '=== VGA Output ===' && echo '' && echo 'VGA display is disabled (-display none).' && echo 'Use serial console or QEMU monitor to interact.' && echo '' && echo 'Use QEMU monitor to send keystrokes:' && echo '  sendkey alt-f1  (switch to tty1)' && echo '  sendkey alt-f2  (switch to tty2)' && echo '  sendkey alt-f3  (switch to tty3)' && echo '  sendkey alt-f4  (switch to tty4)' && echo '  sendkey alt-f5  (switch to tty5)' && echo '  sendkey alt-f6  (switch to tty6)' && echo '' && echo 'QEMU PID: $QEMU_PID' && echo '' && echo 'Press Ctrl+C to exit' && cat"
 
 # Window 5: TTY Switcher
 tmux new-window -t "$SESSION" -n "tty-switcher" \

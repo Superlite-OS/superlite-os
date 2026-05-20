@@ -227,7 +227,7 @@ list_disks() {
     header "Available Disks"
     printf "  ${BOLD}%-12s %-10s %-30s %-8s${NC}\n" "DEVICE" "SIZE" "MODEL" "TYPE"
     printf "  %s\n" "$(printf '─%.0s' $(seq 1 65))"
-    lsblk -dno NAME,SIZE,MODEL,TYPE | while read -r name size model type; do
+    lsblk -dno NAME,SIZE,MODEL,TYPE | grep -v loop | while read -r name size model type; do
         printf "  %-12s %-10s %-30s %-8s\n" "$name" "$size" "$model" "$type"
     done
     echo ""

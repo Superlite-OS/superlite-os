@@ -10,7 +10,7 @@
 
 - **Alpine Linux edge** — minimal, musl-based system
 - **LabWC Wayland** — OpenBox-style window manager for Wayland
-- **WhiteSur-Light theme** — macOS-inspired GTK theme with Haiku icons
+- **WhiteSur-Light theme** — macOS-inspired GTK theme with Phosphor icons
 - **~300MB ISO** — full desktop in a tiny package
 - **UEFI + Legacy BIOS** — hybrid boot via GRUB/syslinux
 - **Rufus + Ventoy** — ISO and DD mode compatible
@@ -183,7 +183,7 @@ superlite-os/
 │   │   └── gtk-4.0/                      # GTK4 theme settings
 │   └── usr/share/
 │       ├── fonts/ohsnap/                 # OhSnap bitmap font
-│       ├── icons/Haiku/                  # Haiku icon theme
+│       ├── icons/Phosphor/               # Phosphor icon theme
 │       └── themes/WhiteSur-Light/        # GTK theme
 ├── tests/
 │   └── validate-build.sh                 # Build validation
@@ -222,7 +222,7 @@ Edit files in `dotfiles/` — they're copied to `/etc/skel/` and `/root/` automa
 
 Theme files are in `dotfiles/usr/share/`:
 - **GTK theme**: `themes/WhiteSur-Light/`
-- **Icons**: `icons/Haiku/`
+- **Icons**: `icons/Phosphor/`
 - **Fonts**: `fonts/ohsnap/`
 
 ## Comparison

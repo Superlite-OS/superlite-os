@@ -1,3 +1,4 @@
 20260514
 SuperLite OS
 Alpine Linux + LabWC Wayland
+# TODO: Integrate this version into the build process (mkimg profile or genapkovl)
