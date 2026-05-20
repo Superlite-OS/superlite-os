@@ -260,8 +260,8 @@ func isAllowedDestPath(destPath string) bool {
 
 // installFilesWithSafety installs files with backup and protection
 func installFilesWithSafety(dataDir, backupDir string) (installed, skipped int, err error) {
-	// Walk the data directory
-	err = filepath.Walk(dataDir, func(path string, info os.FileInfo, err error) error {
+	// Walk the data directory using WalkDir with Lstat for symlink support
+	err = filepath.WalkDir(dataDir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -292,9 +292,29 @@ func installFilesWithSafety(dataDir, backupDir string) (installed, skipped int, 
 			return nil
 		}
 
+		// Get info using Lstat (doesn't follow symlinks)
+		info, err := os.Lstat(path)
+		if err != nil {
+			return err
+		}
+
 		// Create directories
 		if info.IsDir() {
 			return os.MkdirAll(destPath, info.Mode())
+		}
+
+		// Handle symlinks
+		if info.Mode()&os.ModeSymlink != 0 {
+			linkTarget, err := os.Readlink(path)
+			if err != nil {
+				return err
+			}
+			os.Remove(destPath) // Remove existing if any
+			if err := os.Symlink(linkTarget, destPath); err != nil {
+				return err
+			}
+			installed++
+			return nil
 		}
 
 		// Backup existing file
@@ -318,7 +338,8 @@ func installFilesWithSafety(dataDir, backupDir string) (installed, skipped int, 
 
 // installFilesToRoot installs files to a custom root directory (e.g., /mnt for ISO builds)
 func installFilesToRoot(dataDir, backupDir, root string) (installed, skipped int, err error) {
-	err = filepath.Walk(dataDir, func(path string, info os.FileInfo, err error) error {
+	// Use WalkDir with Lstat to properly handle symlinks
+	err = filepath.WalkDir(dataDir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -344,7 +365,13 @@ func installFilesToRoot(dataDir, backupDir, root string) (installed, skipped int
 		// Prepend root
 		fullPath := filepath.Join(root, destPath)
 
-		// Create directories
+		// Get info using Lstat (doesn't follow symlinks)
+		info, err := os.Lstat(path)
+		if err != nil {
+			return err
+		}
+
+		// Handle directories
 		if info.IsDir() {
 			return os.MkdirAll(fullPath, info.Mode())
 		}
@@ -354,6 +381,20 @@ func installFilesToRoot(dataDir, backupDir, root string) (installed, skipped int
 			return err
 		}
 
+		// Handle symlinks
+		if info.Mode()&os.ModeSymlink != 0 {
+			linkTarget, err := os.Readlink(path)
+			if err != nil {
+				return err
+			}
+			os.Remove(fullPath) // Remove existing if any
+			if err := os.Symlink(linkTarget, fullPath); err != nil {
+				return err
+			}
+			installed++
+			return nil
+		}
+
 		// Backup existing file
 		if _, err := os.Stat(fullPath); err == nil {
 			backupPath := filepath.Join(backupDir, relPath)
@@ -361,7 +402,7 @@ func installFilesToRoot(dataDir, backupDir, root string) (installed, skipped int
 			os.Rename(fullPath, backupPath)
 		}
 
-		// Copy file
+		// Copy regular file
 		if err := copyFileWithMode(path, fullPath, info.Mode()); err != nil {
 			return err
 		}
