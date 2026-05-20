@@ -1,158 +1,207 @@
-/* ═══════════════════════════════════════════════════════
-   SuperLite OS — Minimalis Clean Theme
-   Flat, light, pill-shaped modules, spacious
-   ═══════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════
+   SuperLite OS — Frost Glass Theme
+   Floating dark-glass bar with soft glow accents and breathing space
+   ═══════════════════════════════════════════════════════════════ */
 
+/* ── Reset & Typography ── */
 * {
-    font-family: "JetBrains Mono", "Font Awesome 6 Free", "Font Awesome 6 Brands";
+    font-family: "JetBrains Mono", "Font Awesome 7 Free", "Font Awesome 7 Brands", "Font Awesome 6 Free", "Font Awesome 6 Brands";
     font-size: 11px;
     font-weight: 500;
     margin: 0;
     padding: 0;
     min-height: 0;
+    border: none;
+    border-radius: 0;
 }
 
-/* ── Bar ── */
+/* ── Floating Glass Bar ── */
 window#waybar {
-    background: #f8f9fa;
-    border: none;
-    border-top: 1px solid #e9ecef;
-    color: #1a1a2e;
+    background: rgba(18, 18, 28, 0.72);
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    color: #bac2de;
+    box-shadow:
+        0 4px 24px rgba(0, 0, 0, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 window#waybar.hidden {
-    opacity: 0.2;
+    opacity: 0.15;
 }
 
-/* ── Buttons ── */
+/* ── Buttons (workspace, taskbar items) ── */
 button {
     border: none;
-    border-radius: 20px;
-    padding: 0 12px;
+    border-radius: 10px;
+    padding: 0 10px;
     background: transparent;
     color: inherit;
+    transition: all 0.2s ease;
 }
 
 button:hover {
-    background: #e9ecef;
+    background: rgba(255, 255, 255, 0.08);
+    color: #cdd6f4;
 }
 
 /* ── Taskbar ── */
 #taskbar {
-    padding: 4px 0;
+    padding: 0 4px;
 }
 
 #taskbar button {
-    padding: 4px 12px;
-    margin: 0 3px;
-    border-radius: 20px;
-    background: #e9ecef;
-    color: #495057;
+    padding: 5px 12px;
+    margin: 0 2px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    color: #7f849c;
     transition: all 0.2s ease;
 }
 
 #taskbar button:hover {
-    background: #dee2e6;
-    color: #1a1a2e;
+    background: rgba(255, 255, 255, 0.1);
+    color: #cdd6f4;
 }
 
 #taskbar button.active {
-    background: #4361ee;
-    color: #ffffff;
+    background: rgba(137, 180, 250, 0.15);
+    color: #89b4fa;
+    box-shadow: 0 0 12px rgba(137, 180, 250, 0.1);
 }
 
-/* ── Module containers ── */
+/* ── Module Containers ── */
 .modules-left {
     margin: 0;
-    padding: 0;
+    padding: 0 6px;
+}
+
+.modules-center {
+    padding: 0 6px;
 }
 
 .modules-right {
-    padding: 4px 10px;
-    margin: 4px 8px;
-    background: #e9ecef;
-    border-radius: 20px;
+    padding: 4px 6px;
+    margin: 0 6px 0 0;
 }
 
-/* ── Search ── */
+/* ── Search Module ── */
 #custom-search {
-    padding: 0 10px;
-    border-radius: 20px;
-    color: #495057;
+    padding: 4px 14px;
+    margin: 0 4px;
+    border-radius: 10px;
+    color: #7f849c;
     transition: all 0.2s ease;
 }
 
 #custom-search:hover {
-    background: #dee2e6;
-    color: #1a1a2e;
+    background: rgba(255, 255, 255, 0.08);
+    color: #cdd6f4;
 }
 
 /* ── Clock ── */
 #clock {
-    padding: 0 10px;
-    color: #1a1a2e;
+    padding: 4px 16px;
+    margin: 0 4px;
+    border-radius: 10px;
+    color: #cdd6f4;
     font-weight: 600;
+    letter-spacing: 0.3px;
+    background: rgba(255, 255, 255, 0.04);
+    transition: all 0.2s ease;
+}
+
+#clock:hover {
+    background: rgba(137, 180, 250, 0.12);
+    color: #89b4fa;
 }
 
 /* ── Network ── */
 #network {
-    padding: 0 8px;
-    color: #495057;
-    transition: color 0.2s ease;
+    padding: 4px 12px;
+    margin: 0 3px;
+    border-radius: 10px;
+    color: #7f849c;
+    transition: all 0.2s ease;
 }
 
 #network:hover {
-    color: #1a1a2e;
+    background: rgba(255, 255, 255, 0.06);
+    color: #a6adc8;
 }
 
 #network.disconnected,
 #network.disabled {
-    color: #adb5bd;
+    color: #585b70;
+}
+
+#network.disconnected:hover {
+    color: #f38ba8;
 }
 
 /* ── Battery ── */
-#battery {
-    padding: 0 8px;
-    color: #495057;
-    transition: color 0.2s ease;
+#custom-battery {
+    padding: 4px 12px;
+    margin: 0 3px;
+    border-radius: 10px;
+    color: #7f849c;
+    transition: all 0.2s ease;
 }
 
-#battery.charging {
-    color: #2b9348;
+#custom-battery:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: #a6adc8;
 }
 
-#battery.plugged {
-    color: #55a630;
+#custom-battery.charging {
+    color: #a6e3a1;
 }
 
-@keyframes blink {
-    to { color: #e63946; }
+#custom-battery.plugged {
+    color: #94e2d5;
 }
 
-#battery.critical:not(.charging) {
-    color: #e63946;
-    animation-name: blink;
-    animation-duration: 0.8s;
-    animation-timing-function: steps(2, start);
-    animation-iteration-count: infinite;
-    animation-direction: alternate;
+@keyframes pulse-critical {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
 }
 
-#battery.warning:not(.charging) {
-    color: #f77f00;
+#custom-battery.critical:not(.charging) {
+    color: #f38ba8;
+    animation: pulse-critical 1.5s ease-in-out infinite;
+    background: rgba(243, 139, 168, 0.08);
+}
+
+#custom-battery.warning:not(.charging) {
+    color: #fab387;
+}
+
+/* ── Power Button ── */
+#custom-power {
+    padding: 4px 12px;
+    margin: 0 3px;
+    border-radius: 10px;
+    color: #585b70;
+    transition: all 0.25s ease;
+}
+
+#custom-power:hover {
+    background: rgba(243, 139, 168, 0.12);
+    color: #f38ba8;
+    box-shadow: 0 0 14px rgba(243, 139, 168, 0.08);
 }
 
 /* ── Tooltip ── */
 tooltip {
-    background: #ffffff;
-    border: 1px solid #e9ecef;
-    border-radius: 8px;
+    background: rgba(24, 24, 37, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
     padding: 0;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
 tooltip label {
-    color: #1a1a2e;
-    padding: 6px 10px;
+    color: #cdd6f4;
+    padding: 8px 12px;
     font-size: 11px;
 }

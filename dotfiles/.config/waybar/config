@@ -1,14 +1,23 @@
 {
     "layer": "top",
     "position": "bottom",
-    "height": 32,
-    "margin": "0 8 8 8",
-    "spacing": 8,
-
-    "modules-left": ["wlr/taskbar"],
-    "modules-center": [],
-    "modules-right": ["custom/search", "clock", "network", "custom/battery"],
-
+    "height": 38,
+    "margin-bottom": 6,
+    "margin-left": 120,
+    "margin-right": 120,
+    "spacing": 0,
+    "modules-left": [
+        "wlr/taskbar"
+    ],
+    "modules-center": [
+        "clock"
+    ],
+    "modules-right": [
+        "custom/search",
+        "network",
+        "custom/battery",
+        "custom/power"
+    ],
     "wlr/taskbar": {
         "format": "{icon}",
         "icon-size": 16,
@@ -16,9 +25,9 @@
         "on-click": "minimize-raise",
         "on-click-middle": "close",
         "rewrite": {
-            "Firefox": "",
-            "Foot": "Terminal",
-            "Thunar": "Files",
+            "Firefox": "",
+            "Foot": "",
+            "Thunar": "",
             "Code - OSS - URL Handler": "Code",
             "Telegram Desktop": "Telegram",
             "mpv Media Player": "mpv",
@@ -27,32 +36,49 @@
             "Thunderbird": "Mail"
         }
     },
-
     "custom/search": {
-        "format": " Search",
+        "format": " Search",
         "on-click": "$HOME/.config/scripts/file-search.sh",
         "tooltip": false
     },
-
     "clock": {
-        "format": "{:%a %d %b, %H:%M}",
-        "tooltip": false
+        "format": " {:%a %d %b   %H:%M}",
+        "tooltip-format": "<tt>{calendar}</tt>",
+        "calendar": {
+            "mode": "month",
+            "mode-mon-col": 2,
+            "on-scroll": 1,
+            "format": {
+                "months": "<span color='#cdd6f4'><b>{}</b></span>",
+                "days": "<span color='#a6adc8'><b>{}</b></span>",
+                "weekdays": "<span color='#89b4fa'><b>{}</b></span>",
+                "today": "<span color='#f5c2e7'><b><u>{}</u></b></span>"
+            }
+        },
+        "actions": {
+            "on-click-right": "mode",
+            "on-scroll-up": "shift_up",
+            "on-scroll-down": "shift_down"
+        }
     },
-
     "network": {
-        "format-wifi": "{signalStrength}%",
-        "format-ethernet": "",
-        "format-disconnected": "Offline",
-        "tooltip-format": "{essid} [{signalStrength}%]",
+        "format-wifi": " {signalStrength}%",
+        "format-ethernet": " Connected",
+        "format-disconnected": " Offline",
+        "tooltip-format": "{essid} [{signalStrength}%] — {ipaddr}",
         "on-click-right": "foot sudo nmtui",
         "on-click": "sudo nmcli networking connectivity | grep -q none && sudo nmcli networking on && notify-send 'Wi-Fi On' || sudo nmcli networking off"
     },
-
     "custom/battery": {
         "format": "{}",
         "return-type": "json",
         "exec": "$HOME/.config/scripts/battery-status.sh",
         "interval": 30,
         "tooltip": true
+    },
+    "custom/power": {
+        "format": " ",
+        "on-click": "$HOME/.config/scripts/tofi-power.sh",
+        "tooltip": false
     }
 }

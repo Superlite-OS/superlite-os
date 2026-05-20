@@ -1,283 +1,109 @@
 {
-     "layer": "bottom", // Waybar at top layer
-     "position": "right", // Waybar position (top|bottom|left|right)
-	//"mode":	"dock",
-    //"height": 100, // Waybar height (to be removed for auto height)
-    //"width": 1080, // Waybar width
-    "spacing": 2, // Gaps between modules (4px)
-    //"exclusive": false,
-    // Choose the order of the modules
- //   "modules-left": ["custom/vpn"],
-  //  "modules-center": ["clock"],
-	"modules-left": ["clock#day", "clock", "clock#time", "wlr/taskbar"],
-    "modules-right": [ "network", "custom/vpn", "bluetooth", "custom/gammastep", "idle_inhibitor", "custom/pacman", "battery"],
-
-    // Modules configuration
-
-
-  "wlr/taskbar": {
-        "format": "{name}",
+    "layer": "top",
+    "position": "right",
+    "width": 42,
+    "margin-top": 8,
+    "margin-right": 8,
+    "margin-bottom": 8,
+    "spacing": 0,
+    "modules-left": [
+        "clock#day",
+        "clock#time"
+    ],
+    "modules-center": [
+        "wlr/taskbar"
+    ],
+    "modules-right": [
+        "network",
+        "bluetooth",
+        "custom/gammastep",
+        "idle_inhibitor",
+        "battery",
+        "custom/power"
+    ],
+    "wlr/taskbar": {
+        "format": "{icon}",
+        "icon-size": 16,
+        "icon-theme": "SuperLite",
         "on-click": "minimize-raise",
         "on-click-middle": "close",
         "rewrite": {
-                   "Firefox Web Browser": "Firefox",
-                   "Foot": "Terminal"
-               }   
-    },
-
-    "custom/pacman": {
-    "align": 1,
-        "format": "{} OS UPDATES",
-        "interval": 7200,
-        "exec": "checkupdates | wc -l",
-        "exec-if": "exit 0",
-        "on-click": "foot --override=colors.background=FFFFF8 --override=colors.foreground=000000 --title=fly-foot-write sudo pacman -Syu ; pkill -SIGRTMIN+8 waybar",
-        "signal": 8,
-        "tooltip": false,
-    },
-
-    "custom/command": {
-        "format": "PWR",
-        "on-click": "$HOME/.config/scripts/tofi-power.sh",
-        "tooltip": false
-    },
-    
-    "custom/vpn": {
-    "align": 1,
-            "format": "VPN {}",
-            "exec": "$HOME/.config/scripts/tofi-nordvpn -s",
-            "interval": 10,
-            "on-click": "$HOME/.config/scripts/tofi-nordvpn &",
-            "on-click": "$HOME/.config/scripts/tofi-power.sh",
-            "tooltip": false
-    },
-
-    "custom/wpPrevNext": {
-        "format": "{icon}",
-        "tooltip": false,
-        "format-icons": "← →",
-        "on-click": "wtype -M win -M ctrl -k right -m win -m ctrl 2> /dev/null",
-        "on-scroll-up": "wtype -M win -M ctrl -k left -m win -m ctrl 2> /dev/null",
-        "on-scroll-down": "wtype -M win -M ctrl -k right -m win -m ctrl 2> /dev/null", 
-    },
-    
-    "custom/wpNext": {
-        "format": "{icon}",
-        "tooltip": false,
-        "format-icons": {
-            "default": "→"
-        },
-        "on-click": "wtype -M win -M ctrl -k right -m win -m ctrl 2> /dev/null"
-    },
-
-
-    // "sway/workspaces": {
-    //     "disable-scroll": true,
-    //     "all-outputs": true,
-    //     "format": "{name}: {icon}",
-    //     "format-icons": {
-    //         "1": "",
-    //         "2": "",
-    //         "3": "",
-    //         "4": "",
-    //         "5": "",
-    //         "urgent": "",
-    //         "focused": "",
-    //         "default": ""
-    //     }
-    // },
-    "keyboard-state": {
-        "numlock": true,
-        "capslock": true,
-        "format": "{name} {icon}",
-        "format-icons": {
-            "locked": "",
-            "unlocked": ""
+            "Firefox Web Browser": "",
+            "Foot": "",
+            "Thunar": ""
         }
     },
-    //"sway/mode": {
-    //    "format": "<span style=\"italic\">{}</span>"
-    //},
-    "sway/scratchpad": {
-        "format": "{icon} {count}",
-        "show-empty": false,
-        "format-icons": ["", ""],
-        "tooltip": true,
-        "tooltip-format": "{app}: {title}"
-    },
-    "mpd": {
-        "format": "{stateIcon} {consumeIcon}{randomIcon}{repeatIcon}{singleIcon}{artist} - {album} - {title} ({elapsedTime:%M:%S}/{totalTime:%M:%S}) ⸨{songPosition}|{queueLength}⸩ {volume}% ",
-        "format-disconnected": "Disconnected ",
-        "format-stopped": "{consumeIcon}{randomIcon}{repeatIcon}{singleIcon}Stopped ",
-        "unknown-tag": "N/A",
-        "interval": 2,
-        "consume-icons": {
-            "on": " "
-        },
-        "random-icons": {
-            "off": "<span color=\"#f53c3c\"></span> ",
-            "on": " "
-        },
-        "repeat-icons": {
-            "on": " "
-        },
-        "single-icons": {
-            "on": "1 "
-        },
-        "state-icons": {
-            "paused": "",
-            "playing": ""
-        },
-        "tooltip-format": "MPD (connected)",
-        "tooltip-format-disconnected": "MPD (disconnected)"
-    },
-    "idle_inhibitor": {
-    "align": 1,
-        "format": "STANDBY ON",
-    },
-    "tray": {
-        // "icon-size": 21,
-        "spacing": 10
-    },
-    "clock": {
-        "align": 1,
-        "format-alt": "{:%Y-%m-%d}",
-        "format": "{:%d %B}",
-//        "format": "{:%d %b, %H:%M}",
-        "tooltip-format": "<tt>{calendar}</tt>",
-        "calendar": {
-                    "mode"          : "month",
-                    "mode-mon-col"  : 2,
-                    //"weeks-pos"     : "right",
-                    "on-scroll"     : 1,
-                    "on-click-right": "mode",
-                    "format": {
-                              "months":     "<span color='#fffffe'><b>{}</b></span>",
-                              "days":       "<span color='#efefef'><b>{}</b></span>",
-                              //"weeks":      "<span color='#999999'><b>W{}</b></span>",
-                              "weekdays":   "<span color='#ffcc66'><b>{}</b></span>",
-                              "today":      "<span color='#ff0000'><b><u>{}</u></b></span>"
-                              }
-                    },
-        "actions":  {
-                    "on-click-right": "mode",
-                    "on-click-forward": "tz_up",
-                    "on-click-backward": "tz_down",
-                    "on-scroll-up": "shift_up",
-                    "on-scroll-down": "shift_down"
-                    }
+    "clock#day": {
+        "align": 0.5,
+        "format": "{:%a}",
+        "tooltip": false
     },
     "clock#time": {
-        "align": 1,
-		"format": "{:%a, %H:%M}",
+        "align": 0.5,
+        "format": "{:%H:%M}",
+        "tooltip-format": "<tt>{calendar}</tt>",
+        "calendar": {
+            "mode": "month",
+            "mode-mon-col": 2,
+            "on-scroll": 1,
+            "format": {
+                "months": "<span color='#cdd6f4'><b>{}</b></span>",
+                "days": "<span color='#a6adc8'><b>{}</b></span>",
+                "weekdays": "<span color='#89b4fa'><b>{}</b></span>",
+                "today": "<span color='#f5c2e7'><b><u>{}</u></b></span>"
+            }
+        }
     },
-        "clock#day": {
-            "align": 1,
-		"format": "{:%A}",
+    "network": {
+        "align": 0.5,
+        "format-wifi": "",
+        "format-ethernet": "",
+        "format-disconnected": "",
+        "tooltip-format": "{essid} [{signalStrength}%] — {ipaddr}",
+        "on-click-right": "foot sudo nmtui",
+        "on-click": "sudo nmcli networking connectivity | grep -q none && sudo nmcli networking on && notify-send 'Wi-Fi On' || sudo nmcli networking off"
     },
-
- "bluetooth": {
-       "align": 1,
-       "format": "BLUETOOTH",
-        "format-disabled": "BT DISABLED", // an empty format will hide the module
-        "format-connected": "BT [CONNECTED]",
+    "bluetooth": {
+        "align": 0.5,
+        "format": "",
+        "format-disabled": "",
+        "format-connected": "",
         "tooltip-format": "{status}",
         "tooltip-format-connected": "{controller_alias}\t{controller_address}\n\n{device_enumerate}",
         "tooltip-format-enumerate-connected": "{device_alias}\t{device_address}",
         "on-click": "blueman-manager",
         "on-click-right": "bluetoothctl power on"
     },
-    "cpu": {
-        "format": "{usage}% ",
-        "tooltip": false
-    },
-    "memory": {
-        "format": "{}% "
-    },
-    "temperature": {
-        // "thermal-zone": 2,
-        // "hwmon-path": "/sys/class/hwmon/hwmon2/temp1_input",
-        "critical-threshold": 80,
-        // "format-critical": "{temperatureC}°C {icon}",
-        "format": "{temperatureC}°C {icon}",
-        "format-icons": ["", "", ""]
-    },
-    "backlight": {
-        // "device": "acpi_video1",
-        "format": "{percent}% {icon}",
-        "format-icons": ["", "", "", "", "", "", "", "", ""]
-    },
-    "battery": {
-           "align": 1,
-
-        "states": {
-            // "good": 95,
-            "warning": 15,
-            "critical": 5
-        },
-        "format": "BATTERY AT {capacity}%",
-        "format-charging": "BAT +{capacity}%",
-        "format-plugged": "BAT +{capacity}%",
-        "format-alt": "{power}W",
-        // "format-good": "", // An empty format will hide the module
-        // "format-full": "",
-        "format-icons": ["", "", "", "", ""],
-        "tooltip-format": "{power}W - {capacity}%"
-
-    },
-    "battery#bat2": {
-        "bat": "BAT2"
-    },
-        "custom/gammastep": {
-        "align": 1,
-        "format": "FILTER {}",
+    "custom/gammastep": {
+        "align": 0.5,
+        "format": " {}",
         "tooltip": false,
         "interval": 10,
-        "on-update": "",
         "exec": "sleep 0.05; $HOME/.config/scripts/gammastep.sh",
         "on-click": "bash $HOME/.config/scripts/gammastep.sh toggle"
     },
-    "network": {
-           "align": 1,
-
-        // "interface": "wlp2*", // (Optional) To force the use of this interface
-        "format-wifi": "ONLINE",
-        //"format-ethernet": "{ipaddr}/{cidr} ",
-        "tooltip-format": "{essid} - {ipaddr}",
-        //"format-linked": "{ifname} (No IP) ",
-        "format-disconnected": "OFFLINE",
-        "format-alt": "{ipaddr} [{signalStrength}%]  <span color='#666'>::</span>  "
+    "idle_inhibitor": {
+        "align": 0.5,
+        "format": "",
+        "format-activated": "",
+        "tooltip-format-activated": "Standby prevention ON",
+        "tooltip-format-deactivated": "Standby prevention OFF"
     },
-    "pulseaudio": {
-        // "scroll-step": 1, // %, can be a float
-        "format": "{volume}% {icon} {format_source}",
-        "format-bluetooth": "{volume}% {icon} {format_source}",
-        "format-bluetooth-muted": " {icon} {format_source}",
-        "format-muted": " {format_source}",
-        "format-source": "{volume}% ",
-        "format-source-muted": "",
-        "format-icons": {
-            "headphone": "",
-            "hands-free": "",
-            "headset": "",
-            "phone": "",
-            "portable": "",
-            "car": "",
-            "default": ["", "", ""]
+    "battery": {
+        "align": 0.5,
+        "states": {
+            "warning": 15,
+            "critical": 5
         },
-        "on-click": "pavucontrol"
+        "format": "{capacity}%",
+        "format-charging": "+{capacity}%",
+        "format-plugged": "+{capacity}%",
+        "tooltip-format": "{power}W — {capacity}%"
     },
-    "custom/media": {
-        "format": "{icon} {}",
-        "return-type": "json",
-        "max-length": 40,
-        "format-icons": {
-            "spotify": "",
-            "default": "🎜"
-        },
-        "escape": true,
-        "exec": "$HOME/.config/waybar/mediaplayer.py 2> /dev/null" // Script in resources folder
-        // "exec": "$HOME/.config/waybar/mediaplayer.py --player spotify 2> /dev/null" // Filter player based on name
+    "custom/power": {
+        "align": 0.5,
+        "format": "",
+        "on-click": "$HOME/.config/scripts/tofi-power.sh",
+        "tooltip": false
     }
 }
-
