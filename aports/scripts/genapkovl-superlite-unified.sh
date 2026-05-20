@@ -381,38 +381,27 @@ wget -q -O "$LIBC6_DEB" "$LIBC6_URL" 2>&1 || {
 }
 
 if [ -f "$LIBC6_DEB" ]; then
-    echo "Extracting glibc libraries..."
-    mkdir -p /tmp/glibc-extract
-    # .deb is ar archive; data.tar.xz uses Python built-in lzma
-    python3 -c "
-import tarfile, io, lzma
-with open('$LIBC6_DEB', 'rb') as f:
-    f.read(8)
-    hdr = f.read(60)
-    sz = int(hdr[48:58].strip())
-    data = f.read(sz)
-tar_data = lzma.decompress(data)
-tf = tarfile.open(fileobj=io.BytesIO(tar_data))
-libs = ['libc.so.6', 'ld-linux-x86-64.so.2', 'libm.so.6',
-        'libpthread.so.0', 'libdl.so.2', 'libresolv.so.2']
-for m in tf.getmembers():
-    base = m.name.rsplit('/', 1)[-1]
-    if base in libs or base.startswith('libnss_'):
-        tf.extract(m, '/tmp/glibc-extract')
-        print('  ' + m.name)
-" 2>&1 || echo "Warning: glibc extraction failed (python3/lzma missing)"
+    echo "Installing glibc via zapt..."
+    GLIBC_ROOT="/tmp/glibc-root"
+    mkdir -p "$GLIBC_ROOT"
+    "$tmp/usr/local/bin/zapt" install --root "$GLIBC_ROOT" "$LIBC6_DEB" 2>&1 || {
+        echo "Warning: glibc install failed"
+    }
 
     # Copy glibc libs to ISO overlay
-    if [ -d /tmp/glibc-extract ]; then
-        mkdir -p "$tmp/usr/lib/glibc"
-        for lib in libc.so.6 ld-linux-x86-64.so.2 libm.so.6 libpthread.so.0 libdl.so.2 libresolv.so.2; do
-            find /tmp/glibc-extract -name "$lib" -exec cp {} "$tmp/usr/lib/glibc/" \; 2>/dev/null
-        done
-        find /tmp/glibc-extract -name "libnss_*" -exec cp {} "$tmp/usr/lib/glibc/" \; 2>/dev/null
-        # Create ld-linux symlink in /lib64 for Chrome to find
+    GLIBC_DIR="$tmp/usr/lib/glibc"
+    mkdir -p "$GLIBC_DIR"
+    for lib in libc.so.6 ld-linux-x86-64.so.2 libm.so.6 libpthread.so.0 libdl.so.2 libresolv.so.2; do
+        found="$(find "$GLIBC_ROOT" -name "$lib" 2>/dev/null | head -1)"
+        [ -n "$found" ] && cp "$found" "$GLIBC_DIR/" 2>/dev/null
+    done
+    find "$GLIBC_ROOT" -name "libnss_*" -exec cp {} "$GLIBC_DIR/" \; 2>/dev/null
+
+    if [ -f "$GLIBC_DIR/libc.so.6" ]; then
+        # Create ld-linux symlink in /lib64 for Chrome ELF interpreter
         mkdir -p "$tmp/lib64"
         ln -sf /usr/lib/glibc/ld-linux-x86-64.so.2 "$tmp/lib64/ld-linux-x86-64.so.2"
-        # Set LD_LIBRARY_PATH for Chrome wrapper
+        # Chrome wrapper that sets LD_LIBRARY_PATH for glibc
         cat > "$tmp/opt/google/chrome/chrome-glibc-wrapper" <<'GLIBC_WRAPPER'
 #!/bin/sh
 export LD_LIBRARY_PATH="/usr/lib/glibc:${LD_LIBRARY_PATH:-}"
@@ -420,9 +409,11 @@ exec /opt/google/chrome/chrome "$@"
 GLIBC_WRAPPER
         chmod +x "$tmp/opt/google/chrome/chrome-glibc-wrapper"
         echo "  glibc libraries installed to /usr/lib/glibc/"
+    else
+        echo "  Warning: glibc extraction failed, Chrome may not work"
     fi
     rm -f "$LIBC6_DEB"
-    rm -rf /tmp/glibc-extract
+    rm -rf "$GLIBC_ROOT"
 fi
 
 # Clone and install Chrome extensions
