@@ -553,7 +553,7 @@ build_disk_list() {
     while IFS= read -r line; do
         name=$(echo "$line" | awk '{print $1}')
         size=$(echo "$line" | awk '{print $2}')
-        model=$(echo "$line" | awk '{for(i=3;i<=NF;i++) printf "%s ", $i; print ""}' | sed 's/ *$//')
+        model=$(echo "$line" | awk '{for(i=3;i<=NF;i++) printf "%s ", $i}' | sed 's/ *$//')
         [ -z "$model" ] && model="(unknown)"
         DISK_LIST="$DISK_LIST FALSE /dev/$name $size $model"
     done <<EOF
@@ -586,9 +586,10 @@ while true; do
             fi
 
             SELECTED=$(yad --title="$TITLE" \
-                --text="<b>Select the target disk:</b>" \
-                --list --radiolist --column="" --column="Device" --column="Size" --column="Model" \
-                --print-column=2 --separator="" \
+                --text="<b>Select the target disk:</b>\n<i>Click a row to select, then click Next.</i>" \
+                --list --radiolist --selectable-labels \
+                --column="" --column="Device" --column="Size" --column="Model" \
+                --print-column=2 --separator="|" \
                 --button="Previous!go-previous:2" --button="Next!go-next:0" --button="Cancel!cancel:1" \
                 --width=$WIDTH --height=300 --center 2>/dev/null \
                 $DISK_LIST)
@@ -601,7 +602,11 @@ while true; do
             fi
             DISK=$(echo "$SELECTED" | sed 's/^ *//;s/ *$//')
             if [ -z "$DISK" ] || [ ! -b "$DISK" ]; then
-                yad --title="$TITLE" --error --text="No disk selected!" --width=$WIDTH --center 2>/dev/null
+                yad --title="$TITLE" \
+                    --warning \
+                    --text="<b>No disk selected!</b>\n\nPlease select a disk from the list to continue.\nClick <b>Next</b> after selecting a disk." \
+                    --button="OK:0" \
+                    --width=$WIDTH --center 2>/dev/null
                 continue
             fi
             STEP=3
