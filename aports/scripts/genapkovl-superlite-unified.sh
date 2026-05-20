@@ -392,10 +392,12 @@ if [ -f "$LIBC6_DEB" ]; then
     GLIBC_DIR="$tmp/usr/lib/glibc"
     mkdir -p "$GLIBC_DIR"
     for lib in libc.so.6 ld-linux-x86-64.so.2 libm.so.6 libpthread.so.0 libdl.so.2 libresolv.so.2; do
-        found="$(find "$GLIBC_ROOT" -name "$lib" 2>/dev/null | head -1)"
-        [ -n "$found" ] && cp "$found" "$GLIBC_DIR/" 2>/dev/null
+        found="$(find "$GLIBC_ROOT" -name "$lib" -print -quit 2>/dev/null || true)"
+        [ -n "$found" ] && cp "$found" "$GLIBC_DIR/" || true
     done
-    find "$GLIBC_ROOT" -name "libnss_*" -exec cp {} "$GLIBC_DIR/" \; 2>/dev/null
+    for nss in $(find "$GLIBC_ROOT" -name "libnss_*" 2>/dev/null || true); do
+        cp "$nss" "$GLIBC_DIR/" || true
+    done
 
     if [ -f "$GLIBC_DIR/libc.so.6" ]; then
         # Create ld-linux symlink in /lib64 for Chrome ELF interpreter
