@@ -721,6 +721,12 @@ case "$MODE" in
 esac
 MOTDEOF
 
+# ── Install Calamares (system installer) ──────────────────────────────────────
+echo "Installing Calamares..."
+apk add calamares calamares-branding 2>&1 || {
+    echo "Warning: calamares package install failed (not in repos)"
+}
+
 # ── MOTD ──────────────────────────────────────────────────────────────────────
 makefile root:root 0644 "$tmp"/etc/motd <<'EOF'
 
