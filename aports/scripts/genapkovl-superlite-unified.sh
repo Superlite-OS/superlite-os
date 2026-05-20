@@ -322,13 +322,52 @@ if [ -n "$ZAPT_DIR" ] && command -v go >/dev/null 2>&1; then
     fi
 fi
 
+# ── Install curl-impersonate (TLS fingerprint bypass) ────────────────────────
+CURL_IMP_VERSION="0.6.1"
+CURL_IMP_URL="https://github.com/lwthiker/curl-impersonate/releases/download/v${CURL_IMP_VERSION}/curl-impersonate-v${CURL_IMP_VERSION}.x86_64-linux-gnu.tar.gz"
+CURL_IMP_BIN=""
+
+echo "Installing curl-impersonate..."
+if ! command -v curl-impersonate-chrome >/dev/null 2>&1; then
+    wget -q -O /tmp/curl-impersonate.tar.gz "$CURL_IMP_URL" 2>/dev/null || true
+    if [ -f /tmp/curl-impersonate.tar.gz ]; then
+        mkdir -p "$tmp/usr/local/lib/curl-impersonate"
+        tar -xzf /tmp/curl-impersonate.tar.gz -C "$tmp/usr/local/lib/curl-impersonate" 2>/dev/null || true
+        if [ -f "$tmp/usr/local/lib/curl-impersonate/curl-impersonate-chrome" ]; then
+            chmod +x "$tmp/usr/local/lib/curl-impersonate/curl-impersonate-chrome"
+            ln -sf /usr/local/lib/curl-impersonate/curl-impersonate-chrome "$tmp/usr/local/bin/curl-impersonate-chrome"
+            CURL_IMP_BIN="$tmp/usr/local/bin/curl-impersonate-chrome"
+            echo "  curl-impersonate installed"
+        fi
+        rm -f /tmp/curl-impersonate.tar.gz
+    fi
+fi
+
 # ── Install Google Chrome + extensions ────────────────────────────────────────
 # Download and install Chrome .deb
 CHROME_DEB="/tmp/google-chrome-stable.deb"
 echo "Downloading Google Chrome..."
-curl -fsSL -o "$CHROME_DEB" "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb" 2>&1 || {
-    echo "Warning: Chrome download failed (see output above)"
-}
+# Use curl-impersonate if available, otherwise wget (always in Alpine via busybox)
+if [ -n "$CURL_IMP_BIN" ] && [ -x "$CURL_IMP_BIN" ]; then
+    "$CURL_IMP_BIN" -fsSL -o "$CHROME_DEB" "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb" 2>&1 || {
+        echo "Warning: Chrome download failed with curl-impersonate, trying wget..."
+        wget -q -O "$CHROME_DEB" "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb" 2>&1 || {
+            echo "Warning: Chrome download failed (see output above)"
+        }
+    }
+elif command -v curl-impersonate-chrome >/dev/null 2>&1; then
+    curl-impersonate-chrome -fsSL -o "$CHROME_DEB" "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb" 2>&1 || {
+        echo "Warning: Chrome download failed (see output above)"
+    }
+elif command -v curl >/dev/null 2>&1; then
+    curl -fsSL -o "$CHROME_DEB" "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb" 2>&1 || {
+        echo "Warning: Chrome download failed (see output above)"
+    }
+else
+    wget -q -O "$CHROME_DEB" "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb" 2>&1 || {
+        echo "Warning: Chrome download failed (see output above)"
+    }
+fi
 
 if [ -f "$CHROME_DEB" ]; then
     echo "Installing Chrome..."
