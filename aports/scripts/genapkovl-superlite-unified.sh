@@ -323,69 +323,41 @@ if [ -n "$ZAPT_DIR" ] && command -v go >/dev/null 2>&1; then
 fi
 
 # ── Install curl-impersonate (TLS fingerprint bypass) ────────────────────────
+# NOTE: curl-impersonate binary is glibc-linked; needs gcompat in the ISO to run.
+# During build, we only install files to the overlay — we do NOT exec the binary
+# because the build Docker container may not have gcompat.
 CURL_IMP_VERSION="0.6.1"
 CURL_IMP_URL="https://github.com/lwthiker/curl-impersonate/releases/download/v${CURL_IMP_VERSION}/curl-impersonate-v${CURL_IMP_VERSION}.x86_64-linux-gnu.tar.gz"
-CURL_IMP_BIN=""
 
 echo "Installing curl-impersonate..."
-if ! command -v curl-impersonate-chrome >/dev/null 2>&1; then
-    wget -q -O /tmp/curl-impersonate.tar.gz "$CURL_IMP_URL" 2>/dev/null || true
-    if [ -f /tmp/curl-impersonate.tar.gz ]; then
-        mkdir -p "$tmp/usr/local/lib/curl-impersonate"
-        tar -xzf /tmp/curl-impersonate.tar.gz -C "$tmp/usr/local/lib/curl-impersonate" 2>/dev/null || true
-        if [ -f "$tmp/usr/local/lib/curl-impersonate/curl-impersonate-chrome" ]; then
-            chmod +x "$tmp/usr/local/lib/curl-impersonate/curl-impersonate-chrome"
-            # Create wrapper script that sets LD_LIBRARY_PATH for glibc compat
-            mkdir -p "$tmp/usr/local/bin"
-            cat > "$tmp/usr/local/bin/curl-impersonate-chrome" <<'WRAPPER'
-#!/bin/sh
-exec /usr/local/lib/curl-impersonate/curl-impersonate-chrome "$@"
-WRAPPER
-            chmod +x "$tmp/usr/local/bin/curl-impersonate-chrome"
-            # Symlink curl → curl-impersonate-chrome wrapper
-            ln -sf /usr/local/bin/curl-impersonate-chrome "$tmp/usr/local/bin/curl"
-            # Install wrapper scripts (curl_chrome116, etc.)
-            for wrapper in "$tmp"/usr/local/lib/curl-impersonate/curl_*; do
-                [ -f "$wrapper" ] || continue
-                wname="$(basename "$wrapper")"
-                cat > "$tmp/usr/local/bin/$wname" <<WEOF
-#!/bin/sh
-exec /usr/local/lib/curl-impersonate/$wname "\$@"
-WEOF
-                chmod +x "$tmp/usr/local/bin/$wname"
-            done
-            CURL_IMP_BIN="$tmp/usr/local/bin/curl-impersonate-chrome"
-            echo "  curl-impersonate installed (curl → curl-impersonate-chrome)"
-        fi
-        rm -f /tmp/curl-impersonate.tar.gz
+wget -q -O /tmp/curl-impersonate.tar.gz "$CURL_IMP_URL" 2>/dev/null || true
+if [ -f /tmp/curl-impersonate.tar.gz ]; then
+    mkdir -p "$tmp/usr/local/lib/curl-impersonate"
+    tar -xzf /tmp/curl-impersonate.tar.gz -C "$tmp/usr/local/lib/curl-impersonate" 2>/dev/null || true
+    if [ -f "$tmp/usr/local/lib/curl-impersonate/curl-impersonate-chrome" ]; then
+        chmod +x "$tmp/usr/local/lib/curl-impersonate/curl-impersonate-chrome"
+        # Symlink binary directly (gcompat handles glibc in the ISO)
+        mkdir -p "$tmp/usr/local/bin"
+        ln -sf /usr/local/lib/curl-impersonate/curl-impersonate-chrome "$tmp/usr/local/bin/curl-impersonate-chrome"
+        ln -sf /usr/local/bin/curl-impersonate-chrome "$tmp/usr/local/bin/curl"
+        # Symlink wrapper scripts to PATH
+        for w in "$tmp"/usr/local/lib/curl-impersonate/curl_*; do
+            [ -f "$w" ] || continue
+            ln -sf "/usr/local/lib/curl-impersonate/$(basename "$w")" "$tmp/usr/local/bin/$(basename "$w")"
+        done
+        echo "  curl-impersonate installed (curl → curl-impersonate-chrome)"
+    else
+        echo "  Warning: curl-impersonate binary not found in tarball"
     fi
+    rm -f /tmp/curl-impersonate.tar.gz
 fi
 
 # ── Install Google Chrome + extensions ────────────────────────────────────────
-# Download and install Chrome .deb
 CHROME_DEB="/tmp/google-chrome-stable.deb"
 echo "Downloading Google Chrome..."
-# Use curl-impersonate if available, otherwise wget (always in Alpine via busybox)
-if [ -n "$CURL_IMP_BIN" ] && [ -x "$CURL_IMP_BIN" ]; then
-    "$CURL_IMP_BIN" -fsSL -o "$CHROME_DEB" "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb" 2>&1 || {
-        echo "Warning: Chrome download failed with curl-impersonate, trying wget..."
-        wget -q -O "$CHROME_DEB" "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb" 2>&1 || {
-            echo "Warning: Chrome download failed (see output above)"
-        }
-    }
-elif command -v curl-impersonate-chrome >/dev/null 2>&1; then
-    curl-impersonate-chrome -fsSL -o "$CHROME_DEB" "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb" 2>&1 || {
-        echo "Warning: Chrome download failed (see output above)"
-    }
-elif command -v curl >/dev/null 2>&1; then
-    curl -fsSL -o "$CHROME_DEB" "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb" 2>&1 || {
-        echo "Warning: Chrome download failed (see output above)"
-    }
-else
-    wget -q -O "$CHROME_DEB" "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb" 2>&1 || {
-        echo "Warning: Chrome download failed (see output above)"
-    }
-fi
+wget -q -O "$CHROME_DEB" "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb" 2>&1 || {
+    echo "Warning: Chrome download failed"
+}
 
 if [ -f "$CHROME_DEB" ]; then
     echo "Installing Chrome via zapt..."
