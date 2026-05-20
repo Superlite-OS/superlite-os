@@ -229,8 +229,8 @@ func ExtractDebToRoot(path, root string) (*DebInfo, error) {
 		exec.Command("ldconfig").Run()
 	}
 
-	// Register in zapt database
-	if err := registerPackage(info); err != nil {
+	// Register in zapt database (under custom root)
+	if err := registerPackageToRoot(info, root); err != nil {
 		fmt.Fprintf(os.Stderr, "  Warning: register failed: %v\n", err)
 	}
 
@@ -755,7 +755,12 @@ func findDataTar(dir string) string {
 
 // registerPackage registers a .deb package in zapt database
 func registerPackage(info *DebInfo) error {
-	dbDir := "/var/lib/zapt/installed"
+	return registerPackageToRoot(info, "/")
+}
+
+// registerPackageToRoot registers a .deb package in zapt database under a custom root
+func registerPackageToRoot(info *DebInfo, root string) error {
+	dbDir := filepath.Join(root, "var/lib/zapt/installed")
 	if err := os.MkdirAll(dbDir, 0755); err != nil {
 		return err
 	}
