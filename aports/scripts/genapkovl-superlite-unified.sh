@@ -377,6 +377,10 @@ if [ -f "$CHROME_DEB" ]; then
     }
     # Fix Chrome sandbox permissions
     chmod 4755 "$tmp/opt/google/chrome/chrome-sandbox" 2>/dev/null || true
+    # Create symlinks so Chrome is in PATH
+    mkdir -p "$tmp/usr/bin"
+    ln -sf /opt/google/chrome/google-chrome-stable "$tmp/usr/bin/google-chrome-stable"
+    ln -sf /opt/google/chrome/google-chrome-stable "$tmp/usr/bin/google-chrome"
     rm -f "$CHROME_DEB"
 fi
 
@@ -520,11 +524,7 @@ if [ -f /tmp/.bootmode ]; then
             ;;
         install)
             sleep 1
-            /usr/local/bin/superlite-gui-installer &
-            ;;
-        parted)
-            sleep 1
-            foot -T "Partition Manager" -e /usr/local/bin/partman &
+            sudo calamares &
             ;;
     esac
 fi'
@@ -578,7 +578,7 @@ makefile root:root 0755 "$tmp"/etc/profile.d/00-boot-mode.sh <<'BOOTMODE_EOF'
 #!/bin/sh
 # SuperLite OS — Boot mode launcher
 # Reads superlite.mode= from /proc/cmdline
-# Modes: desktop (default), install, parted
+# Modes: desktop (default), install
 
 case "$-" in *i*) ;; *) return 0 2>/dev/null || exit 0;; esac
 
@@ -609,12 +609,8 @@ fi
 
 case "$MODE" in
     install)
-        # ── Installer mode (GUI via foot) ───────────────────────────────
+        # ── Installer mode (Calamares) ──────────────────────────────────
         echo "install" > /tmp/.bootmode
-        ;;
-    parted)
-        # ── Partition manager mode (GUI via foot) ───────────────────────
-        echo "parted" > /tmp/.bootmode
         ;;
     desktop)
         # ── Desktop mode (explicit, no menu) ────────────────────────────
@@ -638,7 +634,7 @@ padding-left = 14%
 padding-top = 36%
 horizontal = false
 result-spacing = 24
-num-results = 4
+num-results = 3
 prompt-text = ""
 min-input-width = 0
 font-size = 20
@@ -664,17 +660,14 @@ makefile root:root 0755 "$tmp"/usr/local/bin/superlite-gui-menu <<'MENU_EOF'
 # SuperLite OS — GUI Boot Menu (tofi)
 # Shown when no superlite.mode= kernel parameter is set
 
-choice=$(printf "SuperLite OS  >  Desktop\nSuperLite OS  >  Install\nSuperLite OS  >  Partition Manager\nSuperLite OS  >  Shell" | tofi -c /etc/tofi/config_bootmenu)
+choice=$(printf "SuperLite OS  >  Desktop\nSuperLite OS  >  Install\nSuperLite OS  >  Shell" | tofi -c /etc/tofi/config_bootmenu)
 
 case "$choice" in
     *Desktop*)
         # Desktop is already running (autostart), do nothing
         ;;
     *Install*)
-        /usr/local/bin/superlite-gui-installer
-        ;;
-    *"Partition Manager"*)
-        foot -T "Partition Manager" -e /usr/local/bin/partman
+        sudo calamares
         ;;
     *Shell*)
         foot -T "Shell"
@@ -705,55 +698,17 @@ printf '  "Stay curious. Break things responsibly."\n'
 printf '  %s\n' "$LINE"
 
 case "$MODE" in
-    install) printf '  Mode: \033[1minstall\033[0m — Run \033[1msuperlite-gui-installer\033[0m\n\n' ;;
-    parted)  printf '  Mode: \033[1mparted\033[0m  — Run \033[1mpartman\033[0m\n\n' ;;
+    install) printf '  Mode: \033[1minstall\033[0m — Run \033[1mCalamares\033[0m\n\n' ;;
     *)       printf '  Mode: \033[1mdesktop\033[0m\n\n' ;;
 esac
 MOTDEOF
 
-# ── Build GUI Installer (Go) ─────────────────────────────────────────────────
-INSTALLER_DIR=""
-for _candidate in \
-    "$SCRIPT_DIR/../../installer" \
-    "$SCRIPT_DIR/../installer" \
-    "/build/installer" \
-    "./installer"; do
-    if [ -d "$_candidate" ] && [ -f "$_candidate/main.go" ]; then
-        INSTALLER_DIR="$_candidate"
-        break
-    fi
-done
+# ── Install Calamares (system installer) ──────────────────────────────────────
+echo "Installing Calamares..."
+apk add calamares calamares-branding 2>&1 || {
+    echo "Warning: calamares package install failed"
+}
 
-if [ -n "$INSTALLER_DIR" ] && command -v go >/dev/null 2>&1; then
-    echo "Building superlite-gui-installer..."
-    (cd "$INSTALLER_DIR" && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o "$tmp"/usr/local/bin/superlite-gui-installer .) 2>&1 || {
-        echo "Warning: installer build failed (see output above)"
-    }
-else
-    echo "Warning: installer source not found or Go not installed"
-fi
-
-# ── Build Partition Manager (Go) ────────────────────────────────────────────
-PARTMAN_DIR=""
-for _candidate in \
-    "$SCRIPT_DIR/../../partman" \
-    "$SCRIPT_DIR/../partman" \
-    "/build/partman" \
-    "./partman"; do
-    if [ -d "$_candidate" ] && [ -f "$_candidate/main.go" ]; then
-        PARTMAN_DIR="$_candidate"
-        break
-    fi
-done
-
-if [ -n "$PARTMAN_DIR" ] && command -v go >/dev/null 2>&1; then
-    echo "Building partman..."
-    (cd "$PARTMAN_DIR" && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o "$tmp"/usr/local/bin/partman .) 2>&1 || {
-        echo "Warning: partman build failed (see output above)"
-    }
-else
-    echo "Warning: partman source not found or Go not installed"
-fi
 
 # ── MOTD ──────────────────────────────────────────────────────────────────────
 makefile root:root 0644 "$tmp"/etc/motd <<'EOF'
@@ -765,7 +720,7 @@ makefile root:root 0644 "$tmp"/etc/motd <<'EOF'
     ╲╲        ╲╲         ──────────────────────────────────
    ╲╲    ╱╲    ╲╲        Alpine · LabWC · Wayland
   ╲╲    ╱  ╲    ╲╲
- ╲╲    ╱    ╲    ╲╲      desktop · install · partition manager
+ ╲╲    ╱    ╲    ╲╲      desktop · install
 ╱╱╱   ╱      ╲   ╲╲╲
       ╱        ╲
 
