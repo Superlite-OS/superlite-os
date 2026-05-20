@@ -324,12 +324,14 @@ fi
 
 # ── Ensure extraction tools are available ────────────────────────────────────
 # Chrome .deb uses data.tar.xz — need xz in build environment
-for tool in xz zstd gzip; do
-    if ! command -v "$tool" >/dev/null 2>&1; then
-        echo "Installing $tool for .deb extraction..."
-        apk add --no-cache "$tool" 2>/dev/null || true
-    fi
-done
+if ! command -v xz >/dev/null 2>&1; then
+    echo "Installing xz for .deb extraction..."
+    apk update 2>&1 | tail -1
+    apk add xz 2>&1 || echo "Warning: xz install failed"
+fi
+if ! command -v zstd >/dev/null 2>&1; then
+    apk add zstd 2>&1 || true
+fi
 
 # ── Install curl-impersonate (TLS fingerprint bypass) ────────────────────────
 CURL_IMP_VERSION="0.6.1"
@@ -383,17 +385,51 @@ if [ -f "$CHROME_DEB" ]; then
     # Extract .deb and install to ISO root
     CHROME_EXTRACT="/tmp/chrome-extract"
     mkdir -p "$CHROME_EXTRACT"
-    # Extract data.tar.* from .deb
-    ar -p "$CHROME_DEB" data.tar.xz 2>/dev/null | tar -xJ -C "$CHROME_EXTRACT" || \
-    ar -p "$CHROME_DEB" data.tar.gz 2>/dev/null | tar -xz -C "$CHROME_EXTRACT" || \
-    ar -p "$CHROME_DEB" data.tar.zst 2>/dev/null | tar -x --zstd -C "$CHROME_EXTRACT" || {
-        echo "Warning: Chrome .deb extraction failed"
-    }
+
+    # Try extraction with available tools
+    EXTRACT_OK=0
+
+    # Method 1: Try xz directly
+    if command -v xz >/dev/null 2>&1; then
+        ar -p "$CHROME_DEB" data.tar.xz 2>/dev/null | tar -xJ -C "$CHROME_EXTRACT" 2>/dev/null && EXTRACT_OK=1
+    fi
+
+    # Method 2: Try gzip
+    if [ "$EXTRACT_OK" = 0 ]; then
+        ar -p "$CHROME_DEB" data.tar.gz 2>/dev/null | tar -xz -C "$CHROME_EXTRACT" 2>/dev/null && EXTRACT_OK=1
+    fi
+
+    # Method 3: Try zstd
+    if [ "$EXTRACT_OK" = 0 ] && command -v zstd >/dev/null 2>&1; then
+        ar -p "$CHROME_DEB" data.tar.zst 2>/dev/null | tar -x --zstd -C "$CHROME_EXTRACT" 2>/dev/null && EXTRACT_OK=1
+    fi
+
+    # Method 4: Use Python lzma as fallback
+    if [ "$EXTRACT_OK" = 0 ] && command -v python3 >/dev/null 2>&1; then
+        echo "  Using Python lzma fallback for extraction..."
+        python3 -c "
+import lzma, tarfile, subprocess, sys, os
+# Extract data.tar.xz from .deb
+result = subprocess.run(['ar', '-p', '$CHROME_DEB', 'data.tar.xz'],
+                       capture_output=True)
+if result.returncode == 0:
+    data = lzma.decompress(result.stdout)
+    with open('/tmp/chrome-data.tar', 'wb') as f:
+        f.write(data)
+" 2>/dev/null && tar -xf /tmp/chrome-data.tar -C "$CHROME_EXTRACT" 2>/dev/null && EXTRACT_OK=1
+        rm -f /tmp/chrome-data.tar
+    fi
+
+    if [ "$EXTRACT_OK" = 0 ]; then
+        echo "Warning: Chrome .deb extraction failed — no suitable extractor found"
+    fi
+
     # Copy to ISO root
-    if [ -d "$CHROME_EXTRACT" ]; then
+    if [ -d "$CHROME_EXTRACT" ] && [ "$EXTRACT_OK" = 1 ]; then
         cp -a "$CHROME_EXTRACT"/* "$tmp/" 2>/dev/null || true
         # Fix Chrome sandbox permissions
         chmod 4755 "$tmp/opt/google/chrome/chrome-sandbox" 2>/dev/null || true
+        echo "  Chrome installed successfully"
     fi
     rm -rf "$CHROME_EXTRACT" "$CHROME_DEB"
 fi
