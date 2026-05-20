@@ -114,6 +114,10 @@ func ExtractDeb(path string) (*DebInfo, error) {
 		fmt.Printf("  Skipped:   %d files (protected libs)\n", skipped)
 	}
 
+	// Check and install missing shared library dependencies
+	fmt.Printf("  Checking library dependencies...\n")
+	fixMissingLibs(dataDir)
+
 	// Run postinst if exists
 	postinst := findScript(extractDir, "postinst")
 	if postinst != "" {
@@ -411,4 +415,94 @@ func registerPackage(info *DebInfo) error {
 	content := fmt.Sprintf("Package: %s\nVersion: %s\nArchitecture: %s\nDescription: %s\n",
 		info.Name, info.Version, info.Arch, info.Description)
 	return os.WriteFile(pkgFile, []byte(content), 0644)
+}
+
+// fixMissingLibs runs ldd on all ELF binaries/libs in dataDir and attempts
+// to install missing shared libraries via apk.
+func fixMissingLibs(dataDir string) {
+	// Collect all ELF files
+	var elfFiles []string
+	filepath.Walk(dataDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+			return nil
+		}
+		// Check if ELF by reading magic bytes
+		f, err := os.Open(path)
+		if err != nil {
+			return nil
+		}
+		defer f.Close()
+		magic := make([]byte, 4)
+		if _, err := f.Read(magic); err == nil && string(magic) == "\x7fELF" {
+			elfFiles = append(elfFiles, path)
+		}
+		return nil
+	})
+
+	if len(elfFiles) == 0 {
+		return
+	}
+
+	// Run ldd on all ELF files and collect missing libs
+	missing := make(map[string]bool)
+	for _, f := range elfFiles {
+		out, err := exec.Command("ldd", f).CombinedOutput()
+		if err != nil {
+			continue
+		}
+		for _, line := range strings.Split(string(out), "\n") {
+			line = strings.TrimSpace(line)
+			// "libfoo.so.1 => not found"
+			if strings.Contains(line, "not found") {
+				parts := strings.Fields(line)
+				if len(parts) > 0 {
+					lib := parts[0]
+					// Strip version suffix: libfoo.so.1.2.3 -> libfoo
+					base := lib
+					if idx := strings.Index(base, ".so"); idx > 0 {
+						base = base[:idx]
+					}
+					missing[base] = true
+				}
+			}
+		}
+	}
+
+	if len(missing) == 0 {
+		fmt.Printf("  All libraries satisfied\n")
+		return
+	}
+
+	// Try to find and install missing packages via apk
+	fmt.Printf("  Found %d missing library groups, attempting auto-install...\n", len(missing))
+	installed := 0
+	for lib := range missing {
+		// Search for package providing this library
+		out, err := exec.Command("apk", "search", "--no-cache", lib).CombinedOutput()
+		if err != nil {
+			continue
+		}
+		// Try the first result
+		lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+		for _, pkgName := range lines {
+			pkgName = strings.TrimSpace(pkgName)
+			if pkgName == "" {
+				continue
+			}
+			// Strip version suffix from package name
+			if idx := strings.Index(pkgName, "-"); idx > 0 {
+				// apk search returns "package-name-version"
+				// Try installing it
+				fmt.Printf("    Installing %s (for %s)...\n", pkgName, lib)
+				if err := ApkInstall(pkgName); err == nil {
+					installed++
+					break
+				}
+			}
+		}
+	}
+
+	if installed > 0 {
+		fmt.Printf("  Auto-installed %d packages for missing libraries\n", installed)
+	}
 }

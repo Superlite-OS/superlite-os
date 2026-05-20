@@ -322,6 +322,15 @@ if [ -n "$ZAPT_DIR" ] && command -v go >/dev/null 2>&1; then
     fi
 fi
 
+# ── Ensure extraction tools are available ────────────────────────────────────
+# Chrome .deb uses data.tar.xz — need xz in build environment
+for tool in xz zstd gzip; do
+    if ! command -v "$tool" >/dev/null 2>&1; then
+        echo "Installing $tool for .deb extraction..."
+        apk add --no-cache "$tool" 2>/dev/null || true
+    fi
+done
+
 # ── Install curl-impersonate (TLS fingerprint bypass) ────────────────────────
 CURL_IMP_VERSION="0.6.1"
 CURL_IMP_URL="https://github.com/lwthiker/curl-impersonate/releases/download/v${CURL_IMP_VERSION}/curl-impersonate-v${CURL_IMP_VERSION}.x86_64-linux-gnu.tar.gz"
