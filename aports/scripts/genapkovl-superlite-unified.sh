@@ -96,6 +96,78 @@ rc_add udev-trigger boot
 rc_add udev-settle boot
 rc_add udev-postmount boot
 
+# ── Flash disk overlay service ────────────────────────────────────────────────
+# Uses flash disk free space as writable overlay instead of tmpfs (RAM)
+makefile root:root 0755 "$tmp"/etc/init.d/flash-overlay <<'FLASHOVERLAY'
+#!/sbin/openrc-run
+# Flash disk overlay — use flash disk space instead of tmpfs for root
+
+depend() {
+    after modloop
+    before localmount
+}
+
+start() {
+    # Find boot media (the flash disk we booted from)
+    local boot_dev=""
+    for dev in /dev/sdb /dev/sdc /dev/sda; do
+        [ -b "$dev" ] || continue
+        local fstype=$(blkid -s TYPE -o value "$dev"1 2>/dev/null)
+        local label=$(blkid -s LABEL -o value "$dev"1 2>/dev/null)
+        if [ "$label" = "ALPINE-VIRT" ] || [ "$fstype" = "vfat" ]; then
+            boot_dev="$dev"
+            break
+        fi
+    done
+
+    [ -z "$boot_dev" ] && return 0
+
+    local media="/media/$(basename ${boot_dev})1"
+    [ -d "$media" ] || mkdir -p "$media"
+    mount -o ro "$boot_dev"1 "$media" 2>/dev/null || return 0
+
+    # Check free space (need at least 500MB)
+    local free_kb=$(df "$media" | tail -1 | awk '{print $4}')
+    if [ "$free_kb" -lt 512000 ]; then
+        umount "$media" 2>/dev/null
+        return 0
+    fi
+
+    # Create overlay image if not exists (2GB sparse file)
+    local overlay_img="$media/superlite-overlay.img"
+    if [ ! -f "$overlay_img" ]; then
+        dd if=/dev/zero of="$overlay_img" bs=1M count=1 seek=2047 2>/dev/null
+        mkfs.ext4 -F "$overlay_img" 2>/dev/null
+    fi
+
+    # Setup loop device
+    local loop_dev=$(losetup -f)
+    losetup "$loop_dev" "$overlay_img"
+
+    # Mount overlay
+    mkdir -p /overlay/upper /overlay/work
+    mount "$loop_dev" /overlay/upper 2>/dev/null || {
+        losetup -d "$loop_dev"
+        umount "$media" 2>/dev/null
+        return 0
+    }
+
+    # Remount root as overlay (squashfs lower + flash upper)
+    mount -t overlay overlay \
+        -o lowerdir=/,upperdir=/overlay/upper/root,workdir=/overlay/upper/work \
+        /mnt/newroot 2>/dev/null || {
+        umount /overlay/upper
+        losetup -d "$loop_dev"
+        umount "$media" 2>/dev/null
+        return 0
+    }
+
+    einfo "Flash disk overlay active (${boot_dev})"
+}
+FLASHOVERLAY
+
+rc_add flash-overlay sysinit
+
 rc_add seatd default
 rc_add elogind default
 rc_add dbus default
