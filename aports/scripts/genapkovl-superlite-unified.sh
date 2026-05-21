@@ -811,5 +811,5 @@ wifi.backend=wpa_supplicant
 EOF
 
 # ── Generate apkovl ───────────────────────────────────────────────────────────
-tar -c -C "$tmp" etc root usr | gzip -9n > "$HOSTNAME.apkovl.tar.gz"
+tar -c -C "$tmp" etc root usr opt lib64 | gzip -9n > "$HOSTNAME.apkovl.tar.gz"
 echo "[overlay] Generated: $HOSTNAME.apkovl.tar.gz"
