@@ -752,9 +752,15 @@ MOTDEOF
 
 # ── Install Calamares (system installer) ──────────────────────────────────────
 echo "Installing Calamares..."
-apk add calamares calamares-branding 2>&1 || {
-    echo "Warning: calamares package install failed (not in repos)"
-}
+# apk fetch --stdout streams .apk (tar.gz) to stdout, extract directly to overlay
+# Install calamares + branding + all deps recursively
+for pkg in calamares calamares-branding; do
+    apk fetch --stdout "$pkg" 2>/dev/null | tar xz -C "$tmp" 2>/dev/null || true
+done
+# Also fetch all dependencies recursively
+apk info --depends calamares 2>/dev/null | tr ' ' '\n' | while read dep; do
+    [ -n "$dep" ] && apk fetch --stdout "$dep" 2>/dev/null | tar xz -C "$tmp" 2>/dev/null || true
+done
 
 # ── MOTD ──────────────────────────────────────────────────────────────────────
 makefile root:root 0644 "$tmp"/etc/motd <<'EOF'
