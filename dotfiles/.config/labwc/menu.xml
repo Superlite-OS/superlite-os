@@ -27,64 +27,46 @@
 		<item label="Terminal">
 			<action name="Execute"><command>foot</command></action>
 		</item>
+		<separator/>
+		<item label="Clear Terminals">
+			<action name="Execute"><command>/root/.config/scripts/tty-clear.sh</command></action>
+		</item>
 	</menu>
  <!-- Other -->
 		<separator/>
 
 	<menu id="Display" label="Display">
-		<item label="Auto (Native)">
-			<action name="Execute"><command>sh -c "OUT=$(wlr-randr | head -1 | awk '{print $1}'); wlr-randr --output \"$OUT\" --preferred"</command></action>
+		<item label="Settings...">
+			<action name="Execute"><command>sh -c "/root/.config/scripts/display-settings.sh"</command></action>
 		</item>
 		<separator/>
-		<item label="1920x1080">
-			<action name="Execute"><command>sh -c "OUT=$(wlr-randr | head -1 | awk '{print $1}'); wlr-randr --output \"$OUT\" --mode 1920x1080@60"</command></action>
+		<item label="Reset to Native">
+			<action name="Execute"><command>sh -c "OUT=$(wlr-randr | head -1 | awk '{print $1}'); wlr-randr --output \"$OUT\" --preferred --scale 1"</command></action>
 		</item>
-		<item label="1600x900">
-			<action name="Execute"><command>sh -c "OUT=$(wlr-randr | head -1 | awk '{print $1}'); wlr-randr --output \"$OUT\" --mode 1600x900@60"</command></action>
-		</item>
-		<item label="1366x768">
-			<action name="Execute"><command>sh -c "OUT=$(wlr-randr | head -1 | awk '{print $1}'); wlr-randr --output \"$OUT\" --mode 1366x768@60"</command></action>
-		</item>
-		<item label="1280x720">
-			<action name="Execute"><command>sh -c "OUT=$(wlr-randr | head -1 | awk '{print $1}'); wlr-randr --output \"$OUT\" --mode 1280x720@60"</command></action>
-		</item>
-		<separator/>
 		<item label="Show Current">
 			<action name="Execute"><command>foot -e sh -c "wlr-randr; echo; printf 'Press Enter to close...'; read _"</command></action>
 		</item>
 	</menu>
 
 	<menu id="Wallpaper" label="Wallpaper">
-		<item label="Browse...">
-			<action name="Execute"><command>doublecmd ~/Pictures/wallpapers</command></action>
-		</item>
-		<separator/>
 		<item label="Default Wallpaper">
 			<action name="Execute"><command>sh -c "pkill swaybg; swaybg -i ~/Pictures/wallpapers/default.png -m fill &amp;"</command></action>
 		</item>
 		<item label="Random Wallpaper">
 			<action name="Execute"><command>sh -c "pkill swaybg; f=$(ls ~/Pictures/wallpapers/*.jpg ~/Pictures/wallpapers/*.png ~/Pictures/wallpapers/*.webp 2>/dev/null | shuf -n1); [ -n \"$f\" ] &amp;&amp; swaybg -i \"$f\" -m fill &amp;"</command></action>
 		</item>
-		<separator/>
-		<item label="Stop Wallpaper">
-			<action name="Execute"><command>pkill swaybg</command></action>
-		</item>
-		<separator/>
-		<item label="Fetch Wallpapers...">
-			<action name="Execute"><command>foot -e sh -c "$HOME/.config/scripts/wallpaper-fetch.sh 5; echo; printf 'Press Enter to close...'; read _"</command></action>
-		</item>
 	</menu>
 
 	<menu id="Vpn" label="VPN">
-	<item label="Connect">
-		<action name="Execute"><command>wg-quick up wgcf-profile</command></action>
-	</item>
-	<item label="Disconnect">
-		<action name="Execute"><command>wg-quick down wgcf-profile</command></action>
-	</item>
-	<item label="Register WARP">
-		<action name="Execute"><command>foot -e sh -c "wgcf register; wgcf generate; echo Done; read"</command></action>
-	</item>
+		<item label="Connect">
+			<action name="Execute"><command>/root/.config/scripts/vpn.sh connect</command></action>
+		</item>
+		<item label="Disconnect">
+			<action name="Execute"><command>/root/.config/scripts/vpn.sh disconnect</command></action>
+		</item>
+		<item label="Register WARP">
+			<action name="Execute"><command>foot -e sh -c "wgcf register; wgcf generate; echo Done; read"</command></action>
+		</item>
 	</menu>
 </menu> <!-- root-menu -->
 </openbox_menu>

@@ -1,21 +1,25 @@
+# SuperLite OS — Catppuccin Mocha notifications (mako)
 sort=-time
 layer=overlay
-background-color=#FFFACD
-text-color=#000000
-width=300
-#height=50
-outer-margin=4,4
-padding=4
+background-color=#1e1e2eE0
+text-color=#cdd6f4
+width=320
+outer-margin=8,8
+padding=8,12
 border-size=1
-border-color=#000000
-border-radius=0
-icons=0
-default-timeout=3000
+border-color=#45475a
+border-radius=10
+icons=1
+default-timeout=4000
 font=JetBrains Mono 9
-text-alignment=center
+text-alignment=left
+max-visible=3
 
-[urgency=high]
-border-color=#000000
-background-color=#FF0000
-text-color=#000000
-default-timeout=8000
+[urgency=low]
+border-color=#45475a
+default-timeout=2000
+
+[urgency=critical]
+border-color=#f38ba8
+background-color=#1e1e2eF0
+default-timeout=0
