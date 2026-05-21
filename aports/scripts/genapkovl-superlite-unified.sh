@@ -500,6 +500,35 @@ GLIBC_WRAPPER
     rm -rf "$GLIBC_ROOT"
 fi
 
+# ── Install Double Commander (file manager) ──────────────────────────────────
+echo "Installing Double Commander..."
+DC_VERSION="1.1.32"
+DC_URL="https://github.com/doublecmd/doublecmd/releases/download/v${DC_VERSION}/doublecmd-${DC_VERSION}.gtk2.x86_64.tar.xz"
+wget -q -O /tmp/doublecmd.tar.xz "$DC_URL" 2>/dev/null || true
+if [ -f /tmp/doublecmd.tar.xz ]; then
+    mkdir -p "$tmp/opt/doublecmd"
+    tar -xJf /tmp/doublecmd.tar.xz -C "$tmp/opt/doublecmd" --strip-components=1 2>/dev/null || true
+    if [ -f "$tmp/opt/doublecmd/doublecmd" ]; then
+        chmod +x "$tmp/opt/doublecmd/doublecmd"
+        mkdir -p "$tmp/usr/bin"
+        ln -sf /opt/doublecmd/doublecmd-gtk2 "$tmp/usr/bin/doublecmd"
+        # Create desktop entry
+        mkdir -p "$tmp/usr/share/applications"
+        cat > "$tmp/usr/share/applications/doublecmd.desktop" <<'DCDESKTOP'
+[Desktop Entry]
+Name=Double Commander
+Comment=File Manager
+Exec=doublecmd
+Icon=doublecmd
+Terminal=false
+Type=Application
+Categories=System;FileTools;FileManager;
+DCDESKTOP
+        echo "  Double Commander installed"
+    fi
+    rm -f /tmp/doublecmd.tar.xz
+fi
+
 # Clone and install Chrome extensions
 EXTENSIONS_DIR="$tmp/usr/share/chrome/extensions"
 mkdir -p "$EXTENSIONS_DIR"

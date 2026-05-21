@@ -100,7 +100,7 @@ grim
 slurp
 wtype
 yad
-thunar
+# thunar — replaced by Double Commander (pre-built binary)
 imv
 mpv
 lxappearance
