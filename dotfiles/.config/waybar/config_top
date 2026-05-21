@@ -1,25 +1,20 @@
 {
     "layer": "top",
-    "position": "right",
-    "width": 42,
-    "margin-top": 8,
-    "margin-right": 8,
-    "margin-bottom": 8,
+    "position": "top",
+    "height": 34,
+    "margin-top": 6,
     "spacing": 0,
     "modules-left": [
-        "clock#day",
-        "clock#time"
-    ],
-    "modules-center": [
         "wlr/taskbar"
     ],
+    "modules-center": [
+        "cpu",
+        "memory",
+        "disk"
+    ],
     "modules-right": [
-        "network",
-        "bluetooth",
-        "custom/gammastep",
-        "idle_inhibitor",
-        "battery",
-        "custom/power"
+        "network#speed",
+        "custom/connections"
     ],
     "wlr/taskbar": {
         "format": "{icon}",
@@ -28,82 +23,38 @@
         "on-click": "minimize-raise",
         "on-click-middle": "close",
         "rewrite": {
-            "Firefox Web Browser": "",
-            "Foot": "",
-            "Double Commander": ""
+            "Firefox Web Browser": "",
+            "Foot": "",
+            "Double Commander": "",
+            "Code - OSS - URL Handler": "Code",
+            "Telegram Desktop": "Telegram",
+            "Thunderbird": "Mail"
         }
     },
-    "clock#day": {
-        "align": 0.5,
-        "format": "{:%a}",
-        "tooltip": false
+    "cpu": {
+        "format": "\uf2db {usage}%",
+        "tooltip-format": "{avg_frequency} GHz \u2014 {usage}% used",
+        "interval": 3
     },
-    "clock#time": {
-        "align": 0.5,
-        "format": "{:%H:%M}",
-        "tooltip-format": "<tt>{calendar}</tt>",
-        "calendar": {
-            "mode": "month",
-            "mode-mon-col": 2,
-            "on-scroll": 1,
-            "format": {
-                "months": "<span color='#cdd6f4'><b>{}</b></span>",
-                "days": "<span color='#a6adc8'><b>{}</b></span>",
-                "weekdays": "<span color='#89b4fa'><b>{}</b></span>",
-                "today": "<span color='#f5c2e7'><b><u>{}</u></b></span>"
-            }
-        }
+    "memory": {
+        "format": "\uf5dc {percentage}%",
+        "tooltip-format": "{used:0.1f}G / {total:0.1f}G",
+        "interval": 5
     },
-    "network": {
-        "align": 0.5,
-        "format-wifi": "",
-        "format-ethernet": "",
-        "format-disconnected": "",
-        "tooltip-format": "{essid} [{signalStrength}%] — {ipaddr}",
-        "on-click-right": "foot sudo nmtui",
-        "on-click": "if sudo nmcli networking connectivity | grep -q none; then sudo nmcli networking on && notify-send 'Wi-Fi On'; else sudo nmcli networking off && notify-send 'Wi-Fi Off'; fi"
+    "disk": {
+        "format": "\uf1c0 {percentage_used}%",
+        "tooltip-format": "{used} / {total} \u2014 {path}",
+        "interval": 30
     },
-    "bluetooth": {
-        "align": 0.5,
-        "format": "",
-        "format-disabled": "",
-        "format-connected": "",
-        "tooltip-format": "{status}",
-        "tooltip-format-connected": "{controller_alias}\t{controller_address}\n\n{device_enumerate}",
-        "tooltip-format-enumerate-connected": "{device_alias}\t{device_address}",
-        "on-click": "blueman-manager",
-        "on-click-right": "bluetoothctl power on"
+    "network#speed": {
+        "format": "\uf062 {bandwidthUpBytes}  \uf063 {bandwidthDownBytes}",
+        "tooltip-format": "{ipaddr}/{cidr} \u2014 {ifname}",
+        "interval": 2
     },
-    "custom/gammastep": {
-        "align": 0.5,
-        "format": " {}",
-        "tooltip": false,
-        "interval": 10,
-        "exec": "sleep 0.05; $HOME/.config/scripts/gammastep.sh",
-        "on-click": "bash $HOME/.config/scripts/gammastep.sh toggle"
-    },
-    "idle_inhibitor": {
-        "align": 0.5,
-        "format": "",
-        "format-activated": "",
-        "tooltip-format-activated": "Standby prevention ON",
-        "tooltip-format-deactivated": "Standby prevention OFF"
-    },
-    "battery": {
-        "align": 0.5,
-        "states": {
-            "warning": 15,
-            "critical": 5
-        },
-        "format": "{capacity}%",
-        "format-charging": "+{capacity}%",
-        "format-plugged": "+{capacity}%",
-        "tooltip-format": "{power}W — {capacity}%"
-    },
-    "custom/power": {
-        "align": 0.5,
-        "format": "",
-        "on-click": "$HOME/.config/scripts/tofi-power.sh",
-        "tooltip": false
+    "custom/connections": {
+        "exec": "$HOME/.config/scripts/conn-count.sh",
+        "format": "{}",
+        "tooltip-format": "TCP + UDP connections",
+        "interval": 3
     }
 }

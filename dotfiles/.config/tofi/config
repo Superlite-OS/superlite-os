@@ -1,34 +1,50 @@
-# SuperLite OS — Catppuccin Mocha launcher (tofi)
+# SuperLite OS — Tofi Launcher (Catppuccin Mocha)
+# Full-screen search with frost glass effect
+
+# ── Layout ──
 width = 100%
 height = 100%
+anchor = top
+padding-top = 28%
+padding-left = 5%
+padding-right = 5%
+
+# ── Font ──
+font = /usr/share/fonts/jetbrains-mono/JetBrainsMono-Regular.ttf
+font-size = 14
+hint-font = true
+
+# ── Window ──
+background-color = #1e1e2eD0
 border-width = 0
 outline-width = 0
-padding-left = 35%
-padding-top = 30%
-result-spacing = 20
-num-results = 6
-font = JetBrains Mono
-font-size = 14
-background-color = #1e1e2eD0
-text-color = #cdd6f4
-selection-color = #89b4fa
-selection-background = #313244
-selection-background-padding = 12
-selection-background-corner-radius = 8
-prompt-text = " 󰀻  Search: "
+
+# ── Input ──
+prompt-text = "> Search: "
 prompt-color = #89b4fa
-prompt-padding = 10
+prompt-padding = 8
+text-color = #cdd6f4
 input-background = #313244
-input-background-padding = 10
-input-background-corner-radius = 8
-input-color = #cdd6f4
-placeholder-color = #6c7086
-border-color = #45475a
-hide-cursor = true
+input-background-padding = 12
+input-background-corner-radius = 10
+placeholder-color = #585b70
 text-cursor = true
 text-cursor-color = #89b4fa
+
+# ── Results ──
+num-results = 6
+result-spacing = 20
+default-result-color = #6c7086
+selection-color = #cdd6f4
+selection-background = #313244
+selection-background-padding = 14
+selection-background-corner-radius = 8
+selection-match-color = #89b4fa
+
+# ── Behavior ──
+hide-cursor = true
 history = true
 drun-launch = true
 terminal = foot
-anchor = top
 late-keyboard-init = true
+require-match = false

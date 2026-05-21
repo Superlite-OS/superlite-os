@@ -243,15 +243,23 @@
     </keybind>
     <keybind key="W-1">
       <action name="GoToDesktop" to="1"/>
+      <action name="Execute"><command>bash -c 'echo 1 > /tmp/workspace'</command></action>
     </keybind>
     <keybind key="W-2">
       <action name="GoToDesktop" to="2"/>
+      <action name="Execute"><command>bash -c 'echo 2 > /tmp/workspace'</command></action>
     </keybind>
     <keybind key="W-3">
       <action name="GoToDesktop" to="3"/>
+      <action name="Execute"><command>bash -c 'echo 3 > /tmp/workspace'</command></action>
     </keybind>
     <keybind key="W-4">
       <action name="GoToDesktop" to="4"/>
+      <action name="Execute"><command>bash -c 'echo 4 > /tmp/workspace'</command></action>
+    </keybind>
+    <keybind key="W-5">
+      <action name="GoToDesktop" to="5"/>
+      <action name="Execute"><command>bash -c 'echo 5 > /tmp/workspace'</command></action>
     </keybind>
     <keybind key="W-S-1">
       <action name="SendToDesktop" to="1" follow="yes"/>
@@ -544,9 +552,11 @@
       </mousebind>
       <mousebind direction="Up" action="Scroll">
         <action name="GoToDesktop" to="left" wrap="yes" />
+        <action name="Execute"><command>bash -c 'echo left > /tmp/workspace'</command></action>
       </mousebind>
       <mousebind direction="Down" action="Scroll">
         <action name="GoToDesktop" to="right" wrap="yes" />
+        <action name="Execute"><command>bash -c 'echo right > /tmp/workspace'</command></action>
       </mousebind>
     </context>
     

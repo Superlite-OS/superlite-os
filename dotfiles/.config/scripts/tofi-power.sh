@@ -1,15 +1,15 @@
 #!/bin/sh
-case $(printf "%s\n" "Logout" "Reboot" "Suspend" "Shutdown" | tofi -c "$HOME/.config/tofi/config_power_bottom" "$@") in
-	"Logout")
+case $(printf "%s\n" " Logout" " Reboot" " Suspend" " Shutdown" | tofi -c "$HOME/.config/tofi/config_power" "$@") in
+	*" Logout")
 		labwc --exit
 		;;
-	"Reboot")
+	*" Reboot")
 		sudo reboot -i
 		;;
-	"Suspend")
+	*" Suspend")
 		sudo zzz
 		;;
-	"Shutdown")
+	*" Shutdown")
 		sudo poweroff -i
 		;;
 esac

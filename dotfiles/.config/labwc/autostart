@@ -17,8 +17,13 @@ elif [ -f "$DEFAULT_WP" ]; then
     swaybg -i "$DEFAULT_WP" -m fill >/dev/null 2>&1 &
 fi
 
-waybar >/dev/null 2>&1 &
+# Waybar — 3 bars: top (system), right (workspaces), bottom (controls)
+waybar -c "$HOME/.config/waybar/config_top" -s "$HOME/.config/waybar/style_top.css" >/dev/null 2>&1 &
+waybar -c "$HOME/.config/waybar/config_right" -s "$HOME/.config/waybar/style_right.css" >/dev/null 2>&1 &
+waybar -c "$HOME/.config/waybar/config" -s "$HOME/.config/waybar/style.css" >/dev/null 2>&1 &
 mako >/dev/null 2>&1 &
+# Workspace indicator daemon (listens on /tmp/workspace pipe)
+sh "$HOME/.config/scripts/workspaces.sh" &
 gammastep -O 5600 >/dev/null 2>&1 &
 # NOTE: requires passwordless sudo for suspend: add to /etc/sudoers:
 #   username ALL=(ALL) NOPASSWD: /usr/bin/zzz, /usr/bin/reboot, /usr/bin/poweroff

@@ -1,35 +1,50 @@
-# SuperLite OS — Display Settings (tofi full-screen)
+# SuperLite OS — Tofi Display Settings (Catppuccin Mocha)
+# Full-screen display settings menu
+
+# ── Layout ──
 width = 100%
 height = 100%
+anchor = top
+padding-top = 25%
+padding-left = 5%
+padding-right = 5%
+
+# ── Font ──
+font = /usr/share/fonts/jetbrains-mono/JetBrainsMono-Regular.ttf
+font-size = 15
+hint-font = true
+
+# ── Window ──
+background-color = #1e1e2eE8
 border-width = 0
 outline-width = 0
-padding-left = 35%
-padding-top = 25%
-result-spacing = 18
-num-results = 10
-font = JetBrains Mono
-font-size = 15
-background-color = #1e1e2eE8
-text-color = #cdd6f4
-selection-color = #89b4fa
-selection-background = #313244
-selection-background-padding = 12
-selection-background-corner-radius = 8
-prompt-text = " 󰍉  Display Settings: "
+
+# ── Input ──
+prompt-text = "> Display Settings: "
 prompt-color = #89b4fa
-prompt-padding = 12
+prompt-padding = 10
+text-color = #cdd6f4
 input-background = #313244
 input-background-padding = 12
-input-background-corner-radius = 8
-input-color = #cdd6f4
-placeholder-color = #6c7086
-border-color = #45475a
-hide-cursor = true
+input-background-corner-radius = 10
+placeholder-color = #585b70
 text-cursor = true
 text-cursor-color = #89b4fa
+
+# ── Results ──
+num-results = 10
+result-spacing = 18
+default-result-color = #a6adc8
+selection-color = #cdd6f4
+selection-background = #313244
+selection-background-padding = 14
+selection-background-corner-radius = 8
+selection-match-color = #89b4fa
+
+# ── Behavior ──
+hide-cursor = true
 history = true
 drun-launch = false
 terminal = foot
-anchor = top
 late-keyboard-init = true
 hide-input = true

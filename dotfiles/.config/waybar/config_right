@@ -1,0 +1,44 @@
+{
+    "layer": "overlay",
+    "position": "right",
+    "exclusive": false,
+    "width": 46,
+    "margin-top": 6,
+    "margin-right": 6,
+    "margin-bottom": 6,
+    "spacing": 0,
+    "modules-left": [],
+    "modules-center": [
+        "custom/ws1",
+        "custom/ws2",
+        "custom/ws3",
+        "custom/ws4",
+        "custom/ws5"
+    ],
+    "modules-right": [],
+    "custom/ws1": {
+        "exec": "$HOME/.config/scripts/ws1.sh",
+        "on-click": "$HOME/.config/scripts/ws-switch.sh 1",
+        "restart-interval": 1
+    },
+    "custom/ws2": {
+        "exec": "$HOME/.config/scripts/ws2.sh",
+        "on-click": "$HOME/.config/scripts/ws-switch.sh 2",
+        "restart-interval": 1
+    },
+    "custom/ws3": {
+        "exec": "$HOME/.config/scripts/ws3.sh",
+        "on-click": "$HOME/.config/scripts/ws-switch.sh 3",
+        "restart-interval": 1
+    },
+    "custom/ws4": {
+        "exec": "$HOME/.config/scripts/ws4.sh",
+        "on-click": "$HOME/.config/scripts/ws-switch.sh 4",
+        "restart-interval": 1
+    },
+    "custom/ws5": {
+        "exec": "$HOME/.config/scripts/ws5.sh",
+        "on-click": "$HOME/.config/scripts/ws-switch.sh 5",
+        "restart-interval": 1
+    }
+}

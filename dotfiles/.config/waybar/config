@@ -3,46 +3,19 @@
     "position": "bottom",
     "height": 38,
     "margin-bottom": 6,
-    "margin-left": 120,
-    "margin-right": 120,
     "spacing": 0,
     "modules-left": [
-        "wlr/taskbar"
-    ],
-    "modules-center": [
         "clock"
     ],
+    "modules-center": [],
     "modules-right": [
         "custom/search",
+        "pulseaudio",
         "network",
-        "custom/battery",
-        "custom/power"
+        "battery"
     ],
-    "wlr/taskbar": {
-        "format": "{icon}",
-        "icon-size": 16,
-        "icon-theme": "SuperLite",
-        "on-click": "minimize-raise",
-        "on-click-middle": "close",
-        "rewrite": {
-            "Firefox": "",
-            "Foot": "",
-            "Double Commander": "",
-            "Code - OSS - URL Handler": "Code",
-            "Telegram Desktop": "Telegram",
-            "mpv Media Player": "mpv",
-            "GNU Image Manipulation Program": "GIMP",
-            "Inkscape Vector Graphics Editor": "Inkscape",
-            "Thunderbird": "Mail"
-        }
-    },
-    "custom/search": {
-        "format": " Search",
-        "on-click": "$HOME/.config/scripts/file-search.sh",
-        "tooltip": false
-    },
     "clock": {
-        "format": " {:%a %d %b   %H:%M}",
+        "format": "\uf017 {:%a %d %b   %H:%M}",
         "tooltip-format": "<tt>{calendar}</tt>",
         "calendar": {
             "mode": "month",
@@ -61,24 +34,41 @@
             "on-scroll-down": "shift_down"
         }
     },
+    "custom/search": {
+        "format": "\uf002 Search",
+        "on-click": "$HOME/.config/scripts/file-search.sh",
+        "tooltip": false
+    },
+    "pulseaudio": {
+        "format": "{icon} {volume}%",
+        "format-muted": "\uf6a9 Muted",
+        "format-icons": {
+            "default": ["\uf026", "\uf027", "\uf028"]
+        },
+        "tooltip-format": "{desc} \u2014 {volume}%\n\nClick: Mute toggle\nRight-click: Set 50%\nScroll: Adjust ±5%",
+        "on-click": "pactl set-sink-mute @DEFAULT_SINK@ toggle",
+        "on-click-right": "pactl set-sink-volume @DEFAULT_SINK@ 50%",
+        "on-scroll-up": "sh -c 'VOL=$(pactl get-sink-volume @DEFAULT_SINK@ | sed -n \"s/.* \\([0-9]*\\)%.*/\\1/p\" | head -1); if [ \"$VOL\" -lt 96 ] 2>/dev/null; then pactl set-sink-volume @DEFAULT_SINK@ +5%; else pactl set-sink-volume @DEFAULT_SINK@ 100%; fi'",
+        "on-scroll-down": "pactl set-sink-volume @DEFAULT_SINK@ -5%"
+    },
     "network": {
-        "format-wifi": " {signalStrength}%",
-        "format-ethernet": " Connected",
-        "format-disconnected": " Offline",
-        "tooltip-format": "{essid} [{signalStrength}%] — {ipaddr}",
+        "format-wifi": "\uf1eb {signalStrength}%",
+        "format-ethernet": "\uf0e8 Connected",
+        "format-disconnected": "\uf05e Offline",
+        "tooltip-format": "{essid} [{signalStrength}%] \u2014 {ipaddr}",
         "on-click-right": "foot sudo nmtui",
         "on-click": "if sudo nmcli networking connectivity | grep -q none; then sudo nmcli networking on && notify-send 'Wi-Fi On'; else sudo nmcli networking off && notify-send 'Wi-Fi Off'; fi"
     },
-    "custom/battery": {
-        "format": "{}",
-        "return-type": "json",
-        "exec": "$HOME/.config/scripts/battery-status.sh",
-        "interval": 30,
-        "tooltip": true
-    },
-    "custom/power": {
-        "format": " ",
-        "on-click": "$HOME/.config/scripts/tofi-power.sh",
-        "tooltip": false
+    "battery": {
+        "states": {
+            "warning": 15,
+            "critical": 5
+        },
+        "format": "{icon} {capacity}%",
+        "format-charging": "\uf0e7 {capacity}%",
+        "format-plugged": "\uf0e7 {capacity}%",
+        "format-icons": ["\uf244", "\uf243", "\uf242", "\uf241", "\uf240"],
+        "tooltip-format": "{power}W \u2014 {capacity}%",
+        "interval": 30
     }
 }

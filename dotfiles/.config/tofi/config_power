@@ -1,22 +1,37 @@
-width = 100%
+# SuperLite OS — Tofi Power Menu (Catppuccin Mocha)
+
+# ── Layout ──
+width = 400
 height = 100%
-padding-left = 14%
-padding-top = 44%
+anchor = top
+padding-top = 46%
 horizontal = true
-result-spacing = 50
+result-spacing = 40
 num-results = 4
-prompt-text = ""
-min-input-width = 0
-font-size = 22
-font = JetBrains Mono Medium
-outline-width = 0
+
+# ── Font ──
+font = /usr/share/fonts/jetbrains-mono/JetBrainsMono-Medium.ttf
+font-size = 15
+hint-font = true
+
+# ── Window ──
+background-color = #1e1e2eE8
 border-width = 0
-background-color = #000000
-selection-color = #FF0000
-hint-font = false
-text-cursor=false
-text-cursor-thickness=15
-text-cursor-color=#666
-hide-cursor=true
+outline-width = 0
+
+# ── Input ──
+prompt-text = ""
+text-cursor = false
+
+# ── Results ──
+text-color = #6c7086
+selection-color = #f38ba8
+selection-background = #1e1e2e00
+selection-background-padding = 10
+
+# ── Behavior ──
+hide-cursor = true
+hide-input = true
 drun-launch = true
+terminal = foot
 late-keyboard-init = true

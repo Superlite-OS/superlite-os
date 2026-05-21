@@ -1,240 +1,99 @@
-/* ═══════════════════════════════════════════════════════════════
-   SuperLite OS — Frost Glass (Vertical Side Panel)
-   Floating dark-glass vertical bar, matching bottom bar aesthetic
-   ═══════════════════════════════════════════════════════════════ */
+/* SuperLite OS — Waybar Top — Catppuccin Mocha */
 
-/* ── Reset & Typography ── */
 * {
-    font-family: "JetBrains Mono", "Font Awesome 7 Free", "Font Awesome 7 Brands", "Font Awesome 6 Free", "Font Awesome 6 Brands";
-    font-size: 10px;
+    font-family: "JetBrains Mono", "Font Awesome 6 Free Solid", "Font Awesome 6 Free";
+    font-size: 11px;
     font-weight: 500;
-    margin: 0;
-    padding: 0;
     min-height: 0;
     border: none;
     border-radius: 0;
 }
 
-/* ── Floating Glass Bar ── */
 window#waybar {
     background: rgba(18, 18, 28, 0.72);
-    border-radius: 14px;
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    color: #bac2de;
-    box-shadow:
-        0 4px 24px rgba(0, 0, 0, 0.35),
-        inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    border-bottom: 1px solid rgba(69, 71, 90, 0.4);
 }
 
-window#waybar.hidden {
-    opacity: 0.15;
-}
-
-/* ── Buttons ── */
-button {
-    border: none;
-    border-radius: 10px;
-    padding: 0;
-    background: transparent;
-    color: inherit;
-    transition: all 0.2s ease;
-}
-
-button:hover {
-    background: rgba(255, 255, 255, 0.08);
-    color: #cdd6f4;
-}
-
-/* ── Module Containers ── */
-.modules-left {
-    padding: 8px 0;
-    margin: 0;
-}
-
-.modules-center {
-    padding: 4px 0;
-}
-
-.modules-right {
-    padding: 8px 0;
-    margin: 0;
-}
-
-/* ── Taskbar (vertical) ── */
-#taskbar {
-    padding: 4px 5px;
-}
-
-#taskbar button {
-    padding: 8px 0;
-    margin: 2px 0;
-    border-radius: 10px;
-    background: rgba(255, 255, 255, 0.04);
-    color: #7f849c;
-    min-width: 30px;
-    transition: all 0.2s ease;
-}
-
-#taskbar button:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: #cdd6f4;
-}
-
-#taskbar button.active {
-    background: rgba(137, 180, 250, 0.15);
-    color: #89b4fa;
-    box-shadow: 0 0 12px rgba(137, 180, 250, 0.1);
-}
-
-/* ── Clock (vertical stacked) ── */
-#clock {
-    padding: 6px 0;
-    color: #7f849c;
-    transition: all 0.2s ease;
-}
-
-#clock.day {
-    font-size: 9px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    color: #585b70;
-    padding: 8px 0 2px;
-}
-
-#clock.time {
-    font-weight: 700;
-    font-size: 12px;
-    color: #cdd6f4;
-    padding: 2px 0 8px;
-}
-
-#clock:hover {
-    background: rgba(137, 180, 250, 0.08);
-    color: #cdd6f4;
-}
-
-/* ── Network ── */
-#network {
-    padding: 8px 0;
-    color: #585b70;
-    transition: all 0.2s ease;
-}
-
-#network:hover {
-    background: rgba(255, 255, 255, 0.06);
-    color: #a6adc8;
-}
-
-#network.disconnected,
-#network.disabled {
-    color: #45475a;
-}
-
-#network.disconnected:hover {
-    color: #f38ba8;
-}
-
-/* ── Bluetooth ── */
-#bluetooth {
-    padding: 8px 0;
-    color: #585b70;
-    transition: all 0.2s ease;
-}
-
-#bluetooth:hover {
-    background: rgba(255, 255, 255, 0.06);
-    color: #a6adc8;
-}
-
-#bluetooth.disabled {
-    color: #45475a;
-}
-
-#bluetooth.connected {
-    color: #89b4fa;
-}
-
-/* ── Gammastep ── */
-#custom-gammastep {
-    padding: 8px 0;
-    color: #585b70;
-    transition: all 0.2s ease;
-}
-
-#custom-gammastep:hover {
-    background: rgba(255, 255, 255, 0.06);
-    color: #f9e2af;
-}
-
-/* ── Idle Inhibitor ── */
-#idle_inhibitor {
-    padding: 8px 0;
-    color: #585b70;
-    transition: all 0.2s ease;
-}
-
-#idle_inhibitor:hover {
-    background: rgba(255, 255, 255, 0.06);
-    color: #a6adc8;
-}
-
-#idle_inhibitor.activated {
-    color: #a6e3a1;
-    background: rgba(166, 227, 161, 0.06);
-}
-
-/* ── Battery ── */
-#battery {
-    padding: 8px 0;
-    color: #585b70;
-    transition: all 0.2s ease;
-}
-
-#battery:hover {
-    background: rgba(255, 255, 255, 0.06);
-    color: #a6adc8;
-}
-
-#battery.charging {
-    color: #a6e3a1;
-}
-
-#battery.plugged {
-    color: #94e2d5;
-}
-
-#battery.critical:not(.charging) {
-    color: #f38ba8;
-    background: rgba(243, 139, 168, 0.15);
-}
-
-#battery.warning:not(.charging) {
-    color: #fab387;
-}
-
-/* ── Power Button ── */
-#custom-power {
-    padding: 8px 0;
-    color: #45475a;
-    transition: all 0.25s ease;
-}
-
-#custom-power:hover {
-    background: rgba(243, 139, 168, 0.1);
-    color: #f38ba8;
-}
-
-/* ── Tooltip ── */
 tooltip {
-    background: rgba(24, 24, 37, 0.92);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 12px;
-    padding: 0;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    background: #1e1e2e;
+    border: 1px solid #45475a;
+    border-radius: 10px;
 }
 
 tooltip label {
     color: #cdd6f4;
-    padding: 8px 12px;
-    font-size: 11px;
+}
+
+/* ── Taskbar ── */
+
+#taskbar button {
+    padding: 0 6px;
+    margin: 0 2px;
+    color: #585b70;
+    background: transparent;
+}
+
+#taskbar button.active {
+    color: #a6e3a1;
+    background: transparent;
+}
+
+#taskbar button:hover {
+    color: #cdd6f4;
+    background: rgba(205, 214, 244, 0.06);
+}
+
+/* ── System monitors ── */
+
+#cpu,
+#memory,
+#disk,
+#custom-connections {
+    padding: 0 8px;
+    margin: 0 1px;
+    border-radius: 6px;
+}
+
+#cpu {
+    color: #89b4fa;
+}
+
+#cpu:hover {
+    background: rgba(137, 180, 250, 0.12);
+}
+
+#memory {
+    color: #cba6f7;
+}
+
+#memory:hover {
+    background: rgba(203, 166, 247, 0.12);
+}
+
+#disk {
+    color: #94e2d5;
+}
+
+#disk:hover {
+    background: rgba(148, 226, 213, 0.12);
+}
+
+#custom-connections {
+    color: #f5c2e7;
+}
+
+#custom-connections:hover {
+    background: rgba(245, 194, 231, 0.12);
+}
+
+/* ── Network speed ── */
+
+#network.speed {
+    padding: 0 8px;
+    color: #a6e3a1;
+    border-radius: 6px;
+}
+
+#network.speed:hover {
+    background: rgba(166, 227, 161, 0.12);
 }

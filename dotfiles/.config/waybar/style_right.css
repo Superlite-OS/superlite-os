@@ -1,0 +1,60 @@
+/* SuperLite OS — Waybar Right (workspace switcher) — Catppuccin Mocha */
+
+* {
+    font-family: "JetBrains Mono", "Font Awesome 6 Free", "Font Awesome 6 Free Solid";
+    font-size: 13px;
+    font-weight: 600;
+    min-height: 0;
+    border: none;
+    border-radius: 0;
+}
+
+window#waybar {
+    background: transparent;
+    border: none;
+    padding: 0;
+}
+
+tooltip {
+    background: #1e1e2e;
+    border: 1px solid #45475a;
+    border-radius: 10px;
+}
+
+tooltip label {
+    color: #cdd6f4;
+}
+
+/* ── Workspace buttons ── */
+
+#custom-ws1,
+#custom-ws2,
+#custom-ws3,
+#custom-ws4,
+#custom-ws5 {
+    padding: 10px 6px;
+    margin: 3px 2px;
+    color: #585b70;
+    background: rgba(30, 30, 46, 0.7);
+    border-radius: 8px;
+    min-width: 28px;
+}
+
+#custom-ws1:hover,
+#custom-ws2:hover,
+#custom-ws3:hover,
+#custom-ws4:hover,
+#custom-ws5:hover {
+    background: rgba(205, 214, 244, 0.12);
+    color: #a6adc8;
+}
+
+#custom-ws1.active,
+#custom-ws2.active,
+#custom-ws3.active,
+#custom-ws4.active,
+#custom-ws5.active {
+    color: #89b4fa;
+    background: rgba(137, 180, 250, 0.2);
+    border: 1px solid rgba(137, 180, 250, 0.3);
+}
