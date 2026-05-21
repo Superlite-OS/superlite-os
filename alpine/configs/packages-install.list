@@ -4,6 +4,8 @@
 # ============================================================================
 
 # --- Everything from base desktop ---
+python3
+py3-yaml
 alpine-base
 openrc
 busybox

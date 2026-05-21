@@ -750,17 +750,19 @@ case "$MODE" in
 esac
 MOTDEOF
 
-# ── Install Calamares (system installer) ──────────────────────────────────────
-echo "Installing Calamares..."
-# apk fetch --stdout streams .apk (tar.gz) to stdout, extract directly to overlay
-# Install calamares + branding + all deps recursively
-for pkg in calamares calamares-branding; do
-    apk fetch --stdout "$pkg" 2>/dev/null | tar xz -C "$tmp" 2>/dev/null || true
-done
-# Also fetch all dependencies recursively
-apk info --depends calamares 2>/dev/null | tr ' ' '\n' | while read dep; do
-    [ -n "$dep" ] && apk fetch --stdout "$dep" 2>/dev/null | tar xz -C "$tmp" 2>/dev/null || true
-done
+# ── Install SuperLite Python Installer ───────────────────────────────────────
+echo "Installing SuperLite Installer..."
+INSTALLER_DIR="$tmp/usr/lib/superlite-installer"
+mkdir -p "$INSTALLER_DIR"
+if [ -d "$SCRIPT_DIR/installer" ]; then
+    cp -a "$SCRIPT_DIR/installer"/*.py "$INSTALLER_DIR/" 2>/dev/null || true
+fi
+# Create wrapper script
+makefile root:root 0755 "$tmp"/usr/local/bin/superlite-installer <<'INSTALLER_WRAPPER'
+#!/bin/sh
+cd /usr/lib/superlite-installer
+exec python3 main.py "$@"
+INSTALLER_WRAPPER
 
 # ── MOTD ──────────────────────────────────────────────────────────────────────
 makefile root:root 0644 "$tmp"/etc/motd <<'EOF'
