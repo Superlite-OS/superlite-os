@@ -108,35 +108,15 @@ depend() {
 }
 
 start() {
-    # Skip if booted from read-only media (CD-ROM, DVD)
-    local root_fstype=$(findmnt -n -o FSTYPE / 2>/dev/null)
-    case "$root_fstype" in
-        iso9660|udf)
-            einfo "Read-only media detected ($root_fstype), using tmpfs"
-            return 0
-            ;;
-    esac
-
-    # Find boot media (the flash disk we booted from)
+    # Find writable boot media (USB flash drive with vfat partition)
     local boot_dev=""
     for dev in /dev/sdb /dev/sdc /dev/sda; do
         [ -b "$dev" ] || continue
-        # Skip CD-ROM/DVD drives
-        case "$(cat /sys/block/$(basename $dev)/device/type 2>/dev/null)" in
-            5) continue ;;  # CD-ROM device type
-        esac
         local fstype=$(blkid -s TYPE -o value "$dev"1 2>/dev/null)
-        local label=$(blkid -s LABEL -o value "$dev"1 2>/dev/null)
-        if [ "$label" = "ALPINE-VIRT" ] || [ "$fstype" = "vfat" ]; then
-            boot_dev="$dev"
-            break
-        fi
+        [ "$fstype" = "vfat" ] && { boot_dev="$dev"; break; }
     done
 
-    [ -z "$boot_dev" ] && {
-        einfo "No writable boot media found, using tmpfs"
-        return 0
-    }
+    [ -z "$boot_dev" ] && return 0
 
     local media="/media/$(basename ${boot_dev})1"
     [ -d "$media" ] || mkdir -p "$media"
