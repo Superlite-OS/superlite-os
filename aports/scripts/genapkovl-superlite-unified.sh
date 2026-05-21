@@ -98,6 +98,7 @@ rc_add udev-postmount boot
 
 # ── Flash disk overlay service ────────────────────────────────────────────────
 # Uses flash disk free space as writable overlay instead of tmpfs (RAM)
+mkdir -p "$tmp"/etc/init.d
 makefile root:root 0755 "$tmp"/etc/init.d/flash-overlay <<'FLASHOVERLAY'
 #!/sbin/openrc-run
 # Flash disk overlay — use flash disk space instead of tmpfs for root

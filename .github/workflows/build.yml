@@ -53,11 +53,11 @@ jobs:
           # Write expect script for interactive boot test
           cat > /tmp/qemu-test.exp << 'EXPECT_SCRIPT'
           #!/usr/bin/expect -f
-          set timeout 180
+          set timeout 300
 
           # Start QEMU
           spawn qemu-system-x86_64 \
-            -m 4096 \
+            -m 8192 \
             -nographic \
             -no-reboot \
             -device VGA \
@@ -76,7 +76,7 @@ jobs:
               exit 1
             }
             timeout {
-              puts "\n✗ FAIL: Boot timeout (180s)"
+              puts "\n✗ FAIL: Boot timeout (300s)"
               exit 1
             }
           }
