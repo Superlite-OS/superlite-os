@@ -442,77 +442,126 @@ if [ -f "$CHROME_DEB" ]; then
     rm -f "$CHROME_DEB"
 fi
 
-# ── Install glibc for Chrome (real glibc for glibc-linked binary) ─────────────
-echo "Downloading glibc for Chrome..."
-LIBC6_DEB="/tmp/libc6.deb"
-LIBC6_URL="https://deb.debian.org/debian/pool/main/g/glibc/libc6_2.36-9+deb12u14_amd64.deb"
-wget -q -O "$LIBC6_DEB" "$LIBC6_URL" 2>&1 || {
-    echo "Warning: libc6 download failed"
+# ── Install glibc + Chrome deps from Debian Bookworm ─────────────────────────
+echo "Installing glibc + Chrome dependencies from Debian Bookworm..."
+GLIBC_DIR="$tmp/usr/lib/glibc"
+mkdir -p "$GLIBC_DIR"
+
+# Download Packages.gz from Bookworm and extract URLs for Chrome deps
+PKGS_GZ="/tmp/bookworm-Packages.gz"
+wget -q --timeout=30 -O "$PKGS_GZ" \
+    "https://deb.debian.org/debian/dists/bookworm/main/binary-amd64/Packages.gz" 2>/dev/null || {
+    echo "Warning: could not download Bookworm Packages.gz"
 }
 
-if [ -f "$LIBC6_DEB" ]; then
-    echo "Installing glibc via zapt..."
-    GLIBC_ROOT="/tmp/glibc-root"
-    mkdir -p "$GLIBC_ROOT"
-    "$tmp/usr/local/bin/zapt" install --root "$GLIBC_ROOT" "$LIBC6_DEB" 2>&1 || {
-        echo "Warning: glibc install failed"
+if [ -s "$PKGS_GZ" ]; then
+    # Chrome dependency packages from Bookworm (63 packages)
+    CHROME_DEPS="libc6 libgcc-s1 libstdc++6 libglib2.0-0 libpcre3 libnspr4 libnss3
+    libdbus-1-3 libatk1.0-0 libatk-bridge2.0-0 libatspi2.0-0 libpango-1.0-0
+    libcairo2 libpixman-1 libharfbuzz0b libx11-6 libxcb1 libxext6 libxfixes3
+    libxdamage1 libxcomposite1 libxrandr2 libxkbcommon0 libxshmfence1 libdrm2
+    libgbm1 libasound2 libfontconfig1 libfreetype6 libpangoft2-1.0-0 libthai0
+    libfribidi0 libexpat1 libwayland-client0 libwayland-egl1 libgdk-pixbuf-2.0-0
+    libsystemd0 liblzma5 libz1 libbrotli1 libpng16-16 libjpeg62-turbo libwebp7
+    libwebpmux3 libwebpdemux2 libopus0 libvorbis0a libvorbisenc2 libflac8
+    libmp3lame0 libvpx7 libsnappy1v5 libx264-164 libtheora0 libcups2
+    libgssapi-krb5-2 libkrb5-3 libk5crypto3 libcom-err2 libkrb5support0
+    libkeyutils1 libavcodec59 libavutil57 libswresample4"
+
+    # Helper: extract .deb and copy .so files to /usr/lib/glibc/
+    _extract_deb() {
+        _deb="$1"
+        _tmp="/tmp/deb-extract-$$"
+        mkdir -p "$_tmp"
+        # .deb is an ar archive: extract data.tar.*
+        (cd "$_tmp" && ar x "$_deb" 2>/dev/null) || { rm -rf "$_tmp"; return 1; }
+        _data=$(ls "$_tmp"/data.tar.* 2>/dev/null | head -1)
+        [ -z "$_data" ] && { rm -rf "$_tmp"; return 1; }
+        mkdir -p "$_tmp/data"
+        tar xf "$_data" -C "$_tmp/data" 2>/dev/null || true
+        # Copy all .so files and symlinks from lib/ to glibc dir
+        find "$_tmp/data" \( -path "*/lib/*.so*" -o -path "*/lib64/*" \) -print0 | while IFS= read -r -d '' f; do
+            [ -f "$f" ] || [ -L "$f" ] && cp -a "$f" "$GLIBC_DIR/" 2>/dev/null || true
+        done
+        rm -rf "$_tmp"
+        return 0
     }
 
-    # Copy glibc libs to ISO overlay
-    # zapt maps: usr/lib64 -> /lib64, usr/lib -> /lib, etc.
-    # Debian libc6 has: lib/x86_64-linux-gnu/libc.so.6, lib64/ld-linux-x86-64.so.2
-    GLIBC_DIR="$tmp/usr/lib/glibc"
-    mkdir -p "$GLIBC_DIR"
-    for libpath in \
-        "$GLIBC_ROOT/lib/x86_64-linux-gnu/libc.so.6" \
-        "$GLIBC_ROOT/lib64/ld-linux-x86-64.so.2" \
-        "$GLIBC_ROOT/lib/x86_64-linux-gnu/libm.so.6" \
-        "$GLIBC_ROOT/lib/x86_64-linux-gnu/libpthread.so.0" \
-        "$GLIBC_ROOT/lib/x86_64-linux-gnu/libdl.so.2" \
-        "$GLIBC_ROOT/lib/x86_64-linux-gnu/libresolv.so.2" \
-        "$GLIBC_ROOT/lib/x86_64-linux-gnu/libnss_compat.so.2" \
-        "$GLIBC_ROOT/lib/x86_64-linux-gnu/libnss_dns.so.2" \
-        "$GLIBC_ROOT/lib/x86_64-linux-gnu/libnss_files.so.2" \
-        "$GLIBC_ROOT/lib/x86_64-linux-gnu/libnss_hesiod.so.2" \
-    ; do
-        [ -f "$libpath" ] && cp "$libpath" "$GLIBC_DIR/" || true
+    # Parse Packages.gz and download each Chrome dependency
+    DEB_OK=0
+    for dep in $CHROME_DEPS; do
+        # Extract the Filename for this package (take first match = amd64)
+        _filename=$(zcat "$PKGS_GZ" 2>/dev/null | awk -v pkg="$dep" '
+            /^Package:/ { pname=$2 }
+            /^Architecture:/ { parch=$2 }
+            /^Filename:/ { fname=$2 }
+            /^$/ { if (pname == pkg && parch == "amd64") { print fname; exit } }
+            END { if (pname == pkg && parch == "amd64") print fname }
+        ')
+        if [ -n "$_filename" ]; then
+            _url="https://deb.debian.org/debian/$_filename"
+            _deb="/tmp/deb-${dep}.deb"
+            wget -q --timeout=30 -O "$_deb" "$_url" 2>/dev/null
+            if [ -s "$_deb" ]; then
+                _extract_deb "$_deb" && DEB_OK=$((DEB_OK + 1))
+            else
+                echo "  Warning: failed to download $dep"
+            fi
+            rm -f "$_deb"
+        else
+            echo "  Warning: $dep not found in Packages.gz"
+        fi
     done
-    # Also copy any nss libs we might have missed
-    for nss in "$GLIBC_ROOT"/lib/x86_64-linux-gnu/libnss_*.so.*; do
-        [ -f "$nss" ] && cp "$nss" "$GLIBC_DIR/" || true
-    done
+    echo "  Downloaded and extracted $DEB_OK Chrome dependency packages"
+    rm -f "$PKGS_GZ"
+fi
 
-    if [ -f "$GLIBC_DIR/libc.so.6" ]; then
-        # Create ld-linux symlink in /lib64 for Chrome ELF interpreter
-        mkdir -p "$tmp/lib64"
-        ln -sf /usr/lib/glibc/ld-linux-x86-64.so.2 "$tmp/lib64/ld-linux-x86-64.so.2"
-        # Chrome wrapper that sets LD_LIBRARY_PATH for glibc
-        cat > "$tmp/opt/google/chrome/chrome-glibc-wrapper" <<'GLIBC_WRAPPER'
+if [ -f "$GLIBC_DIR/libc.so.6" ]; then
+    # Create ld-linux symlink in /lib64 for Chrome ELF interpreter
+    mkdir -p "$tmp/lib64"
+    ln -sf /usr/lib/glibc/ld-linux-x86-64.so.2 "$tmp/lib64/ld-linux-x86-64.so.2"
+    # Chrome wrapper that sets LD_LIBRARY_PATH for glibc
+    cat > "$tmp/opt/google/chrome/chrome-glibc-wrapper" <<'GLIBC_WRAPPER'
 #!/bin/sh
 export LD_LIBRARY_PATH="/usr/lib/glibc:${LD_LIBRARY_PATH:-}"
 exec /opt/google/chrome/chrome "$@"
 GLIBC_WRAPPER
-        chmod +x "$tmp/opt/google/chrome/chrome-glibc-wrapper"
-        echo "  glibc libraries installed to /usr/lib/glibc/"
-    else
-        echo "  Warning: glibc extraction failed, Chrome may not work"
-    fi
-    rm -f "$LIBC6_DEB"
-    rm -rf "$GLIBC_ROOT"
+    chmod +x "$tmp/opt/google/chrome/chrome-glibc-wrapper"
+    echo "  glibc libraries installed to /usr/lib/glibc/"
+else
+    echo "  Warning: glibc extraction failed, Chrome may not work"
 fi
 
 # ── Install Double Commander (file manager) ──────────────────────────────────
 echo "Installing Double Commander..."
 DC_VERSION="1.1.32"
 DC_URL="https://github.com/doublecmd/doublecmd/releases/download/v${DC_VERSION}/doublecmd-${DC_VERSION}.gtk2.x86_64.tar.xz"
-wget -q -O /tmp/doublecmd.tar.xz "$DC_URL" 2>/dev/null || true
-if [ -f /tmp/doublecmd.tar.xz ]; then
+DC_OK=false
+# Try wget first, then curl as fallback
+if wget -q --timeout=30 -O /tmp/doublecmd.tar.xz "$DC_URL" 2>/dev/null; then
+    DC_OK=true
+elif curl -fsSL --connect-timeout 30 -o /tmp/doublecmd.tar.xz "$DC_URL" 2>/dev/null; then
+    DC_OK=true
+fi
+if [ "$DC_OK" = true ] && [ -f /tmp/doublecmd.tar.xz ] && [ -s /tmp/doublecmd.tar.xz ]; then
     mkdir -p "$tmp/opt/doublecmd"
-    tar -xJf /tmp/doublecmd.tar.xz -C "$tmp/opt/doublecmd" --strip-components=1 2>/dev/null || true
+    tar -xJf /tmp/doublecmd.tar.xz -C "$tmp/opt/doublecmd" --strip-components=1
     if [ -f "$tmp/opt/doublecmd/doublecmd" ]; then
         chmod +x "$tmp/opt/doublecmd/doublecmd"
         mkdir -p "$tmp/usr/bin"
-        ln -sf /opt/doublecmd/doublecmd-gtk2 "$tmp/usr/bin/doublecmd"
+        # Wrapper: prefer doublecmd, fallback to thunar
+        cat > "$tmp/usr/bin/doublecmd" <<'DCWRAP'
+#!/bin/sh
+if [ -x /opt/doublecmd/doublecmd-gtk2 ]; then
+    exec /opt/doublecmd/doublecmd-gtk2 "$@"
+elif command -v thunar >/dev/null 2>&1; then
+    exec thunar "$@"
+else
+    echo "No file manager found" >&2
+    exit 1
+fi
+DCWRAP
+        chmod +x "$tmp/usr/bin/doublecmd"
         # Create desktop entry
         mkdir -p "$tmp/usr/share/applications"
         cat > "$tmp/usr/share/applications/doublecmd.desktop" <<'DCDESKTOP'
@@ -526,8 +575,30 @@ Type=Application
 Categories=System;FileTools;FileManager;
 DCDESKTOP
         echo "  Double Commander installed"
+    else
+        echo "  WARNING: Double Commander extraction failed, falling back to thunar"
+        rm -rf "$tmp/opt/doublecmd"
     fi
     rm -f /tmp/doublecmd.tar.xz
+else
+    echo "  WARNING: Double Commander download failed, falling back to thunar"
+    rm -f /tmp/doublecmd.tar.xz
+fi
+# Ensure /usr/bin/doublecmd wrapper exists (even if download failed, falls back to thunar)
+if [ ! -f "$tmp/usr/bin/doublecmd" ]; then
+    mkdir -p "$tmp/usr/bin"
+    cat > "$tmp/usr/bin/doublecmd" <<'DCWRAP'
+#!/bin/sh
+if [ -x /opt/doublecmd/doublecmd-gtk2 ]; then
+    exec /opt/doublecmd/doublecmd-gtk2 "$@"
+elif command -v thunar >/dev/null 2>&1; then
+    exec thunar "$@"
+else
+    echo "No file manager found" >&2
+    exit 1
+fi
+DCWRAP
+    chmod +x "$tmp/usr/bin/doublecmd"
 fi
 
 # Clone and install Chrome extensions
@@ -670,7 +741,7 @@ if [ -f /tmp/.bootmode ]; then
             ;;
         install)
             sleep 1
-            sudo calamares &
+            sudo superlite-installer &
             ;;
     esac
 fi'
@@ -755,7 +826,7 @@ fi
 
 case "$MODE" in
     install)
-        # ── Installer mode (Calamares) ──────────────────────────────────
+        # ── Installer mode (Python) ──────────────────────────────────────
         echo "install" > /tmp/.bootmode
         ;;
     desktop)
@@ -813,7 +884,7 @@ case "$choice" in
         # Desktop is already running (autostart), do nothing
         ;;
     *Install*)
-        sudo calamares
+        sudo superlite-installer
         ;;
     *Shell*)
         foot -T "Shell"
@@ -844,7 +915,7 @@ printf '  "Stay curious. Break things responsibly."\n'
 printf '  %s\n' "$LINE"
 
 case "$MODE" in
-    install) printf '  Mode: \033[1minstall\033[0m — Run \033[1mCalamares\033[0m\n\n' ;;
+    install) printf '  Mode: \033[1minstall\033[0m — Run \033[1msuperlite-installer\033[0m\n\n' ;;
     *)       printf '  Mode: \033[1mdesktop\033[0m\n\n' ;;
 esac
 MOTDEOF
@@ -853,8 +924,8 @@ MOTDEOF
 echo "Installing SuperLite Installer..."
 INSTALLER_DIR="$tmp/usr/lib/superlite-installer"
 mkdir -p "$INSTALLER_DIR"
-if [ -d "$SCRIPT_DIR/installer" ]; then
-    cp -a "$SCRIPT_DIR/installer"/*.py "$INSTALLER_DIR/" 2>/dev/null || true
+if [ -d "$SCRIPT_DIR/../../installer" ]; then
+    cp -a "$SCRIPT_DIR/../../installer"/*.py "$INSTALLER_DIR/" 2>/dev/null || true
 fi
 # Create wrapper script
 makefile root:root 0755 "$tmp"/usr/local/bin/superlite-installer <<'INSTALLER_WRAPPER'

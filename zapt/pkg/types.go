@@ -5,15 +5,15 @@ import (
 	"regexp"
 )
 
-// Package represents a package from any source
+// Package represents a searchable package from Debian pool
 type Package struct {
 	Name        string
 	Version     string
 	Description string
-	Source      string // alpine, debian, ppa, flatpak
+	Filename    string // Pool path from Packages.gz
+	Source      string
 	Size        int64
 	Installed   bool
-	Available   bool
 }
 
 // validPackageName matches safe package names: alphanumeric, hyphens, dots, plus, underscores

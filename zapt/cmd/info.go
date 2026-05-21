@@ -9,16 +9,16 @@ import (
 
 var infoCmd = &cobra.Command{
 	Use:   "info [package]",
-	Short: "Show package information",
+	Short: "Show installed package information",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		p, err := pkg.ApkInfo(args[0])
+		p, err := pkg.GetPackageInfo(args[0])
 		if err != nil {
 			return err
 		}
 		fmt.Printf("Package:      %s\n", p.Name)
 		fmt.Printf("Version:      %s\n", p.Version)
-		fmt.Printf("Source:       %s\n", p.Source)
+		fmt.Printf("Architecture: %s\n", p.Arch)
 		fmt.Printf("Description:  %s\n", p.Description)
 		return nil
 	},

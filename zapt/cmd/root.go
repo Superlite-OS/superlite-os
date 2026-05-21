@@ -12,10 +12,9 @@ func SetVersion(v string) {
 
 var rootCmd = &cobra.Command{
 	Use:   "zapt",
-	Short: "Multi-source package manager for SuperLite OS",
-	Long: `zapt is an apt-inspired package manager for Alpine-based SuperLite OS.
-It searches across Alpine repos, Debian pools, Ubuntu PPAs, and Flatpak.
-It can also install .deb files directly from file manager.`,
+	Short: "Debian package manager for SuperLite OS",
+	Long: `zapt is a lightweight .deb package manager for Alpine-based SuperLite OS.
+It installs .deb files from local paths, URLs, or Debian pool repositories.`,
 	Version: version,
 }
 
@@ -24,11 +23,8 @@ func Execute() error {
 }
 
 func init() {
-	rootCmd.AddCommand(queryCmd)
 	rootCmd.AddCommand(installCmd)
 	rootCmd.AddCommand(removeCmd)
-	rootCmd.AddCommand(updateCmd)
-	rootCmd.AddCommand(upgradeCmd)
 	rootCmd.AddCommand(listCmd)
 	rootCmd.AddCommand(infoCmd)
 	rootCmd.AddCommand(searchCmd)

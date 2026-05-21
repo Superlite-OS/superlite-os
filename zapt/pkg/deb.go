@@ -31,6 +31,31 @@ var protectedLibs = []string{
 	"/libnss_", "/libutil.so", "/libcrypt.so",
 }
 
+// GetDebControl reads only the control metadata from a .deb file
+func GetDebControl(path string) (*DebInfo, error) {
+	tmpDir, err := os.MkdirTemp("", "zapt-ctrl-*")
+	if err != nil {
+		return nil, err
+	}
+	defer os.RemoveAll(tmpDir)
+
+	extractDir := filepath.Join(tmpDir, "extracted")
+	if err := os.MkdirAll(extractDir, 0755); err != nil {
+		return nil, err
+	}
+	if err := extractAr(path, extractDir); err != nil {
+		return nil, err
+	}
+
+	for _, ctar := range []string{"control.tar.gz", "control.tar.xz", "control.tar.zst"} {
+		info, err := parseControl(filepath.Join(extractDir, ctar))
+		if err == nil {
+			return info, nil
+		}
+	}
+	return nil, fmt.Errorf("control file not found in %s", path)
+}
+
 // VerifyDeb checks if a file is a valid .deb
 func VerifyDeb(path string) error {
 	f, err := os.Open(path)
@@ -334,6 +359,12 @@ func installFilesWithSafety(dataDir, backupDir string) (installed, skipped int, 
 		// Track ELF files for ldd checking
 		if isELF(path) {
 			installedELFs = append(installedELFs, destPath)
+			// If this is an ELF binary (not a .so), create a glibc wrapper
+			if !isSoFile(destPath) && isBinaryPath(destPath) {
+				if err := createGlibcWrapper(destPath, "/"); err != nil {
+					fmt.Printf("  Warning: could not create wrapper for %s: %v\n", destPath, err)
+				}
+			}
 		}
 
 		installed++
@@ -344,6 +375,8 @@ func installFilesWithSafety(dataDir, backupDir string) (installed, skipped int, 
 }
 
 // installFilesToRoot installs files to a custom root directory (e.g., /mnt for ISO builds)
+// glibc .so files are redirected to /usr/lib/glibc/ to avoid musl conflicts.
+// ELF binaries get wrapper scripts that set LD_LIBRARY_PATH=/usr/lib/glibc.
 func installFilesToRoot(dataDir, backupDir, root string) (installed, skipped int, installedELFs []string, err error) {
 	// Use WalkDir with Lstat to properly handle symlinks
 	err = filepath.WalkDir(dataDir, func(path string, d os.DirEntry, err error) error {
@@ -418,6 +451,12 @@ func installFilesToRoot(dataDir, backupDir, root string) (installed, skipped int
 		// Track ELF files for ldd checking
 		if isELF(path) {
 			installedELFs = append(installedELFs, fullPath)
+			// If this is an ELF binary (not a .so), create a glibc wrapper
+			if !isSoFile(destPath) && isBinaryPath(destPath) {
+				if err := createGlibcWrapper(fullPath, root); err != nil {
+					fmt.Printf("  Warning: could not create wrapper for %s: %v\n", destPath, err)
+				}
+			}
 		}
 
 		installed++
@@ -427,7 +466,48 @@ func installFilesToRoot(dataDir, backupDir, root string) (installed, skipped int
 	return installed, skipped, installedELFs, err
 }
 
+// isBinaryPath checks if a path is for executables (bin/sbin directories)
+func isBinaryPath(path string) bool {
+	return strings.HasPrefix(path, "/bin/") ||
+		strings.HasPrefix(path, "/sbin/") ||
+		strings.HasPrefix(path, "/usr/bin/") ||
+		strings.HasPrefix(path, "/usr/sbin/") ||
+		strings.HasPrefix(path, "/usr/libexec/")
+}
+
+// createGlibcWrapper moves a glibc-linked ELF binary to /usr/lib/glibc/bin/
+// and creates a shell wrapper at the original location that sets LD_LIBRARY_PATH.
+func createGlibcWrapper(binPath, root string) error {
+	glibcBin := filepath.Join(root, glibcLibDir, "bin")
+	if err := os.MkdirAll(glibcBin, 0755); err != nil {
+		return err
+	}
+
+	// Move real binary to /usr/lib/glibc/bin/
+	binName := filepath.Base(binPath)
+	realPath := filepath.Join(glibcBin, binName)
+	if err := os.Rename(binPath, realPath); err != nil {
+		return err
+	}
+
+	// Create wrapper script at original location
+	wrapper := fmt.Sprintf(`#!/bin/sh
+export LD_LIBRARY_PATH="%s:${LD_LIBRARY_PATH:-}"
+exec "%s" "$@"
+`, glibcLibDir, realPath)
+
+	if err := os.WriteFile(binPath, []byte(wrapper), 0755); err != nil {
+		return err
+	}
+
+	fmt.Printf("  WRAPPER: %s -> %s\n", binPath, realPath)
+	return nil
+}
+
 // mapDebPath maps Debian paths to system paths
+// glibcLibDir is where glibc-linked .so files are isolated from musl
+const glibcLibDir = "/usr/lib/glibc"
+
 func mapDebPath(relPath string) string {
 	// Remove leading ./
 	relPath = strings.TrimPrefix(relPath, "./")
@@ -446,11 +526,31 @@ func mapDebPath(relPath string) string {
 
 	for prefix, replacement := range mappings {
 		if strings.HasPrefix(relPath, prefix) {
-			return "/" + replacement + relPath[len(prefix):]
+			result := "/" + replacement + relPath[len(prefix):]
+			// Redirect .so files to glibc isolation directory
+			// This prevents glibc .so from overwriting musl .so in /lib/
+			if isSoFile(result) && (strings.HasPrefix(result, "/lib/") || strings.HasPrefix(result, "/lib64/")) {
+				return glibcLibDir + "/" + filepath.Base(result)
+			}
+			return result
 		}
 	}
 
 	return "/" + relPath
+}
+
+// isSoFile checks if a path is a shared library (.so, .so.N, .so.N.N)
+func isSoFile(path string) bool {
+	base := filepath.Base(path)
+	// Match: libc.so.6, libstdc++.so, libpthread-2.36.so, ld-linux-x86-64.so.2
+	if strings.Contains(base, ".so") {
+		return true
+	}
+	// Match: ld-linux-x86-64.so.2, ld-musl-x86_64.so.1
+	if strings.HasPrefix(base, "ld-") {
+		return true
+	}
+	return false
 }
 
 // isProtectedLib checks if a path is a protected system library
@@ -869,48 +969,9 @@ func checkInstalledLibs(elfFiles []string, root string) {
 		fmt.Printf("  MISSING in %s: %s\n", display, strings.Join(libs, ", "))
 	}
 
-	// Try auto-install via apk (only for local installs)
-	if root == "/" && len(missingPkgs) > 0 {
-		fmt.Printf("  Found %d missing library groups, attempting auto-install...\n", len(missingPkgs))
-		installed := 0
-		for lib := range missingPkgs {
-			out, err := exec.Command("apk", "search", "--no-cache", lib).CombinedOutput()
-			if err != nil {
-				continue
-			}
-			lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-			for _, pkgName := range lines {
-				pkgName = strings.TrimSpace(pkgName)
-				if pkgName == "" {
-					continue
-				}
-				if idx := strings.Index(pkgName, "-"); idx > 0 {
-					fmt.Printf("    Installing %s (for %s)...\n", pkgName, lib)
-					if err := ApkInstall(pkgName); err == nil {
-						installed++
-						break
-					}
-				}
-			}
-		}
-		if installed > 0 {
-			fmt.Printf("  Auto-installed %d packages for missing libraries\n", installed)
-		}
+	// Report missing library groups
+	if len(missingPkgs) > 0 {
+		fmt.Printf("  Found %d missing library groups\n", len(missingPkgs))
 	}
 }
 
-// fixMissingLibs runs ldd on all ELF binaries/libs in dataDir and attempts
-// to install missing shared libraries via apk (legacy, for local installs).
-func fixMissingLibs(dataDir string) {
-	var elfFiles []string
-	filepath.Walk(dataDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
-			return nil
-		}
-		if isELF(path) {
-			elfFiles = append(elfFiles, path)
-		}
-		return nil
-	})
-	checkInstalledLibs(elfFiles, "/")
-}

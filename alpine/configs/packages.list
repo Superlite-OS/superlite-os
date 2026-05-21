@@ -13,7 +13,7 @@ busybox-suid
 busybox-static
 busybox-extras
 kmod
-thunar
+thunar  # fallback file manager (primary is Double Commander pre-built binary)
 thunar-volman
 gvfs
 imv
@@ -73,7 +73,6 @@ wpaperd
 swayidle
 mako
 tofi
-rofi
 gammastep
 brightnessctl
 gsettings-desktop-schemas

@@ -9,34 +9,26 @@ import (
 	"strings"
 )
 
-// Supported architectures (like debianpool-searcher)
+// Supported architectures (amd64 + all for fast search)
 var DebianArchitectures = []string{
 	"amd64",
-	"i386",
-	"arm64",
-	"armhf",
-	"ppc64el",
-	"mips64el",
-	"s390x",
 	"all",
 }
 
 // DebianSearch searches Debian package repositories
 func DebianSearch(src Source, query string) ([]Package, error) {
-	dist := src.Dist
-	if dist == "" {
-		dist = "stable"
+	if src.Dist == "" {
+		src.Dist = "bookworm"
 	}
-	comp := src.Comp
-	if comp == "" {
-		comp = "main"
+	if src.Comp == "" {
+		src.Comp = "main"
 	}
 
 	var allPkgs []Package
 
 	// Search across multiple architectures
 	for _, arch := range DebianArchitectures {
-		url := fmt.Sprintf("https://%s/dists/%s/%s/binary-%s/Packages.gz", src.URL, dist, comp, arch)
+		url := fmt.Sprintf("https://%s/debian/dists/%s/%s/binary-%s/Packages.gz", src.URL, src.Dist, src.Comp, arch)
 
 		pkgs, err := searchDebianURL(url, query, arch)
 		if err != nil {
@@ -109,6 +101,8 @@ func parsePackagesIndex(r io.Reader, query string, source string) ([]Package, er
 			currentPkg.Version = value
 		case "Description":
 			currentPkg.Description = value
+		case "Filename":
+			currentPkg.Filename = value
 		case "Architecture":
 			// Store arch info if needed
 		}
