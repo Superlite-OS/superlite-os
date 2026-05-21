@@ -109,6 +109,7 @@ qt5ct
 gcompat
 nss
 zstd
+xz
 
 # --- Networking ---
 networkmanager
