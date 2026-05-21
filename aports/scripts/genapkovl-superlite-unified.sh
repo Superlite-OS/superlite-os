@@ -446,6 +446,7 @@ fi
 
 # ── Install Double Commander (file manager) ──────────────────────────────────
 echo "Installing Double Commander..."
+apk add --no-cache xz 2>/dev/null || true
 DC_VERSION="1.1.32"
 DC_URL="https://github.com/doublecmd/doublecmd/releases/download/v${DC_VERSION}/doublecmd-${DC_VERSION}.gtk2.x86_64.tar.xz"
 DC_OK=false
