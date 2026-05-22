@@ -45,16 +45,13 @@ def _tofi(options, prompt="Select", hide_input=False):
 def _tofi_input(prompt="Enter value", hint="", hide_input=False):
     """Run tofi for free-text input.
 
-    Shows a hint option as the first item. User types to filter/replace.
-    When user types and presses Enter, their typed text is returned.
-
     Args:
         prompt: short label shown before input (e.g. "Username:")
         hint: hint option shown as first item to guide user
         hide_input: if True, hide typed input (for passwords)
     Returns: entered text or None if cancelled
     """
-    cmd = ["tofi", f"--prompt-text={prompt}"]
+    cmd = ["tofi", f"--prompt-text={prompt}", "--require-match=false"]
     if TOFI_CONFIG and os.path.isfile(TOFI_CONFIG):
         cmd += [f"--config={TOFI_CONFIG}"]
     if hide_input:
