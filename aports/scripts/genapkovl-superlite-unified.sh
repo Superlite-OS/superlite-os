@@ -465,8 +465,8 @@ if [ "$DC_OK" = true ] && [ -f /tmp/doublecmd.tar.xz ] && [ -s /tmp/doublecmd.ta
         # Wrapper: prefer doublecmd, fallback to thunar
         cat > "$tmp/usr/bin/doublecmd" <<'DCWRAP'
 #!/bin/sh
-if [ -x /opt/doublecmd/doublecmd-qt ]; then
-    exec /opt/doublecmd/doublecmd-qt "$@"
+if [ -x /opt/doublecmd/doublecmd ]; then
+    exec /opt/doublecmd/doublecmd "$@"
 elif command -v thunar >/dev/null 2>&1; then
     exec thunar "$@"
 else
@@ -502,8 +502,8 @@ if [ ! -f "$tmp/usr/bin/doublecmd" ]; then
     mkdir -p "$tmp/usr/bin"
     cat > "$tmp/usr/bin/doublecmd" <<'DCWRAP'
 #!/bin/sh
-if [ -x /opt/doublecmd/doublecmd-qt ]; then
-    exec /opt/doublecmd/doublecmd-qt "$@"
+if [ -x /opt/doublecmd/doublecmd ]; then
+    exec /opt/doublecmd/doublecmd "$@"
 elif command -v thunar >/dev/null 2>&1; then
     exec thunar "$@"
 else
