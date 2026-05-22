@@ -64,6 +64,7 @@ lazygit
 
 # --- Boot (ISO only) ---
 grub-efi
+efibootmgr
 grub-bios
 syslinux
 squashfs-tools

@@ -153,6 +153,13 @@ def _try_grub_install_chroot(root_mount):
     try:
         _bind_mount_chroot(root_mount)
 
+        # Ensure grub packages are installed in target
+        subprocess.run(
+            ["chroot", root_mount, "apk", "add", "--no-cache",
+             "grub-efi", "efibootmgr"],
+            capture_output=True, text=True, timeout=120
+        )
+
         # Run grub-install inside chroot
         result = subprocess.run(
             ["chroot", root_mount, "grub-install",
@@ -282,6 +289,11 @@ def install_grub_bios(root_mount, device):
         print("[bootloader] Installing GRUB BIOS via chroot...")
         try:
             _bind_mount_chroot(root_mount)
+            # Ensure grub-bios is installed in target
+            subprocess.run(
+                ["chroot", root_mount, "apk", "add", "--no-cache", "grub-bios"],
+                capture_output=True, text=True, timeout=120
+            )
             result = subprocess.run(
                 ["chroot", root_mount, "grub-install",
                  "--target=i386-pc",
