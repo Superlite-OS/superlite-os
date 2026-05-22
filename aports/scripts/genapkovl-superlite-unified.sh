@@ -448,7 +448,7 @@ fi
 echo "Installing Double Commander..."
 apk add --no-cache xz 2>/dev/null || true
 DC_VERSION="1.1.32"
-DC_URL="https://github.com/doublecmd/doublecmd/releases/download/v${DC_VERSION}/doublecmd-${DC_VERSION}.gtk2.x86_64.tar.xz"
+DC_URL="https://sourceforge.net/projects/doublecmd/files/DC%20for%20Linux%2064%20bit/Double%20Commander%20${DC_VERSION}/doublecmd-${DC_VERSION}.qt.x86_64.tar.xz/download"
 DC_OK=false
 # Try wget first, then curl as fallback
 if wget -q --timeout=30 -O /tmp/doublecmd.tar.xz "$DC_URL" 2>/dev/null; then
@@ -465,8 +465,8 @@ if [ "$DC_OK" = true ] && [ -f /tmp/doublecmd.tar.xz ] && [ -s /tmp/doublecmd.ta
         # Wrapper: prefer doublecmd, fallback to thunar
         cat > "$tmp/usr/bin/doublecmd" <<'DCWRAP'
 #!/bin/sh
-if [ -x /opt/doublecmd/doublecmd-gtk2 ]; then
-    exec /opt/doublecmd/doublecmd-gtk2 "$@"
+if [ -x /opt/doublecmd/doublecmd-qt ]; then
+    exec /opt/doublecmd/doublecmd-qt "$@"
 elif command -v thunar >/dev/null 2>&1; then
     exec thunar "$@"
 else
@@ -502,8 +502,8 @@ if [ ! -f "$tmp/usr/bin/doublecmd" ]; then
     mkdir -p "$tmp/usr/bin"
     cat > "$tmp/usr/bin/doublecmd" <<'DCWRAP'
 #!/bin/sh
-if [ -x /opt/doublecmd/doublecmd-gtk2 ]; then
-    exec /opt/doublecmd/doublecmd-gtk2 "$@"
+if [ -x /opt/doublecmd/doublecmd-qt ]; then
+    exec /opt/doublecmd/doublecmd-qt "$@"
 elif command -v thunar >/dev/null 2>&1; then
     exec thunar "$@"
 else
