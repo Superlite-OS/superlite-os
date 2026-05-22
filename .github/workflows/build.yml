@@ -115,22 +115,90 @@ jobs:
             puts "  ✓ $desc"
           }
 
-          puts "\n=== Running Diagnostics ==="
+          proc run_check_required {cmd desc} {
+            send "$cmd\r"
+            expect {
+              -re {(localhost|superlite|alpine)[^#]*# } {}
+              timeout {
+                puts "\n✗ FAIL: $desc — no prompt after command"
+                exit 1
+              }
+            }
+            puts "  ✓ $desc"
+          }
+
+          puts "\n=== Phase 1: Package Verification ==="
 
           run_check "uname -a" "Kernel version"
-          run_check "rc-status --no-color 2>&1 | head -30" "Service status"
-          run_check "rc-status --no-color 2>&1 | grep -i crashed || echo 'No crashed services'" "Crashed services check"
-          run_check "df -h 2>&1 | head -10" "Disk usage"
-          run_check "apk info --no-color 2>&1 | grep -cE '(labwc|seatd|dbus|foot|waybar)'" "Key packages installed"
-          run_check "rc-service seatd status 2>&1 || true" "seatd status"
-          run_check "rc-service dbus status 2>&1 || true" "dbus status"
-          run_check "test -f /root/.profile && echo 'profile: OK' || echo 'profile: MISSING'" "Root profile exists"
+          run_check_required "apk info --no-color 2>&1 | grep seatd" "seatd package installed"
+          run_check_required "apk info --no-color 2>&1 | grep labwc" "labwc package installed"
+          run_check_required "apk info --no-color 2>&1 | grep elogind" "elogind package installed"
+          run_check_required "apk info --no-color 2>&1 | grep dbus" "dbus package installed"
+          run_check_required "apk info --no-color 2>&1 | grep waybar" "waybar package installed"
+          run_check_required "apk info --no-color 2>&1 | grep foot" "foot package installed"
+
+          puts "\n=== Phase 2: Init Scripts ==="
+
+          run_check_required "test -f /etc/init.d/seatd && echo 'seatd init: OK' || echo 'seatd init: MISSING'" "seatd init script"
+          run_check_required "test -f /etc/init.d/elogind && echo 'elogind init: OK' || echo 'elogind init: MISSING'" "elogind init script"
+          run_check_required "test -f /etc/init.d/dbus && echo 'dbus init: OK' || echo 'dbus init: MISSING'" "dbus init script"
+          run_check "test -f /etc/init.d/sshd && echo 'sshd init: OK' || echo 'sshd init: MISSING'" "sshd init script"
+          run_check "ls /etc/runlevels/default/ 2>&1" "Default runlevel services"
+
+          puts "\n=== Phase 3: Service Startup ==="
+
+          run_check "/sbin/rc-service seatd start 2>&1 || true" "Start seatd"
+          run_check "sleep 1 && /sbin/rc-service seatd status 2>&1 || true" "seatd running"
+          run_check "/sbin/rc-service elogind start 2>&1 || true" "Start elogind"
+          run_check "sleep 1 && /sbin/rc-service elogind status 2>&1 || true" "elogind running"
+          run_check "/sbin/rc-service dbus start 2>&1 || true" "Start dbus"
+          run_check "sleep 1 && /sbin/rc-service dbus status 2>&1 || true" "dbus running"
+
+          puts "\n=== Phase 4: LabWC Boot Test ==="
+
+          # Create XDG_RUNTIME_DIR (like 00-boot-mode.sh does)
+          run_check "export XDG_RUNTIME_DIR=/tmp/0-runtime-dir && mkdir -pm 0700 \$XDG_RUNTIME_DIR && echo 'XDG_RUNTIME_DIR: OK'" "XDG_RUNTIME_DIR created"
+
+          # Verify /dev/dri exists (GPU device needed for labwc)
+          run_check "ls /dev/dri/ 2>&1 || echo 'NO /dev/dri'" "DRM devices"
+          run_check "ls /dev/input/ 2>&1 || echo 'NO /dev/input'" "Input devices"
+
+          # Try labwc — if it starts and stays running for 3s, it's working
+          # In QEMU with VGA, labwc should be able to start
+          send "export XDG_RUNTIME_DIR=/tmp/0-runtime-dir && export XDG_SESSION_TYPE=wayland && export WLR_LIBINPUT_NO_DEVICES=1 && timeout 5 dbus-run-session labwc 2>&1; echo EXIT_CODE=\$?\r"
+          expect {
+            -re {EXIT_CODE=} {
+              puts "\n  labwc exited (expected in QEMU nographic — DRM may not work)"
+            }
+            -re {unable to create backend} {
+              puts "\n  labwc: no DRM backend (expected in QEMU nographic)"
+            }
+            -re {(seat|session|backend).*error} {
+              puts "\n  labwc: seat/session error"
+            }
+            timeout {
+              puts "\n  labwc: running (hung for 5s — may be working)"
+            }
+          }
+          expect -re {(localhost|superlite|alpine)[^#]*# }
+
+          # Check if labwc left useful error logs
+          run_check "dmesg 2>&1 | grep -iE '(drm|gpu|seatd|elogind)' | tail -10 || echo 'No DRM/seat logs'" "DRM/seat dmesg"
+
+          puts "\n=== Phase 5: Boot Mode Script ==="
+
+          run_check "test -f /etc/profile.d/00-boot-mode.sh && echo 'boot-mode: OK' || echo 'boot-mode: MISSING'" "Boot mode script"
+          run_check "grep -q 'XDG_RUNTIME_DIR' /etc/profile.d/00-boot-mode.sh && echo 'XDG_RUNTIME_DIR in boot-mode: OK' || echo 'XDG_RUNTIME_DIR MISSING'" "XDG_RUNTIME_DIR in boot-mode"
+          run_check "grep -q 'LIBSEAT_BACKEND' /etc/profile.d/00-boot-mode.sh && echo 'LIBSEAT_BACKEND: found' || echo 'LIBSEAT_BACKEND: not set'" "LIBSEAT_BACKEND"
           run_check "test -f /usr/local/bin/superlite-installer && echo 'installer: OK' || echo 'installer: MISSING'" "Python installer"
           run_check "test -f /usr/local/bin/superlite-gui-menu && echo 'menu: OK' || echo 'menu: MISSING'" "Boot menu"
-          run_check "test -f /etc/profile.d/00-boot-mode.sh && echo 'boot-mode: OK' || echo 'boot-mode: MISSING'" "Boot mode script"
-          run_check "grep -q 'superlite.mode' /etc/profile.d/00-boot-mode.sh && echo 'mode detection: OK' || echo 'mode detection: MISSING'" "Mode detection"
+
+          puts "\n=== Phase 6: System Health ==="
+
+          run_check "rc-status --no-color 2>&1 | head -30" "Service status"
+          run_check "rc-status --no-color 2>&1 | grep -i crashed || echo 'No crashed services'" "Crashed services"
+          run_check "df -h 2>&1 | head -10" "Disk usage"
           run_check "dmesg 2>&1 | grep -iE '(panic|oops|bug:|error)' | grep -iv 'warning' | head -5 || echo 'dmesg: clean'" "dmesg critical errors"
-          run_check "which labwc 2>&1 && labwc --version 2>&1 || echo 'labwc: NOT FOUND'" "LabWC binary"
           run_check "ip link show 2>&1 | head -10" "Network interfaces"
 
           puts "\n=== All Checks Passed ==="

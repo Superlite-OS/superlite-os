@@ -684,6 +684,7 @@ export WLR_LIBINPUT_NO_DEVICES=1
 unset LIBVA_DRIVER_NAME
 unset VDPAU_DRIVER
 export XDG_SEAT=seat0
+export LIBSEAT_BACKEND=seatd
 EOF
 
 # ── LabWC auto-start for desktop mode ────────────────────────────────────────
@@ -695,6 +696,7 @@ if test -z "${XDG_SESSION_TYPE}"; then
     export XDG_SESSION_TYPE=wayland
     export XDG_CURRENT_DESKTOP=wlroots
     export XDG_SEAT=seat0
+    export LIBSEAT_BACKEND=seatd
     export QT_QPA_PLATFORM=wayland
     export MOZ_ENABLE_WAYLAND=1
     export GDK_BACKEND=wayland,x11
