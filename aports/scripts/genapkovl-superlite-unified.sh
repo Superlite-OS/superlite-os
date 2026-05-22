@@ -712,7 +712,7 @@ makefile root:root 0755 "$tmp"/etc/profile.d/00-boot-mode.sh <<'BOOTMODE_EOF'
 #!/bin/sh
 # SuperLite OS — Boot mode launcher
 # Reads superlite.mode= from /proc/cmdline
-# Modes: desktop (default), install
+# Modes: desktop (default), install, shell
 
 case "$-" in *i*) ;; *) return 0 2>/dev/null || exit 0;; esac
 
@@ -735,6 +735,11 @@ for arg in $(cat /proc/cmdline 2>/dev/null); do
     esac
 done
 
+# Auto-detect QEMU/VirtualBox — skip labwc in VM without display
+if [ -z "$MODE" ] && grep -q "console=ttyS0" /proc/cmdline 2>/dev/null; then
+    MODE="shell"
+fi
+
 # Start seatd + elogind for all modes (labwc needs libseat session)
 if ! pgrep -x seatd >/dev/null 2>&1; then
     /sbin/rc-service seatd start 2>/dev/null || true
@@ -748,6 +753,11 @@ case "$MODE" in
     install)
         # ── Installer mode (Python) ──────────────────────────────────────
         echo "install" > /tmp/.bootmode
+        ;;
+    shell)
+        # ── Shell mode (no GUI, for QEMU/headless) ──────────────────────
+        echo "Shell mode — no desktop"
+        return 0 2>/dev/null || exit 0
         ;;
     desktop)
         # ── Desktop mode (explicit, no menu) ────────────────────────────
