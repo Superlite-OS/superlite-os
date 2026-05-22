@@ -154,6 +154,102 @@ def confirm_erase(device):
     return choice is not None and choice.startswith("Yes")
 
 
+def manual_partition_menu(device, partitions):
+    """Manual partitioning menu — tofi based.
+
+    Args:
+        device: device path e.g. /dev/sda
+        partitions: list of existing partition dicts
+    Returns: action string: "add", "remove", "apply", "cancel"
+             or dict with {"action": "remove", "num": N}
+             or dict with {"action": "add", "size_mb": N, "type": str}
+    """
+    while True:
+        # Build status display
+        if partitions:
+            part_lines = [f"  {p['num']}: {p['size_mb']}MB" for p in partitions]
+            status = " | ".join(part_lines)
+        else:
+            status = "Empty"
+
+        options = [
+            "Add partition",
+            "Remove partition",
+            "Apply & Continue",
+            "Cancel",
+        ]
+
+        choice = _tofi(options, prompt=f"Partition {device} [{status}]")
+        if not choice or choice == "Cancel":
+            return "cancel"
+
+        if choice == "Apply & Continue":
+            return "apply"
+
+        if choice == "Add partition":
+            return "add"
+
+        if choice == "Remove partition":
+            if not partitions:
+                _tofi(["OK"], prompt="No partitions to remove!")
+                continue
+            part_opts = [f"Partition {p['num']} ({p['size_mb']}MB)" for p in partitions]
+            sel = _tofi(part_opts, prompt="Remove which partition?")
+            if sel:
+                for p in partitions:
+                    if f"Partition {p['num']}" in sel:
+                        return {"action": "remove", "num": p["num"]}
+            continue
+
+        return choice
+
+
+def add_partition_dialog(free_mb, boot_mode):
+    """Dialog to configure a new partition.
+
+    Args:
+        free_mb: available free space in MB
+        boot_mode: "uefi" or "bios"
+    Returns: dict with size_mb and type, or None
+    """
+    # Size
+    size_str = _tofi_input(
+        prompt=f"Size MB (free: {free_mb}MB, 0=max):",
+        hint="[ Enter size in MB, 0 = use all remaining space ]"
+    )
+    if not size_str:
+        return None
+    try:
+        size_mb = int(size_str)
+    except ValueError:
+        _tofi(["OK"], prompt="Error: Enter a number!")
+        return None
+
+    if size_mb < 0 or (size_mb > 0 and size_mb > free_mb):
+        _tofi(["OK"], prompt=f"Error: Invalid size! Max: {free_mb}MB")
+        return None
+
+    # Type
+    if boot_mode == "uefi":
+        type_opts = [
+            "Linux filesystem",
+            "EFI System Partition",
+            "Linux swap",
+        ]
+    else:
+        type_opts = [
+            "Linux filesystem",
+            "Linux swap",
+            "BIOS boot (1MB)",
+        ]
+
+    type_choice = _tofi(type_opts, prompt="Partition type")
+    if not type_choice:
+        return None
+
+    return {"size_mb": size_mb, "type": type_choice}
+
+
 def user_setup():
     """User configuration dialog.
 

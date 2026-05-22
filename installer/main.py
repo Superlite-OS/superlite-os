@@ -10,7 +10,10 @@ import traceback
 
 from disk import (
     detect_boot_mode, get_block_devices, get_disk_size_mb,
-    partition_disk_auto, partition_disk_mbr, launch_cfdisk
+    partition_disk_auto, partition_disk_mbr, read_partitions,
+    apply_partition_table, get_free_space_mb,
+    GPT_EFI, GPT_SWAP, GPT_LINUX, GPT_BIOS_GRUB,
+    MBR_SWAP, MBR_LINUX,
 )
 from format import (
     format_efi, format_swap, format_ext4, enable_swap,
@@ -23,11 +26,97 @@ from system import (
 )
 from gui import (
     welcome, select_disk, partition_scheme, confirm_erase,
+    manual_partition_menu, add_partition_dialog,
     user_setup, show_error, show_success, confirm_reboot
 )
 
 
 MOUNT_ROOT = "/mnt"
+
+
+def _do_manual_partition(device, boot_mode):
+    """Tofi-based manual partitioning loop.
+
+    Returns partition dict {role: path} or None if cancelled.
+    """
+    label = "gpt" if boot_mode == "uefi" else "dos"
+    part_list = []  # [{size_mb, type_uuid}]
+
+    while True:
+        # Show current state
+        existing = read_partitions(device)
+        free = get_free_space_mb(device)
+
+        action = manual_partition_menu(device, existing)
+        if action == "cancel":
+            return None
+
+        if action == "apply":
+            if not part_list:
+                show_error("No partitions defined! Add at least one.")
+                continue
+            break
+
+        if action == "add":
+            dialog = add_partition_dialog(free, boot_mode)
+            if not dialog:
+                continue
+            size_mb = dialog["size_mb"]
+            type_name = dialog["type"]
+
+            # Map type name to UUID
+            if label == "gpt":
+                type_map = {
+                    "Linux filesystem": GPT_LINUX,
+                    "EFI System Partition": GPT_EFI,
+                    "Linux swap": GPT_SWAP,
+                    "BIOS boot (1MB)": GPT_BIOS_GRUB,
+                }
+            else:
+                type_map = {
+                    "Linux filesystem": MBR_LINUX,
+                    "Linux swap": MBR_SWAP,
+                }
+
+            type_uuid = type_map.get(type_name, GPT_LINUX if label == "gpt" else MBR_LINUX)
+            part_list.append({"size_mb": size_mb, "type_uuid": type_uuid})
+            print(f"[installer] Added partition: {size_mb}MB type={type_name}")
+
+        if isinstance(action, dict) and action.get("action") == "remove":
+            num = action["num"]
+            # Remove from part_list by index (partition numbers are 1-based)
+            idx = num - 1
+            if 0 <= idx < len(part_list):
+                removed = part_list.pop(idx)
+                print(f"[installer] Removed partition {num}: {removed['size_mb']}MB")
+
+    # Apply partition table
+    try:
+        result_map = apply_partition_table(device, label, part_list)
+    except Exception as e:
+        show_error(f"Failed to apply partitions:\n{e}")
+        return None
+
+    # Map partitions to roles based on type
+    sep = "p" if any(x in device for x in ["nvme", "mmcblk", "md"]) else ""
+    partitions = {}
+    for i, part in enumerate(part_list):
+        path = f"{device}{sep}{i + 1}"
+        ptype = part["type_uuid"]
+        if ptype == GPT_EFI:
+            partitions["efi"] = path
+        elif ptype in (GPT_SWAP, MBR_SWAP):
+            partitions["swap"] = path
+        elif ptype == GPT_BIOS_GRUB:
+            partitions["bios_grub"] = path
+        else:
+            partitions["root"] = path
+
+    if "root" not in partitions:
+        show_error("No root partition defined!\nYou need at least one Linux filesystem partition.")
+        return None
+
+    return partitions
 
 
 def main():
@@ -81,11 +170,9 @@ def _run_installer():
         elif scheme == "mbr":
             partitions = partition_disk_mbr(device)
         elif scheme == "manual":
-            launch_cfdisk(device)
-            # After manual partitioning, user needs to specify partitions
-            # TODO: add dialog for manual partition selection
-            show_error("Manual partitioning complete.\nPlease reboot and run installer again.")
-            sys.exit(0)
+            partitions = _do_manual_partition(device, boot_mode)
+            if not partitions:
+                sys.exit(0)
         else:
             show_error(f"Unknown scheme: {scheme}")
             sys.exit(1)

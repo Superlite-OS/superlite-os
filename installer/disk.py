@@ -210,6 +210,95 @@ def partition_disk_mbr(device):
     }
 
 
-def launch_cfdisk(device):
-    """Launch cfdisk for manual partitioning."""
-    subprocess.run(["cfdisk", device])
+def get_free_space_mb(device):
+    """Get unpartitioned space in MB."""
+    size = get_disk_size_mb(device)
+    try:
+        out = subprocess.check_output(
+            ["lsblk", "-n", "-b", "-o", "SIZE", "-l", device],
+            stderr=subprocess.DEVNULL, text=True
+        )
+        used = sum(int(line.strip()) for line in out.strip().splitlines() if line.strip())
+        return max(0, size - used // (1024 * 1024))
+    except Exception:
+        return size
+
+
+def read_partitions(device):
+    """Read current partition layout via lsblk.
+
+    Returns list of dicts: [{num, path, size_mb, type}]
+    """
+    parts = []
+    try:
+        out = subprocess.check_output(
+            ["lsblk", "-n", "-b", "-o", "NAME,SIZE,TYPE", device],
+            stderr=subprocess.DEVNULL, text=True
+        )
+        dev_name = os.path.basename(device)
+        for line in out.strip().splitlines():
+            cols = line.split()
+            if len(cols) < 3 or cols[2] != "part":
+                continue
+            name = cols[0]
+            size_bytes = int(cols[1])
+            size_mb = size_bytes // (1024 * 1024)
+            # Extract partition number
+            num = name[len(dev_name):]
+            if num.startswith("p"):
+                num = num[1:]
+            parts.append({
+                "num": int(num) if num.isdigit() else 0,
+                "path": f"/dev/{name}",
+                "size_mb": size_mb,
+            })
+    except Exception:
+        pass
+    return sorted(parts, key=lambda p: p["num"])
+
+
+def apply_partition_table(device, label, partitions):
+    """Apply partition table via sfdisk.
+
+    Args:
+        device: e.g. /dev/sda
+        label: "gpt" or "dos"
+        partitions: list of dicts with keys:
+            - size_mb: int (0 = rest of disk)
+            - type_uuid: GPT type UUID or MBR type code
+    """
+    _unmount_disk(device)
+    subprocess.run(["wipefs", "-a", device], capture_output=True)
+    if label == "gpt":
+        subprocess.run(["sgdisk", "--zap-all", device], capture_output=True)
+
+    lines = [f"label: {label}"]
+    for part in partitions:
+        size = part["size_mb"]
+        ptype = part["type_uuid"]
+        if size > 0:
+            lines.append(f"size={size}MiB, type={ptype}")
+        else:
+            lines.append(f"type={ptype}")
+
+    script = "\n".join(lines) + "\n"
+    result = subprocess.run(
+        ["sfdisk", device],
+        input=script, text=True, capture_output=True
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"sfdisk failed: {result.stderr}")
+
+    sep = "p" if any(x in device for x in ["nvme", "mmcblk", "md"]) else ""
+    return {i + 1: f"{device}{sep}{i + 1}" for i in range(len(partitions))}
+
+
+# GPT type UUIDs
+GPT_EFI = "C12A7328-F81F-11D2-BA4B-00A0C93EC93B"
+GPT_SWAP = "0657FD6D-A4AB-43C4-84E5-0933C84B4F4F"
+GPT_LINUX = "0FC63DAF-8483-4772-8E79-3D69D8477DE4"
+GPT_BIOS_GRUB = "21686148-6449-6E6F-744E-656564454649"
+
+# MBR type codes
+MBR_SWAP = "82"
+MBR_LINUX = "83"
