@@ -20,10 +20,7 @@ from format import (
     mount_partition, umount_all
 )
 from bootloader import install_grub_uefi, install_grub_bios
-from system import (
-    setup_user, generate_fstab, copy_overlay,
-    setup_network, setup_bootloader_config
-)
+from system import setup_user, generate_fstab
 from gui import (
     welcome, select_disk, partition_scheme, confirm_erase,
     manual_partition_menu, add_partition_dialog,
@@ -276,9 +273,6 @@ def _run_installer():
     try:
         setup_user(MOUNT_ROOT, user_info["password"], user_info["hostname"])
         generate_fstab(MOUNT_ROOT, partitions, boot_mode)
-        setup_network(MOUNT_ROOT, user_info["hostname"])
-        copy_overlay(MOUNT_ROOT)
-        setup_bootloader_config(MOUNT_ROOT, boot_mode)
     except Exception as e:
         show_error(f"Configuration failed:\n{e}")
         umount_all(MOUNT_ROOT)
