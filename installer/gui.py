@@ -9,6 +9,12 @@ import os
 # Tofi config for installer — full-screen, Catppuccin Mocha
 TOFI_CONFIG = os.path.join(os.path.dirname(__file__), "tofi-installer.conf")
 
+# Hint texts for input fields — shown as first "option" to guide user
+_HINT_USERNAME = "[ Type your username and press Enter ]"
+_HINT_PASSWORD = "[ Type password and press Enter ]"
+_HINT_CONFIRM  = "[ Retype password and press Enter ]"
+_HINT_HOSTNAME = "[ Type hostname and press Enter (default: superlite) ]"
+
 
 def _tofi(options, prompt="Select", hide_input=False):
     """Run tofi with options and return selected value.
@@ -36,28 +42,36 @@ def _tofi(options, prompt="Select", hide_input=False):
     return choice
 
 
-def _tofi_input(prompt="Enter value", hide_input=False):
-    """Run tofi for free-text input by providing a single placeholder option.
+def _tofi_input(prompt="Enter value", hint="", hide_input=False):
+    """Run tofi for free-text input.
+
+    Shows a hint option as the first item. User types to filter/replace.
+    When user types and presses Enter, their typed text is returned.
 
     Args:
-        prompt: prompt text
+        prompt: short label shown before input (e.g. "Username:")
+        hint: hint option shown as first item to guide user
         hide_input: if True, hide typed input (for passwords)
     Returns: entered text or None if cancelled
     """
-    # Use a placeholder option; user types to filter/replace
     cmd = ["tofi", f"--prompt-text={prompt}"]
     if TOFI_CONFIG and os.path.isfile(TOFI_CONFIG):
         cmd += [f"--config={TOFI_CONFIG}"]
     if hide_input:
         cmd += ["--hide-input=true"]
 
+    # Show hint as first option — user types to filter, Enter to submit
+    options = [hint] if hint else []
     result = subprocess.run(
         cmd,
-        input="",
+        input="\n".join(options),
         capture_output=True, text=True
     )
     text = result.stdout.strip()
     if not text or result.returncode != 0:
+        return None
+    # If user selected the hint text, they didn't type anything
+    if text == hint:
         return None
     return text
 
@@ -94,7 +108,6 @@ def select_disk(devices):
     if not choice:
         return None
 
-    # Extract device path from choice (first field before spaces)
     selected_path = choice.split()[0]
     for dev in devices:
         if dev["path"] == selected_path:
@@ -146,20 +159,20 @@ def user_setup():
 
     Returns: dict with username, password, hostname or None
     """
-    username = _tofi_input(prompt="Username")
+    username = _tofi_input(prompt="Username:", hint=_HINT_USERNAME)
     if not username:
         return None
 
-    password = _tofi_input(prompt="Password", hide_input=True)
+    password = _tofi_input(prompt="Password:", hint=_HINT_PASSWORD, hide_input=True)
     if not password:
         return None
 
-    confirm = _tofi_input(prompt="Confirm password", hide_input=True)
+    confirm = _tofi_input(prompt="Confirm:", hint=_HINT_CONFIRM, hide_input=True)
     if password != confirm:
         _tofi(["OK"], prompt="Error: Passwords do not match!")
         return None
 
-    hostname = _tofi_input(prompt="Hostname (default: superlite)")
+    hostname = _tofi_input(prompt="Hostname:", hint=_HINT_HOSTNAME)
     if not hostname:
         hostname = "superlite"
 
