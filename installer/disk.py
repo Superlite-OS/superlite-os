@@ -60,6 +60,10 @@ def _unmount_disk(device):
     """Unmount all partitions and disable swap on device."""
     _devnull = subprocess.DEVNULL
 
+    # Also unmount /mnt if anything is mounted there
+    subprocess.run(["umount", "-lf", "/mnt"],
+                   stdout=_devnull, stderr=_devnull)
+
     # Try lsblk first to find actual partitions
     try:
         out = subprocess.check_output(
@@ -74,7 +78,7 @@ def _unmount_disk(device):
             part_path = f"/dev/{part}"
             subprocess.run(["swapoff", part_path],
                            stdout=_devnull, stderr=_devnull)
-            subprocess.run(["umount", "-f", part_path],
+            subprocess.run(["umount", "-lf", part_path],
                            stdout=_devnull, stderr=_devnull)
     except Exception:
         pass
@@ -85,7 +89,7 @@ def _unmount_disk(device):
         part_path = f"{device}{sep}{i}"
         subprocess.run(["swapoff", part_path],
                        stdout=_devnull, stderr=_devnull)
-        subprocess.run(["umount", "-f", part_path],
+        subprocess.run(["umount", "-lf", part_path],
                        stdout=_devnull, stderr=_devnull)
 
 
