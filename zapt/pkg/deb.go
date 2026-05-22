@@ -491,8 +491,9 @@ func createGlibcWrapper(binPath, root string) error {
 	}
 
 	// Create wrapper script at original location
+	// Include all possible glibc library paths for robustness
 	wrapper := fmt.Sprintf(`#!/bin/sh
-export LD_LIBRARY_PATH="%s:${LD_LIBRARY_PATH:-}"
+export LD_LIBRARY_PATH="%s:/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH:-}"
 exec "%s" "$@"
 `, glibcLibDir, realPath)
 
@@ -536,7 +537,13 @@ func mapDebPath(relPath string) string {
 		}
 	}
 
-	return "/" + relPath
+	result := "/" + relPath
+	// Also redirect .so files that are directly under lib/ (not from usr/lib mapping)
+	// e.g. lib/x86_64-linux-gnu/libtinfo.so.6 from some .deb packages
+	if isSoFile(result) && (strings.HasPrefix(result, "/lib/") || strings.HasPrefix(result, "/lib64/")) {
+		return glibcLibDir + "/" + filepath.Base(result)
+	}
+	return result
 }
 
 // isSoFile checks if a path is a shared library (.so, .so.N, .so.N.N)

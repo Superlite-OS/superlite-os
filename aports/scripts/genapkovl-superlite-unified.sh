@@ -442,7 +442,54 @@ if [ -f "$CHROME_DEB" ]; then
     rm -f "$CHROME_DEB"
 fi
 
-# NOTE: glibc isolation handled by zapt at install time (.deb .so -> /usr/lib/glibc/)
+# ── Extract core glibc from Debian libc6 .deb ────────────────────────────
+# Chrome .deb depends on libc6 but doesn't include it. zapt only extracts
+# Chrome's own .so deps (GTK, pango, etc.) to /usr/lib/glibc/. The core
+# glibc (ld-linux, libc.so.6, etc.) must be installed separately.
+LIBC6_DEB="/tmp/libc6.deb"
+LIBC6_URL="http://deb.debian.org/debian/pool/main/g/glibc/libc6_2.36-9+deb12u10_amd64.deb"
+echo "Downloading libc6 for glibc core..."
+wget -q -O "$LIBC6_DEB" "$LIBC6_URL" 2>&1 || {
+    echo "Warning: libc6 download failed"
+}
+
+if [ -f "$LIBC6_DEB" ]; then
+    echo "Extracting core glibc..."
+    _libc_tmp="$(mktemp -d)"
+    # Extract .deb (ar archive → data.tar)
+    (cd "$_libc_tmp" && ar x "$LIBC6_DEB")
+    # Extract data.tar.xz to temp
+    mkdir -p "$_libc_tmp/data"
+    for _dtar in "$_libc_tmp"/data.tar.*; do
+        [ -f "$_dtar" ] && tar -xf "$_dtar" -C "$_libc_tmp/data" 2>/dev/null
+    done
+
+    # Copy core glibc .so files to /usr/lib/glibc/
+    mkdir -p "$tmp/usr/lib/glibc"
+    for _lib in \
+        ld-linux-x86-64.so.2 ld-*.so \
+        libc.so.6 libc-*.so \
+        libpthread.so.0 libpthread-*.so \
+        libdl.so.2 libdl-*.so \
+        libm.so.6 libm-*.so libmvec.so.1 \
+        librt.so.1 librt-*.so \
+        libresolv.so.2 libnss_*.so \
+        libutil.so.1 libcrypt.so.1 \
+        libnsl.so.1 libBrokenLocale.so.1; do
+        for _f in "$_libc_tmp/data/lib/x86_64-linux-gnu/"$_lib; do
+            [ -e "$_f" ] && cp -a "$_f" "$tmp/usr/lib/glibc/"
+        done
+    done
+
+    # Symlinks: kernel ELF loader needs /lib64/ld-linux-x86-64.so.2
+    # and Chrome's linker needs libc.so.6 in search path
+    mkdir -p "$tmp/lib64" "$tmp/lib"
+    ln -sf /usr/lib/glibc/ld-linux-x86-64.so.2 "$tmp/lib64/ld-linux-x86-64.so.2"
+    ln -sf /usr/lib/glibc/libc.so.6 "$tmp/lib/libc.so.6"
+
+    rm -rf "$_libc_tmp" "$LIBC6_DEB"
+    echo "  Core glibc installed to /usr/lib/glibc/"
+fi
 
 # ── Install Double Commander via zapt (Debian pool) ─────────────────────────
 echo "Installing Double Commander via zapt..."
@@ -854,5 +901,5 @@ wifi.backend=wpa_supplicant
 EOF
 
 # ── Generate apkovl ───────────────────────────────────────────────────────────
-tar -c -C "$tmp" etc root usr opt lib64 | gzip -9n > "$HOSTNAME.apkovl.tar.gz"
+tar -c -C "$tmp" etc root usr opt lib lib64 | gzip -9n > "$HOSTNAME.apkovl.tar.gz"
 echo "[overlay] Generated: $HOSTNAME.apkovl.tar.gz"

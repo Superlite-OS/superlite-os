@@ -14,15 +14,17 @@ var installRoot string
 
 var installCmd = &cobra.Command{
 	Use:   "install [package or .deb file]",
-	Short: "Install a .deb package",
-	Long: `Install a .deb file from local path or URL.
+	Short: "Install a package by name, .deb file, or URL",
+	Long: `Install a package by name from the Debian pool, or from a .deb file/URL.
 Dependencies listed in the package's Depends field are automatically
 resolved and installed from the Debian pool.
 
 Examples:
+  zapt install htop
+  zapt install firefox-esr
   zapt install ./package.deb
   zapt install https://example.com/package.deb
-  zapt install --root /mnt ./package.deb`,
+  zapt install --root /mnt htop`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		visited := make(map[string]bool)
@@ -46,6 +48,16 @@ func installPackage(target string, visited map[string]bool) error {
 		localPath, err := pkg.DownloadFile(target)
 		if err != nil {
 			return fmt.Errorf("download: %w", err)
+		}
+		defer os.Remove(localPath)
+		target = localPath
+	}
+
+	// If not a .deb file, treat as package name → search Debian pool
+	if !strings.HasSuffix(target, ".deb") {
+		localPath, err := resolvePackageName(target)
+		if err != nil {
+			return fmt.Errorf("resolve package '%s': %w", target, err)
 		}
 		defer os.Remove(localPath)
 		target = localPath
@@ -91,6 +103,34 @@ func installPackage(target string, visited map[string]bool) error {
 
 	fmt.Printf("Installed %s %s\n", info.Name, info.Version)
 	return nil
+}
+
+// resolvePackageName searches Debian pool for a package name and downloads its .deb file.
+func resolvePackageName(name string) (string, error) {
+	sources, err := pkg.LoadSources("")
+	if err != nil {
+		return "", err
+	}
+
+	for _, src := range sources {
+		pkgs, err := pkg.DebianSearch(src, name)
+		if err != nil {
+			continue
+		}
+		// Find exact name match
+		for _, p := range pkgs {
+			if p.Name == name && p.Filename != "" {
+				debURL := fmt.Sprintf("https://deb.debian.org/debian/%s", p.Filename)
+				fmt.Printf("Found %s %s in Debian pool, downloading...\n", p.Name, p.Version)
+				localPath, err := pkg.DownloadFile(debURL)
+				if err != nil {
+					return "", fmt.Errorf("download %s: %w", name, err)
+				}
+				return localPath, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("package '%s' not found in Debian pool", name)
 }
 
 func resolveDep(depName string, visited map[string]bool) error {
