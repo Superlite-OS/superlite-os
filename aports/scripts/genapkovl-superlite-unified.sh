@@ -851,15 +851,41 @@ if [ ! -e /media/cdrom ]; then
 fi
 
 # ── USB overlay: use ext4 partition as writable layer (saves RAM) ──
-# Looks for partition labeled SUPERLITE-RW (created by make-usb-overlay.sh)
-# If found: overlayfs with ext4 upper → no tmpfs bloat
-# If not found: continue with tmpfs (default Alpine behavior)
+# Auto-creates partition on first boot if USB has free space
 OVERLAY_DEV=""
 for _d in /dev/disk/by-label/SUPERLITE-RW /dev/disk/by-label/superlite-rw; do
     [ -b "$_d" ] && OVERLAY_DEV="$_d" && break
 done
 
-if [ -n "$OVERLAY_DEV" ]; then
+# Auto-partition: if no SUPERLITE-RW found, create one on USB boot media
+if [ -z "$OVERLAY_DEV" ] && [ -L /media/cdrom ]; then
+    _media=$(readlink -f /media/cdrom)  # e.g. /media/sdb1
+    _dev=$(echo "$_media" | sed 's/[0-9p]*$//')  # e.g. /dev/sdb
+    _dev=$(echo "$_dev" | sed 's|/media/||')      # e.g. sdb → /dev/sdb
+
+    # Only partition USB devices (sd*, not sr* CDROM)
+    case "$_dev" in
+        /dev/sd*|/dev/mmcblk*)
+            # Check if partition 2 already exists
+            _p2="${_dev}2"
+            case "$_dev" in /dev/mmcblk*) _p2="${_dev}p2" ;; esac
+
+            if [ ! -b "$_p2" ] && command -v sfdisk >/dev/null 2>&1; then
+                # Create partition 2 with remaining space
+                echo ", +" | sfdisk -a -q "$_dev" 2>/dev/null
+                sleep 1
+                # Format as ext4
+                if [ -b "$_p2" ] && command -v mkfs.ext4 >/dev/null 2>&1; then
+                    mkfs.ext4 -L SUPERLITE-RW -F "$_p2" >/dev/null 2>&1
+                    OVERLAY_DEV="$_p2"
+                fi
+            fi
+            ;;
+    esac
+fi
+
+# Mount overlay if partition exists (pre-existing or just created)
+if [ -n "$OVERLAY_DEV" ] && [ -b "$OVERLAY_DEV" ]; then
     mkdir -p /media/rw
     if mount -o rw "$OVERLAY_DEV" /media/rw 2>/dev/null; then
         mkdir -p /media/rw/upper /media/rw/work
@@ -871,20 +897,16 @@ if [ -n "$OVERLAY_DEV" ]; then
             for _mp in proc sys dev media; do
                 mount --move "/$_mp" "/media/overlay/$_mp" 2>/dev/null
             done
-            # Switch to overlay root
             cd /media/overlay
             mkdir -p .overlay_root
             pivot_root . .overlay_root
-            # Now / is the overlay, old root is /.overlay_root
             exec /sbin/openrc sysinit
-        else
-            # overlayfs failed, unmount ext4 and fall back to tmpfs
-            umount /media/rw 2>/dev/null
         fi
+        umount /media/rw 2>/dev/null
     fi
 fi
 
-# Fallback: normal tmpfs boot (no overlay partition found)
+# Fallback: normal tmpfs boot
 exec /sbin/openrc sysinit
 INITEOF
 
