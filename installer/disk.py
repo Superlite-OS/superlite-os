@@ -58,23 +58,35 @@ def _parse_partitions(children):
 
 def _unmount_disk(device):
     """Unmount all partitions and disable swap on device."""
-    dev_name = os.path.basename(device)
+    _devnull = subprocess.DEVNULL
+
+    # Try lsblk first to find actual partitions
     try:
         out = subprocess.check_output(
-            ["lsblk", "-n", "-o", "NAME", device],
-            stderr=subprocess.DEVNULL, text=True
+            ["lsblk", "-n", "-l", "-o", "NAME", device],
+            stderr=_devnull, text=True
         )
+        dev_name = os.path.basename(device)
         for line in out.strip().splitlines():
             part = line.strip()
             if not part or part == dev_name:
                 continue
             part_path = f"/dev/{part}"
             subprocess.run(["swapoff", part_path],
-                           capture_output=True, stderr=subprocess.DEVNULL)
+                           stdout=_devnull, stderr=_devnull)
             subprocess.run(["umount", "-f", part_path],
-                           capture_output=True, stderr=subprocess.DEVNULL)
+                           stdout=_devnull, stderr=_devnull)
     except Exception:
         pass
+
+    # Fallback: try common partition patterns directly
+    sep = "p" if any(x in device for x in ["nvme", "mmcblk", "md"]) else ""
+    for i in range(1, 16):
+        part_path = f"{device}{sep}{i}"
+        subprocess.run(["swapoff", part_path],
+                       stdout=_devnull, stderr=_devnull)
+        subprocess.run(["umount", "-f", part_path],
+                       stdout=_devnull, stderr=_devnull)
 
 
 def get_disk_size_mb(device):
