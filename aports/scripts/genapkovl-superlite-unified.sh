@@ -301,6 +301,9 @@ if [ -d "$DOTFILES_DIR" ]; then
         mkdir -p "$tmp"/usr/share
         cp -a "$DOTFILES_DIR"/usr/share/* "$tmp"/usr/share/
     fi
+    # Safety net: ensure all scripts are executable
+    find "$tmp"/etc/skel/.config/scripts -name "*.sh" -exec chmod +x {} + 2>/dev/null
+    find "$tmp"/root/.config/scripts -name "*.sh" -exec chmod +x {} + 2>/dev/null
 
     # Copy Pictures (wallpapers) to skel and root
     if [ -d "$DOTFILES_DIR/Pictures" ]; then
