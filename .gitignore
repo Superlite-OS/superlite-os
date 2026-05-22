@@ -26,3 +26,4 @@ installer/*.exe
 partman/partman
 partman/partman.exe
 partman/*.exe
+installer/__pycache__/
