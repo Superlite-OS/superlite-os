@@ -444,66 +444,18 @@ fi
 
 # NOTE: glibc isolation handled by zapt at install time (.deb .so -> /usr/lib/glibc/)
 
-# ── Install Double Commander (file manager) ──────────────────────────────────
-echo "Installing Double Commander..."
-apk add --no-cache xz 2>/dev/null || true
-DC_VERSION="1.1.32"
-DC_URL="https://sourceforge.net/projects/doublecmd/files/DC%20for%20Linux%2064%20bit/Double%20Commander%20${DC_VERSION}/doublecmd-${DC_VERSION}.qt.x86_64.tar.xz/download"
-DC_OK=false
-# Try wget first, then curl as fallback
-if wget -q --timeout=30 -O /tmp/doublecmd.tar.xz "$DC_URL" 2>/dev/null; then
-    DC_OK=true
-elif curl -fsSL --connect-timeout 30 -o /tmp/doublecmd.tar.xz "$DC_URL" 2>/dev/null; then
-    DC_OK=true
-fi
-if [ "$DC_OK" = true ] && [ -f /tmp/doublecmd.tar.xz ] && [ -s /tmp/doublecmd.tar.xz ]; then
-    mkdir -p "$tmp/opt/doublecmd"
-    tar -xJf /tmp/doublecmd.tar.xz -C "$tmp/opt/doublecmd" --strip-components=1
-    if [ -f "$tmp/opt/doublecmd/doublecmd" ]; then
-        chmod +x "$tmp/opt/doublecmd/doublecmd"
-        mkdir -p "$tmp/usr/bin"
-        # Wrapper: prefer doublecmd, fallback to thunar
-        cat > "$tmp/usr/bin/doublecmd" <<'DCWRAP'
-#!/bin/sh
-if [ -x /opt/doublecmd/doublecmd ]; then
-    exec /opt/doublecmd/doublecmd "$@"
-elif command -v thunar >/dev/null 2>&1; then
-    exec thunar "$@"
-else
-    echo "No file manager found" >&2
-    exit 1
-fi
-DCWRAP
-        chmod +x "$tmp/usr/bin/doublecmd"
-        # Create desktop entry
-        mkdir -p "$tmp/usr/share/applications"
-        cat > "$tmp/usr/share/applications/doublecmd.desktop" <<'DCDESKTOP'
-[Desktop Entry]
-Name=Double Commander
-Comment=File Manager
-Exec=doublecmd
-Icon=doublecmd
-Terminal=false
-Type=Application
-Categories=System;FileTools;FileManager;
-DCDESKTOP
-        echo "  Double Commander installed"
-    else
-        echo "  WARNING: Double Commander extraction failed, falling back to thunar"
-        rm -rf "$tmp/opt/doublecmd"
-    fi
-    rm -f /tmp/doublecmd.tar.xz
-else
-    echo "  WARNING: Double Commander download failed, falling back to thunar"
-    rm -f /tmp/doublecmd.tar.xz
-fi
-# Ensure /usr/bin/doublecmd wrapper exists (even if download failed, falls back to thunar)
+# ── Install Double Commander via zapt (Debian pool) ─────────────────────────
+echo "Installing Double Commander via zapt..."
+"$tmp/usr/local/bin/zapt" install --root "$tmp" doublecmd-qt 2>&1 || {
+    echo "  WARNING: Double Commander install failed, falling back to thunar"
+}
+# Ensure wrapper exists (fallback to thunar)
 if [ ! -f "$tmp/usr/bin/doublecmd" ]; then
     mkdir -p "$tmp/usr/bin"
     cat > "$tmp/usr/bin/doublecmd" <<'DCWRAP'
 #!/bin/sh
-if [ -x /opt/doublecmd/doublecmd ]; then
-    exec /opt/doublecmd/doublecmd "$@"
+if command -v doublecmd-qt >/dev/null 2>&1; then
+    exec doublecmd-qt "$@"
 elif command -v thunar >/dev/null 2>&1; then
     exec thunar "$@"
 else
