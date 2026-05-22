@@ -160,28 +160,30 @@ def manual_partition_menu(device, partitions):
     Args:
         device: device path e.g. /dev/sda
         partitions: list of existing partition dicts
-    Returns: action string: "add", "remove", "apply", "cancel"
-             or dict with {"action": "remove", "num": N}
-             or dict with {"action": "add", "size_mb": N, "type": str}
+    Returns: action string or dict
     """
     while True:
-        # Build status display
+        # Build options with partition info embedded
+        options = []
         if partitions:
-            part_lines = [f"  {p['num']}: {p['size_mb']}MB" for p in partitions]
-            status = " | ".join(part_lines)
-        else:
-            status = "Empty"
+            for p in partitions:
+                mb = p['size_mb']
+                if mb >= 1024:
+                    size_str = f"{mb / 1024:.1f}GB"
+                else:
+                    size_str = f"{mb}MB"
+                options.append(f"  #{p['num']}  {size_str}  ({p['path']})")
+            options.append("---")
+        options.append("Add partition")
+        options.append("Remove partition")
+        options.append("Apply & Continue")
+        options.append("Cancel")
 
-        options = [
-            "Add partition",
-            "Remove partition",
-            "Apply & Continue",
-            "Cancel",
-        ]
-
-        choice = _tofi(options, prompt=f"Partition {device} [{status}]")
+        choice = _tofi(options, prompt=f"Partition {device}")
         if not choice or choice == "Cancel":
             return "cancel"
+        if choice == "---":
+            continue
 
         if choice == "Apply & Continue":
             return "apply"
@@ -193,12 +195,12 @@ def manual_partition_menu(device, partitions):
             if not partitions:
                 _tofi(["OK"], prompt="No partitions to remove!")
                 continue
-            part_opts = [f"Partition {p['num']} ({p['size_mb']}MB)" for p in partitions]
-            sel = _tofi(part_opts, prompt="Remove which partition?")
+            part_opts = [f"#{p['num']}  {p['size_mb']}MB" for p in partitions]
+            sel = _tofi(part_opts, prompt="Remove which?")
             if sel:
-                for p in partitions:
-                    if f"Partition {p['num']}" in sel:
-                        return {"action": "remove", "num": p["num"]}
+                num_str = sel.split()[0].lstrip("#")
+                if num_str.isdigit():
+                    return {"action": "remove", "num": int(num_str)}
             continue
 
         return choice
