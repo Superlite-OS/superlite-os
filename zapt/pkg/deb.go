@@ -319,6 +319,13 @@ func installFilesWithSafety(dataDir, backupDir string) (installed, skipped int, 
 			return nil
 		}
 
+		// Check if file is owned by apk (prevent conflicts)
+		if isOwnedByApk(destPath) {
+			fmt.Printf("  SKIP [apk-owned]: %s -> %s\n", relPath, destPath)
+			skipped++
+			return nil
+		}
+
 		// Get info using Lstat (doesn't follow symlinks)
 		info, err := os.Lstat(path)
 		if err != nil {
@@ -568,6 +575,17 @@ func isProtectedLib(path string) bool {
 		}
 	}
 	return false
+}
+
+// isOwnedByApk checks if a file is owned by an Alpine apk package
+func isOwnedByApk(path string) bool {
+	cmd := exec.Command("apk", "info", "-W", path)
+	out, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+	// Output format: "<path> is owned by <package>" or error
+	return strings.Contains(string(out), "is owned by")
 }
 
 // copyFileWithMode copies a file preserving permissions
