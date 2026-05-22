@@ -841,6 +841,7 @@ INSTALLER_DIR="$tmp/usr/lib/superlite-installer"
 mkdir -p "$INSTALLER_DIR"
 if [ -d "$SCRIPT_DIR/../../installer" ]; then
     cp -a "$SCRIPT_DIR/../../installer"/*.py "$INSTALLER_DIR/" 2>/dev/null || true
+    cp -a "$SCRIPT_DIR/../../installer"/*.conf "$INSTALLER_DIR/" 2>/dev/null || true
 fi
 # Create wrapper script
 makefile root:root 0755 "$tmp"/usr/local/bin/superlite-installer <<'INSTALLER_WRAPPER'

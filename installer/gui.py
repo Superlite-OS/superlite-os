@@ -1,29 +1,74 @@
 #!/usr/bin/env python3
 """
-SuperLite OS — GUI Dialog Module (yad)
-All installer UI dialogs using yad
+SuperLite OS — GUI Dialog Module (tofi)
+All installer UI dialogs using tofi (dmenu-style)
 """
 import subprocess
 import os
 
+# Tofi config for installer — full-screen, Catppuccin Mocha
+TOFI_CONFIG = os.path.join(os.path.dirname(__file__), "tofi-installer.conf")
 
-def _yad(*args, **kwargs):
-    """Run yad and return result."""
-    cmd = ["yad"] + list(args)
-    result = subprocess.run(cmd, capture_output=True, text=True, **kwargs)
-    return result.stdout.strip(), result.returncode
+
+def _tofi(options, prompt="Select", hide_input=False):
+    """Run tofi with options and return selected value.
+
+    Args:
+        options: list of strings to choose from
+        prompt: prompt text (single line, no newlines)
+        hide_input: if True, hide typed input (for passwords)
+    Returns: selected string or None if cancelled
+    """
+    cmd = ["tofi", f"--prompt-text={prompt}"]
+    if TOFI_CONFIG and os.path.isfile(TOFI_CONFIG):
+        cmd += [f"--config={TOFI_CONFIG}"]
+    if hide_input:
+        cmd += ["--hide-input=true"]
+
+    result = subprocess.run(
+        cmd,
+        input="\n".join(options),
+        capture_output=True, text=True
+    )
+    choice = result.stdout.strip()
+    if not choice or result.returncode != 0:
+        return None
+    return choice
+
+
+def _tofi_input(prompt="Enter value", hide_input=False):
+    """Run tofi for free-text input by providing a single placeholder option.
+
+    Args:
+        prompt: prompt text
+        hide_input: if True, hide typed input (for passwords)
+    Returns: entered text or None if cancelled
+    """
+    # Use a placeholder option; user types to filter/replace
+    cmd = ["tofi", f"--prompt-text={prompt}"]
+    if TOFI_CONFIG and os.path.isfile(TOFI_CONFIG):
+        cmd += [f"--config={TOFI_CONFIG}"]
+    if hide_input:
+        cmd += ["--hide-input=true"]
+
+    result = subprocess.run(
+        cmd,
+        input="",
+        capture_output=True, text=True
+    )
+    text = result.stdout.strip()
+    if not text or result.returncode != 0:
+        return None
+    return text
 
 
 def welcome():
-    """Welcome dialog with language/timezone selection."""
-    out, code = _yad(
-        "--title=SuperLite OS Installer",
-        "--text=<b>Welcome to SuperLite OS</b>\n\nThis installer will guide you through installing SuperLite OS.",
-        "--width=500", "--height=300",
-        "--button=Next:0", "--button=Cancel:1",
-        "--center"
+    """Welcome dialog."""
+    choice = _tofi(
+        ["Continue", "Cancel"],
+        prompt="SuperLite OS Installer"
     )
-    return code == 0
+    return choice == "Continue"
 
 
 def select_disk(devices):
@@ -34,30 +79,23 @@ def select_disk(devices):
     Returns: selected device dict or None
     """
     if not devices:
-        _yad("--error", "--text=No disks found!", "--center")
+        _tofi(["OK"], prompt="Error: No disks found!")
         return None
 
-    # Build yad list
-    cmd = [
-        "yad", "--list",
-        "--title=Select Disk",
-        "--text=<b>Select target disk for installation:</b>\n<i>WARNING: All data will be erased!</i>",
-        "--column=Device", "--column=Size", "--column=Model", "--column=Type",
-        "--width=600", "--height=400",
-        "--center",
-        "--button=Select:0", "--button=Cancel:1",
-    ]
+    options = []
     for dev in devices:
         dtype = "SSD" if dev.get("rota") == "0" else "HDD"
         if dev.get("tran"):
             dtype += f" ({dev['tran']})"
-        cmd += [dev["path"], dev["size"], dev["model"], dtype]
+        model = dev.get("model", "Unknown") or "Unknown"
+        options.append(f"{dev['path']}  {dev['size']}  {model}  [{dtype}]")
 
-    out, code = _yad(*cmd[1:])  # Skip 'yad' since _yad adds it
-    if code != 0:
+    choice = _tofi(options, prompt="Select target disk (ALL DATA WILL BE ERASED)")
+    if not choice:
         return None
 
-    selected_path = out.split("|")[0]
+    # Extract device path from choice (first field before spaces)
+    selected_path = choice.split()[0]
     for dev in devices:
         if dev["path"] == selected_path:
             return dev
@@ -67,49 +105,40 @@ def select_disk(devices):
 def partition_scheme(boot_mode):
     """Choose partition scheme.
 
-    Returns: "auto", "manual", or None
+    Returns: "auto", "manual", "mbr", or None
     """
-    out, code = _yad(
-        "--title=Partition Scheme",
-        "--text=<b>Choose partition scheme:</b>\n\n"
-               f"Boot mode detected: <b>{boot_mode.upper()}</b>",
-        "--radiolist",
-        "--column=Select", "--column=Scheme", "--column=Description",
-        "TRUE", "Auto (Recommended)",
-        f"GPT: {'EFI + swap + root' if boot_mode == 'uefi' else 'bios_grub + swap + root'}",
-        "FALSE", "Manual (cfdisk)",
-        "Launch cfdisk for custom partitioning",
-        "FALSE", "MBR (Legacy)",
-        "MBR partition table for old BIOS",
-        "--width=500", "--height=300",
-        "--center",
-        "--button=Next:0", "--button=Back:1",
-    )
-    if code != 0:
+    boot_info = boot_mode.upper()
+    if boot_mode == "uefi":
+        auto_desc = "GPT: EFI + swap + root"
+    else:
+        auto_desc = "GPT: bios_grub + swap + root"
+
+    options = [
+        f"Auto (Recommended) - {auto_desc}",
+        "Manual (cfdisk) - custom partitioning",
+        "MBR (Legacy) - old BIOS",
+    ]
+
+    choice = _tofi(options, prompt=f"Partition scheme [{boot_info}]")
+    if not choice:
         return None
 
-    if "Auto" in out:
+    if "Auto" in choice:
         return "auto"
-    elif "Manual" in out:
+    elif "Manual" in choice:
         return "manual"
-    elif "MBR" in out:
+    elif "MBR" in choice:
         return "mbr"
     return None
 
 
 def confirm_erase(device):
     """Confirm disk erase dialog."""
-    out, code = _yad(
-        "--title=Confirm",
-        "--text=<b>WARNING: This will ERASE ALL DATA on:</b>\n\n"
-               f"<span color='red'><b>{device}</b></span>\n\n"
-               "This action cannot be undone!",
-        "--question",
-        "--width=450", "--height=250",
-        "--center",
-        "--button=Yes, erase:0", "--button=No, go back:1",
+    choice = _tofi(
+        ["Yes, erase all data", "No, go back"],
+        prompt=f"ERASE ALL DATA on {device}?"
     )
-    return code == 0
+    return choice is not None and choice.startswith("Yes")
 
 
 def user_setup():
@@ -117,41 +146,22 @@ def user_setup():
 
     Returns: dict with username, password, hostname or None
     """
-    out, code = _yad(
-        "--title=User Setup",
-        "--form",
-        "--text=<b>Create your user account:</b>",
-        "--field=Username",
-        "--field=Password:H",
-        "--field=Confirm Password:H",
-        "--field=Hostname",
-        "--width=450", "--height=300",
-        "--center",
-        "--button=Next:0", "--button=Back:1",
-    )
-    if code != 0:
-        return None
-
-    parts = out.split("|")
-    if len(parts) < 4:
-        return None
-
-    username = parts[0].strip()
-    password = parts[1].strip()
-    confirm = parts[2].strip()
-    hostname = parts[3].strip() or "superlite"
-
+    username = _tofi_input(prompt="Username")
     if not username:
-        _yad("--error", "--text=Username cannot be empty!", "--center")
         return None
 
-    if password != confirm:
-        _yad("--error", "--text=Passwords do not match!", "--center")
-        return None
-
+    password = _tofi_input(prompt="Password", hide_input=True)
     if not password:
-        _yad("--error", "--text=Password cannot be empty!", "--center")
         return None
+
+    confirm = _tofi_input(prompt="Confirm password", hide_input=True)
+    if password != confirm:
+        _tofi(["OK"], prompt="Error: Passwords do not match!")
+        return None
+
+    hostname = _tofi_input(prompt="Hostname (default: superlite)")
+    if not hostname:
+        hostname = "superlite"
 
     return {
         "username": username,
@@ -160,41 +170,25 @@ def user_setup():
     }
 
 
-def install_progress():
-    """Show installation progress dialog.
-
-    Returns a context manager or callback for progress updates.
-    """
-    # This is a placeholder - actual progress will be shown via
-    # yad --progress piped from the installer
-    pass
-
-
 def show_error(message):
     """Show error dialog."""
-    _yad("--error", f"--text={message}", "--center", "--width=400")
+    first_line = message.split("\n")[0][:80]
+    _tofi(["OK"], prompt=f"Error: {first_line}")
 
 
 def show_success(message="Installation complete!"):
     """Show success dialog."""
-    out, code = _yad(
-        "--title=Installation Complete",
-        "--text=<b>SuperLite OS installed successfully!</b>\n\n" + message,
-        "--info",
-        "--width=400", "--height=200",
-        "--center",
-        "--button=Reboot:0", "--button=Close:1",
+    choice = _tofi(
+        ["Reboot", "Close"],
+        prompt="SuperLite OS installed successfully!"
     )
-    return code == 0
+    return choice == "Reboot"
 
 
 def confirm_reboot():
     """Confirm reboot dialog."""
-    out, code = _yad(
-        "--title=Reboot",
-        "--text=Remove installation media and reboot?",
-        "--question",
-        "--center",
-        "--button=Reboot:0", "--button=Cancel:1",
+    choice = _tofi(
+        ["Reboot now", "Cancel"],
+        prompt="Remove installation media and reboot?"
     )
-    return code == 0
+    return choice == "Reboot now"
