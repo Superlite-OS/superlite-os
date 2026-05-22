@@ -129,7 +129,7 @@
     </names>
   </desktops>
 -->
-  <desktops number="4" popupTime="1000"/>
+  <desktops number="5" popupTime="1000"/>
   <!--
     <margin> can be used to reserve space where new/maximized/tiled
     windows will not be placed. Clients using layer-shell protocol reserve
@@ -608,7 +608,7 @@
 
     <windowRules>
 
-     <windowRule identifier="Firefox">
+     <windowRule identifier="google-chrome">
      <action name="ToggleDecorations"/>
      <action name="SnapToRegion" region="center-big"/>
      <!-- <action name="ToggleMaximize"/> -->

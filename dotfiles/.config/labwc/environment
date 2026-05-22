@@ -26,7 +26,7 @@ _JAVA_AWT_WM_NONREPARENTING=1
 XCURSOR_THEME=simp1e-cursors
 XCURSOR_SIZE=20
 XKB_DEFAULT_LAYOUT=us
-BROWSER=firefox
+BROWSER=google-chrome-stable
 EDITOR=micro
 
 # Auto-detect GPU — don't hardcode Intel/AMD

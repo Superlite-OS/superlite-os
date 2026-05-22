@@ -8,8 +8,8 @@ export WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-0}"
 
 OUTPUT=$(wlr-randr | head -1 | awk '{print $1}')
 CURRENT_SCALE=$(wlr-randr | grep "Scale:" | awk '{print $2}')
-CURRENT_MODE=$(wlr-randr | grep -oP '\d+x\d+ px.*current' | grep -oP '\d+x\d+')
-MODES=$(wlr-randr | grep -oP '\d+x\d+ px' | grep -oP '\d+x\d+' | sort -u)
+CURRENT_MODE=$(wlr-randr | grep -o '[0-9]\+x[0-9]\+ px.*current' | grep -o '[0-9]\+x[0-9]\+')
+MODES=$(wlr-randr | grep -o '[0-9]\+x[0-9]\+ px' | grep -o '[0-9]\+x[0-9]\+' | sort -u)
 
 MENU="Zoom In (+0.25)
 Zoom Out (-0.25)
