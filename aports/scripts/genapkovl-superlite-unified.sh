@@ -733,11 +733,14 @@ for arg in $(cat /proc/cmdline 2>/dev/null); do
     esac
 done
 
-# Start seatd for all modes
+# Start seatd + elogind for all modes (labwc needs libseat session)
 if ! pgrep -x seatd >/dev/null 2>&1; then
-    sudo rc-service seatd start 2>/dev/null || true
-    sleep 1
+    /sbin/rc-service seatd start 2>/dev/null || true
 fi
+if ! pgrep -x elogind >/dev/null 2>&1; then
+    /sbin/rc-service elogind start 2>/dev/null || true
+fi
+sleep 1
 
 case "$MODE" in
     install)
