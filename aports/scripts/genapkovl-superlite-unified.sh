@@ -757,6 +757,10 @@ case "$MODE" in
         ;;
 esac
 
+# Ensure XDG_RUNTIME_DIR exists (labwc/elogind needs it)
+export XDG_RUNTIME_DIR="/tmp/$(id -u)-runtime-dir"
+mkdir -pm 0700 "$XDG_RUNTIME_DIR" 2>/dev/null
+
 exec dbus-run-session labwc
 BOOTMODE_EOF
 
