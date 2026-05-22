@@ -860,6 +860,19 @@ net.ipv6.conf.all.use_tempaddr = 2
 net.ipv6.conf.default.use_tempaddr = 2
 EOF
 
+# ── TCP BBR Congestion Control ──────────────────────────────────────────────
+mkdir -p "$tmp"/etc/modules-load.d
+makefile root:root 0644 "$tmp"/etc/modules-load.d/bbr.conf <<EOF
+tcp_bbr
+EOF
+
+makefile root:root 0644 "$tmp"/etc/sysctl.d/99-bbr.conf <<EOF
+# TCP BBR congestion control (IPv4 & IPv6)
+net.core.default_qdisc = fq
+net.ipv4.tcp_congestion_control = bbr
+net.ipv6.tcp_congestion_control = bbr
+EOF
+
 # ── NetworkManager ────────────────────────────────────────────────────────────
 mkdir -p "$tmp"/etc/NetworkManager
 makefile root:root 0644 "$tmp"/etc/NetworkManager/NetworkManager.conf <<EOF
