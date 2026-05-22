@@ -163,27 +163,20 @@ def manual_partition_menu(device, partitions):
     Returns: action string or dict
     """
     while True:
-        # Build options with partition info embedded
-        options = []
-        if partitions:
-            for p in partitions:
-                mb = p['size_mb']
-                if mb >= 1024:
-                    size_str = f"{mb / 1024:.1f}GB"
-                else:
-                    size_str = f"{mb}MB"
-                options.append(f"  #{p['num']}  {size_str}  ({p['path']})")
-            options.append("---")
-        options.append("Add partition")
-        options.append("Remove partition")
-        options.append("Apply & Continue")
-        options.append("Cancel")
+        # Compact: show count in prompt, only actions in list
+        count = len(partitions)
+        prompt = f"Partition {device} ({count} parts)"
 
-        choice = _tofi(options, prompt=f"Partition {device}")
+        options = [
+            "Add partition",
+            "Remove partition",
+            "Apply & Continue",
+            "Cancel",
+        ]
+
+        choice = _tofi(options, prompt=prompt)
         if not choice or choice == "Cancel":
             return "cancel"
-        if choice == "---":
-            continue
 
         if choice == "Apply & Continue":
             return "apply"
@@ -195,7 +188,11 @@ def manual_partition_menu(device, partitions):
             if not partitions:
                 _tofi(["OK"], prompt="No partitions to remove!")
                 continue
-            part_opts = [f"#{p['num']}  {p['size_mb']}MB" for p in partitions]
+            part_opts = []
+            for p in partitions:
+                mb = p['size_mb']
+                sz = f"{mb / 1024:.1f}GB" if mb >= 1024 else f"{mb}MB"
+                part_opts.append(f"#{p['num']}  {sz}")
             sel = _tofi(part_opts, prompt="Remove which?")
             if sel:
                 num_str = sel.split()[0].lstrip("#")
