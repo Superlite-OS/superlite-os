@@ -86,6 +86,7 @@ simp1e-cursors
 
 # --- Desktop Tools ---
 util-linux
+lsblk
 agetty
 agetty-openrc
 libnotify
@@ -145,8 +146,8 @@ networkmanager
 networkmanager-cli
 networkmanager-tui
 networkmanager-wifi
+openssh
 openssh-server
-openssh-client
 ndisc6
 iproute2
 
