@@ -20,7 +20,7 @@ from format import (
     mount_partition, umount_all
 )
 from bootloader import install_grub_uefi, install_grub_bios
-from system import setup_user, generate_fstab
+from system import setup_user, generate_fstab, copy_kernel_modules
 from gui import (
     welcome, select_disk, partition_scheme, confirm_erase,
     manual_partition_menu, add_partition_dialog,
@@ -241,14 +241,11 @@ def _run_installer():
         show_error(f"Formatting failed:\n{e}")
         sys.exit(1)
 
-    # Step 8: Mount
+    # Step 8: Mount root (EFI will be mounted by bootloader module)
     print("[installer] Mounting partitions...")
     try:
         umount_all(MOUNT_ROOT)
         mount_partition(partitions["root"], MOUNT_ROOT)
-        if boot_mode == "uefi" and "efi" in partitions:
-            efi_mount = os.path.join(MOUNT_ROOT, "boot", "efi")
-            mount_partition(partitions["efi"], efi_mount)
     except Exception as e:
         show_error(f"Mount failed:\n{e}")
         sys.exit(1)
@@ -271,6 +268,7 @@ def _run_installer():
     # Step 11: Configure system
     print("[installer] Configuring system...")
     try:
+        copy_kernel_modules(MOUNT_ROOT)
         setup_user(MOUNT_ROOT, user_info["password"], user_info["hostname"])
         generate_fstab(MOUNT_ROOT, partitions, boot_mode)
     except Exception as e:

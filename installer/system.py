@@ -95,6 +95,43 @@ def setup_network(root_mount, hostname):
     return True
 
 
+def copy_kernel_modules(root_mount):
+    """Copy kernel modules from live system to installed system.
+
+    Live Alpine uses modloop (squashfs) for modules. After install,
+    modules must be in /lib/modules/ on the root filesystem.
+    """
+    target_modules = os.path.join(root_mount, "lib", "modules")
+
+    # If modules already exist on target, skip
+    if os.path.isdir(target_modules) and os.listdir(target_modules):
+        print("[system] Kernel modules already present")
+        return True
+
+    # Try copying from modloop mount
+    modloop_sources = [
+        "/.modloop/modules",
+        "/lib/modules",
+    ]
+
+    for src in modloop_sources:
+        if os.path.isdir(src) and os.listdir(src):
+            os.makedirs(target_modules, exist_ok=True)
+            print(f"[system] Copying kernel modules from {src}...")
+            result = subprocess.run(
+                ["cp", "-a", f"{src}/.", target_modules],
+                capture_output=True, timeout=300
+            )
+            if result.returncode == 0:
+                print("[system] Kernel modules copied successfully")
+                return True
+            else:
+                print(f"[system] Warning: cp failed: {result.stderr.decode()[:200]}")
+
+    print("[system] Warning: No kernel modules found to copy")
+    return False
+
+
 def setup_bootloader_config(root_mount, boot_mode):
     """Configure bootloader-related settings."""
     if boot_mode == "uefi":
