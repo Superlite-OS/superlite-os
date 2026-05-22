@@ -835,16 +835,14 @@ makefile root:root 0755 "$tmp"/sbin/init <<'INITEOF'
 mountpoint -q /proc || mount -t proc proc /proc
 mountpoint -q /sys  || mount -t sysfs sysfs /sys
 mountpoint -q /dev  || mount -t devtmpfs devtmpfs /dev
-for mod in loop squashfs overlay; do modprobe "$mod" 2>/dev/null; done
+for mod in loop squashfs ext4 overlay; do modprobe "$mod" 2>/dev/null; done
 
 # Symlink /media/cdrom to actual boot media (USB flash, CDROM, etc.)
 # Stock Alpine modloop hardcodes /media/cdrom — this fixes USB boot
 if [ ! -e /media/cdrom ]; then
-    # Wait briefly for media devices to mount
     sleep 1
     for _m in /media/sd* /media/usb /media/mmcblk* /media/sr*; do
         [ -d "$_m" ] || continue
-        # Check if this looks like our boot media
         if [ -d "$_m/boot" ] || [ -d "$_m/apks" ] || [ -f "$_m/modloop-lts" ]; then
             ln -sf "$_m" /media/cdrom
             break
@@ -852,6 +850,41 @@ if [ ! -e /media/cdrom ]; then
     done
 fi
 
+# ── USB overlay: use ext4 partition as writable layer (saves RAM) ──
+# Looks for partition labeled SUPERLITE-RW (created by make-usb-overlay.sh)
+# If found: overlayfs with ext4 upper → no tmpfs bloat
+# If not found: continue with tmpfs (default Alpine behavior)
+OVERLAY_DEV=""
+for _d in /dev/disk/by-label/SUPERLITE-RW /dev/disk/by-label/superlite-rw; do
+    [ -b "$_d" ] && OVERLAY_DEV="$_d" && break
+done
+
+if [ -n "$OVERLAY_DEV" ]; then
+    mkdir -p /media/rw
+    if mount -o rw "$OVERLAY_DEV" /media/rw 2>/dev/null; then
+        mkdir -p /media/rw/upper /media/rw/work
+        mkdir -p /media/overlay
+        if mount -t overlay overlay \
+            -o lowerdir=/,upperdir=/media/rw/upper,workdir=/media/rw/work \
+            /media/overlay 2>/dev/null; then
+            # Move mount points into overlay
+            for _mp in proc sys dev media; do
+                mount --move "/$_mp" "/media/overlay/$_mp" 2>/dev/null
+            done
+            # Switch to overlay root
+            cd /media/overlay
+            mkdir -p .overlay_root
+            pivot_root . .overlay_root
+            # Now / is the overlay, old root is /.overlay_root
+            exec /sbin/openrc sysinit
+        else
+            # overlayfs failed, unmount ext4 and fall back to tmpfs
+            umount /media/rw 2>/dev/null
+        fi
+    fi
+fi
+
+# Fallback: normal tmpfs boot (no overlay partition found)
 exec /sbin/openrc sysinit
 INITEOF
 
