@@ -56,6 +56,8 @@ networkmanager-cli
 openssh
 openssh-client
 openssh-server
+ndisc6
+iproute2
 
 # --- TUI Tools ---
 micro

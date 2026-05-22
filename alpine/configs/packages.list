@@ -113,6 +113,8 @@ networkmanager-tui
 networkmanager-wifi
 openssh-server
 openssh-client
+ndisc6
+iproute2
 
 # --- VPN (Cloudflare WARP) ---
 wireguard-tools

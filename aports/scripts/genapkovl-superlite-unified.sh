@@ -43,6 +43,7 @@ mkdir -p "$tmp"/etc/network
 makefile root:root 0644 "$tmp"/etc/network/interfaces <<EOF
 auto lo
 iface lo inet loopback
+iface lo inet6 loopback
 EOF
 
 # ── Repositories ──────────────────────────────────────────────────────────────
@@ -840,16 +841,42 @@ for mod in loop squashfs overlay; do modprobe "$mod" 2>/dev/null; done
 exec /sbin/openrc sysinit
 INITEOF
 
+# ── Sysctl (IPv6 & Network) ─────────────────────────────────────────────────
+mkdir -p "$tmp"/etc/sysctl.d
+makefile root:root 0644 "$tmp"/etc/sysctl.d/99-ipv6.conf <<EOF
+# Enable IPv6
+net.ipv6.conf.all.disable_ipv6 = 0
+net.ipv6.conf.default.disable_ipv6 = 0
+
+# Accept Router Advertisements (for SLAAC)
+net.ipv6.conf.all.accept_ra = 1
+net.ipv6.conf.default.accept_ra = 1
+
+# Disable IPv6 forwarding (workstation, not router)
+net.ipv6.conf.all.forwarding = 0
+
+# Privacy extensions (temporary addresses)
+net.ipv6.conf.all.use_tempaddr = 2
+net.ipv6.conf.default.use_tempaddr = 2
+EOF
+
 # ── NetworkManager ────────────────────────────────────────────────────────────
 mkdir -p "$tmp"/etc/NetworkManager
 makefile root:root 0644 "$tmp"/etc/NetworkManager/NetworkManager.conf <<EOF
 [main]
 plugins=ifupdown,keyfile
 dhcp=internal
+
 [ifupdown]
 managed=false
+
 [device]
 wifi.backend=wpa_supplicant
+
+[connection]
+ipv6.method=auto
+ipv6.addr-gen-mode=stable-privacy
+ipv6.ip6-privacy=2
 EOF
 
 # ── Generate apkovl ───────────────────────────────────────────────────────────
