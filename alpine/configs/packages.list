@@ -1,6 +1,6 @@
 # ============================================================================
-# SuperLite OS — Package List (LabWC-Alpine-Netbook Style)
-# Minimal desktop with RiccardoPP's aesthetic. No bloat.
+# SuperLite OS — Unified Package List
+# Desktop + Installer + Disk Partitioning (all-in-one)
 # ============================================================================
 # NOTE: Use ONLY confirmed Alpine edge package names.
 # Invalid names will cause apk to fail the ENTIRE batch.
@@ -13,27 +13,18 @@ busybox-suid
 busybox-static
 busybox-extras
 kmod
-thunar  # fallback file manager (primary is Double Commander pre-built binary)
-thunar-volman
-gvfs
-imv
-mpv
-wf-recorder
-lxappearance
-qt5ct
-micro
-helix
-lazygit
-bluez
-tlp
-acpi
-upower
 shadow
 shadow-login
 sudo
-btrfs-progs
-e2fsprogs-extra
-dosfstools
+bash
+less
+micro
+helix
+lazygit
+
+# --- Installer ---
+python3
+py3-yaml
 
 # --- Kernel + Targeted Firmware ---
 linux-lts
@@ -64,8 +55,7 @@ dbus
 dbus-x11
 xwayland
 
-
-# --- Desktop Components (LabWC-Alpine-Netbook style) ---
+# --- Desktop Components ---
 waybar
 swaybg
 wlr-randr
@@ -105,6 +95,50 @@ slurp
 wtype
 yad
 librsvg
+thunar
+thunar-volman
+gvfs
+imv
+mpv
+wf-recorder
+lxappearance
+qt5ct
+bluez
+tlp
+acpi
+upower
+
+# --- Glibc compat (for curl-impersonate + Chrome) ---
+gcompat
+nss
+zstd
+xz
+
+# --- Disk Partition Tools ---
+parted
+gptfdisk
+cfdisk
+sgdisk
+dosfstools
+btrfs-progs
+e2fsprogs
+e2fsprogs-extra
+ntfs-3g
+xfsprogs
+f2fs-tools
+lvm2
+mdadm
+smartmontools
+hdparm
+sdparm
+nvme-cli
+hd-idle
+
+# --- Filesystem Tools ---
+nfs-utils
+cifs-utils
+sshfs
+fuse3
 
 # --- Networking ---
 networkmanager

@@ -70,11 +70,9 @@ mkdir -p "$tmp"/etc/apk
     cat "$CONFIGS_DIR/repositories"
 } | makefile root:root 0644 "$tmp"/etc/apk/repositories
 
-# ── Package world (merged from all lists, deduplicated) ──────────────────────
+# ── Package world (unified packages.list, deduplicated) ─────────────────────
 {
-    for f in "$CONFIGS_DIR/packages.list" "$CONFIGS_DIR/packages-install.list" "$CONFIGS_DIR/packages-parted.list"; do
-        [ -f "$f" ] && sed '/# --- Boot (ISO only/,$d; s/#.*//; /^[[:space:]]*$/d' "$f"
-    done | sort -u
+    sed '/# --- Boot (ISO only/,$d; s/#.*//; /^[[:space:]]*$/d' "$CONFIGS_DIR/packages.list" | sort -u
 } | makefile root:root 0644 "$tmp"/etc/apk/world
 
 # ── OpenRC services ───────────────────────────────────────────────────────────

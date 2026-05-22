@@ -31,12 +31,9 @@ profile_superlite-unified() {
     repos="$repos $(cat "$_configs_dir/repositories" | tr '\n' ' ')"
     apks="$apks !vlan"
 
-    # Unified: include ALL packages from desktop + install + parted
-    # Deduplicate and merge
+    # Read unified packages.list, strip comments and blank lines
     _merge_packages() {
-        for f in "$_configs_dir/packages.list" "$_configs_dir/packages-install.list" "$_configs_dir/packages-parted.list"; do
-            [ -f "$f" ] && sed '/# --- Boot (ISO only/,$d; s/#.*//; /^[[:space:]]*$/d' "$f"
-        done | sort -u | tr '\n' ' '
+        sed '/# --- Boot (ISO only/,$d; s/#.*//; /^[[:space:]]*$/d' "$_configs_dir/packages.list" | sort -u | tr '\n' ' '
     }
 
     apks="$apks $(_merge_packages)"
