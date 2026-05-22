@@ -282,12 +282,20 @@ def apply_partition_table(device, label, partitions):
             lines.append(f"type={ptype}")
 
     script = "\n".join(lines) + "\n"
+    # Write script for debugging
+    with open("/tmp/sfdisk-script.txt", "w") as f:
+        f.write(script)
+
     result = subprocess.run(
         ["sfdisk", device],
         input=script, text=True, capture_output=True
     )
     if result.returncode != 0:
-        raise RuntimeError(f"sfdisk failed: {result.stderr}")
+        err = result.stderr.strip() or "(no stderr)"
+        out = result.stdout.strip()[:200] or "(no stdout)"
+        raise RuntimeError(
+            f"sfdisk error (code {result.returncode}):\n{err}\n\nScript:\n{script}\n\nOutput:\n{out}"
+        )
 
     sep = "p" if any(x in device for x in ["nvme", "mmcblk", "md"]) else ""
     return {i + 1: f"{device}{sep}{i + 1}" for i in range(len(partitions))}
