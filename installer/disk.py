@@ -56,6 +56,27 @@ def _parse_partitions(children):
     return parts
 
 
+def _unmount_disk(device):
+    """Unmount all partitions and disable swap on device."""
+    dev_name = os.path.basename(device)
+    try:
+        out = subprocess.check_output(
+            ["lsblk", "-n", "-o", "NAME", device],
+            stderr=subprocess.DEVNULL, text=True
+        )
+        for line in out.strip().splitlines():
+            part = line.strip()
+            if not part or part == dev_name:
+                continue
+            part_path = f"/dev/{part}"
+            subprocess.run(["swapoff", part_path],
+                           capture_output=True, stderr=subprocess.DEVNULL)
+            subprocess.run(["umount", "-f", part_path],
+                           capture_output=True, stderr=subprocess.DEVNULL)
+    except Exception:
+        pass
+
+
 def get_disk_size_mb(device):
     """Get disk size in MB."""
     try:
@@ -79,6 +100,9 @@ def partition_disk_auto(device, boot_mode):
     size_mb = get_disk_size_mb(device)
     if size_mb < 4096:
         raise ValueError(f"Disk too small: {size_mb}MB (need at least 4GB)")
+
+    # Unmount all partitions and disable swap before wiping
+    _unmount_disk(device)
 
     # Wipe existing partition table
     subprocess.run(["wipefs", "-a", device], capture_output=True)
@@ -105,7 +129,7 @@ def _partition_gpt_efi(device, size_mb):
     )
 
     result = subprocess.run(
-        ["sfdisk", "--quiet", device],
+        ["sfdisk", device],
         input=script, text=True, capture_output=True
     )
     if result.returncode != 0:
@@ -142,7 +166,7 @@ def _partition_gpt_bios(device, size_mb):
     )
 
     result = subprocess.run(
-        ["sfdisk", "--quiet", device],
+        ["sfdisk", device],
         input=script, text=True, capture_output=True
     )
     if result.returncode != 0:
@@ -163,6 +187,7 @@ def partition_disk_mbr(device):
     size_mb = get_disk_size_mb(device)
     swap_mb = min(size_mb // 10, 2048)
 
+    _unmount_disk(device)
     subprocess.run(["wipefs", "-a", device], capture_output=True)
 
     script = (
@@ -172,7 +197,7 @@ def partition_disk_mbr(device):
     )
 
     result = subprocess.run(
-        ["sfdisk", "--quiet", device],
+        ["sfdisk", device],
         input=script, text=True, capture_output=True
     )
     if result.returncode != 0:
