@@ -96,12 +96,12 @@ def _partition_gpt_efi(device, size_mb):
     efi_mb = 512
 
     # Use sfdisk for GPT partitioning (scripted)
-    # sfdisk handles nvme/mmcblk naming automatically
+    # Must use full GPT type UUIDs — sfdisk on Alpine doesn't support aliases
     script = (
         f"label: gpt\n"
-        f"size={efi_mb}MiB, type=UEFI\n"
-        f"size={swap_mb}MiB, type=swap\n"
-        f"type=Linux\n"
+        f"size={efi_mb}MiB, type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B\n"
+        f"size={swap_mb}MiB, type=0657FD6D-A4AB-43C4-84E5-0933C84B4F4F\n"
+        f"type=0FC63DAF-8483-4772-8E79-3D69D8477DE4\n"
     )
 
     result = subprocess.run(
@@ -119,9 +119,9 @@ def _partition_gpt_efi(device, size_mb):
         "root": f"{device}{sep}3",
     }
 
-    # Set ESP flag
+    # Set ESP flag on EFI partition
     subprocess.run(
-        ["sfdisk", "--part-attrs", device, "1", "RequiredPartition,LegacyBIOSBootable"],
+        ["sfdisk", "--part-attrs", device, "1", "RequiredPartition"],
         capture_output=True
     )
 
@@ -133,11 +133,12 @@ def _partition_gpt_bios(device, size_mb):
     swap_mb = min(size_mb // 10, 2048)
     bios_mb = 1
 
+    # Must use full GPT type UUIDs — sfdisk on Alpine doesn't support aliases
     script = (
         f"label: gpt\n"
         f"size={bios_mb}MiB, type=21686148-6449-6E6F-744E-656564454649\n"
-        f"size={swap_mb}MiB, type=swap\n"
-        f"type=Linux\n"
+        f"size={swap_mb}MiB, type=0657FD6D-A4AB-43C4-84E5-0933C84B4F4F\n"
+        f"type=0FC63DAF-8483-4772-8E79-3D69D8477DE4\n"
     )
 
     result = subprocess.run(
