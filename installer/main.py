@@ -34,35 +34,50 @@ from gui import (
 MOUNT_ROOT = "/mnt"
 
 
-def _setup_local_repo():
-    """Setup local APK repo from USB drive for offline install."""
-    import glob
+def _copy_live_system(target_root):
+    """Copy the running live system to target disk.
 
-    # Find USB drive with bundled packages
-    usb_paths = glob.glob("/media/*/apks/x86_64")
-    if not usb_paths:
-        print("[installer] No local packages found, using network")
-        return
+    Uses rsync to copy everything except virtual filesystems,
+    installer files, and temporary data.
+    """
+    excludes = [
+        "/proc/*",
+        "/sys/*",
+        "/dev/*",
+        "/run/*",
+        "/tmp/*",
+        "/mnt/*",
+        "/media/*",
+        "/var/run/*",
+        "/var/tmp/*",
+        "/var/cache/apk/*",
+        "/root/.ash_history",
+        "/usr/lib/superlite-installer/*",
+    ]
 
-    usb_apks = usb_paths[0]
-    count = len(glob.glob(f"{usb_apks}/*.apk"))
-    print(f"[installer] Found {count} local packages at {usb_apks}")
+    cmd = ["rsync", "-aHAX", "--numeric-ids", "--delete"]
+    for excl in excludes:
+        cmd += ["--exclude", excl]
+    cmd += ["/", f"{target_root}/"]
 
-    # Symlink /media/cdrom/apks to USB packages
-    cdrom_apks = "/media/cdrom/apks"
-    if os.path.isdir(cdrom_apks) and not os.path.islink(cdrom_apks):
-        os.rmdir(cdrom_apks)
-        os.symlink(os.path.dirname(usb_apks), cdrom_apks)
-        print(f"[installer] Linked {cdrom_apks} -> {os.path.dirname(usb_apks)}")
-    elif not os.path.exists(cdrom_apks):
-        os.makedirs(os.path.dirname(cdrom_apks), exist_ok=True)
-        os.symlink(os.path.dirname(usb_apks), cdrom_apks)
-        print(f"[installer] Created {cdrom_apks} -> {os.path.dirname(usb_apks)}")
+    print(f"[installer] rsync / -> {target_root}")
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+    if result.returncode != 0:
+        raise RuntimeError(f"rsync failed (code {result.returncode}):\n{result.stderr[:500]}")
 
-    # Disable network repos — use only local packages
-    with open("/etc/apk/repositories", "w") as f:
-        f.write("/media/cdrom/apks\n")
-    print("[installer] Disabled network repos, using local only")
+    # Recreate virtual filesystem mount points
+    for d in ["proc", "sys", "dev", "run", "tmp", "media"]:
+        os.makedirs(os.path.join(target_root, d), exist_ok=True)
+
+    # Copy kernel modules if not present
+    modloop = "/.modloop/modules"
+    target_lib = os.path.join(target_root, "lib")
+    if os.path.isdir(modloop) and not os.path.isdir(os.path.join(target_lib, "modules")):
+        print("[installer] Copying kernel modules from modloop...")
+        subprocess.run(["cp", "-a", modloop, target_lib],
+                       capture_output=True, timeout=120)
+
+    print("[installer] System copy complete")
 
 
 def _do_manual_partition(device, boot_mode):
@@ -244,22 +259,12 @@ def _run_installer():
         umount_all(MOUNT_ROOT)
         sys.exit(0)
 
-    # Step 10: Install system
-    print("[installer] Installing Alpine base system...")
+    # Step 10: Install system — copy live USB to target disk
+    print("[installer] Copying system from USB to disk...")
     try:
-        # Setup local repo from USB if available (offline install)
-        _setup_local_repo()
-
-        result = subprocess.run(
-            ["setup-disk", "-m", "sys", MOUNT_ROOT],
-            capture_output=True, text=True
-        )
-        if result.returncode != 0:
-            show_error(f"setup-disk failed:\n{result.stderr}")
-            umount_all(MOUNT_ROOT)
-            sys.exit(1)
+        _copy_live_system(MOUNT_ROOT)
     except Exception as e:
-        show_error(f"System install failed:\n{e}")
+        show_error(f"System copy failed:\n{e}")
         umount_all(MOUNT_ROOT)
         sys.exit(1)
 
