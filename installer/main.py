@@ -34,6 +34,33 @@ from gui import (
 MOUNT_ROOT = "/mnt"
 
 
+def _setup_local_repo():
+    """Setup local APK repo from USB drive for offline install."""
+    import glob
+
+    # Find USB drive with bundled packages
+    usb_paths = glob.glob("/media/*/apks/x86_64")
+    if not usb_paths:
+        print("[installer] No local packages found, using network")
+        return
+
+    usb_apks = usb_paths[0]
+    count = len(glob.glob(f"{usb_apks}/*.apk"))
+    print(f"[installer] Found {count} local packages at {usb_apks}")
+
+    # Symlink /media/cdrom/apks to USB packages
+    cdrom_apks = "/media/cdrom/apks"
+    if os.path.isdir(cdrom_apks) and not os.path.islink(cdrom_apks):
+        # Remove empty dir and create symlink
+        os.rmdir(cdrom_apks)
+        os.symlink(os.path.dirname(usb_apks), cdrom_apks)
+        print(f"[installer] Linked {cdrom_apks} -> {os.path.dirname(usb_apks)}")
+    elif not os.path.exists(cdrom_apks):
+        os.makedirs(os.path.dirname(cdrom_apks), exist_ok=True)
+        os.symlink(os.path.dirname(usb_apks), cdrom_apks)
+        print(f"[installer] Created {cdrom_apks} -> {os.path.dirname(usb_apks)}")
+
+
 def _do_manual_partition(device, boot_mode):
     """Tofi-based manual partitioning loop.
 
@@ -216,6 +243,9 @@ def _run_installer():
     # Step 10: Install system
     print("[installer] Installing Alpine base system...")
     try:
+        # Setup local repo from USB if available (offline install)
+        _setup_local_repo()
+
         result = subprocess.run(
             ["setup-disk", "-m", "sys", MOUNT_ROOT],
             capture_output=True, text=True
