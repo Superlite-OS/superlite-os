@@ -8,23 +8,11 @@ import os
 import shutil
 
 
-def setup_user(root_mount, username, password, hostname):
-    """Create user and set hostname."""
+def setup_user(root_mount, password, hostname):
+    """Set root password and hostname."""
     # Set hostname
     with open(os.path.join(root_mount, "etc", "hostname"), "w") as f:
         f.write(hostname + "\n")
-
-    # Create user
-    subprocess.run([
-        "chroot", root_mount, "adduser", "-D", "-G", "wheel", username
-    ], capture_output=True)
-
-    # Set password
-    proc = subprocess.Popen(
-        ["chroot", root_mount, "chpasswd"],
-        stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-    )
-    proc.communicate(input=f"{username}:{password}\n".encode())
 
     # Set root password
     proc = subprocess.Popen(
@@ -32,13 +20,6 @@ def setup_user(root_mount, username, password, hostname):
         stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
     )
     proc.communicate(input=f"root:{password}\n".encode())
-
-    # Add user to sudoers
-    sudoers_line = f"{username} ALL=(ALL) NOPASSWD: ALL\\n"
-    subprocess.run([
-        "chroot", root_mount, "sh", "-c",
-        f'echo "{sudoers_line}" >> /etc/sudoers'
-    ], capture_output=True)
 
     return True
 

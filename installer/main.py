@@ -37,43 +37,46 @@ MOUNT_ROOT = "/mnt"
 def _copy_live_system(target_root):
     """Copy the running live system to target disk.
 
-    Uses rsync to copy everything except virtual filesystems,
+    Uses cp -a to copy everything except virtual filesystems,
     installer files, and temporary data.
     """
-    excludes = [
-        "/proc/*",
-        "/sys/*",
-        "/dev/*",
-        "/run/*",
-        "/tmp/*",
-        "/mnt/*",
-        "/media/*",
-        "/var/run/*",
-        "/var/tmp/*",
-        "/var/cache/apk/*",
-        "/root/.ash_history",
-        "/usr/lib/superlite-installer/*",
+    exclude_dirs = [
+        "proc", "sys", "dev", "run", "tmp", "mnt", "media",
+        "var/run", "var/tmp", "var/cache/apk",
+        "usr/lib/superlite-installer",
     ]
 
-    cmd = ["rsync", "-aHAX", "--numeric-ids", "--delete"]
-    for excl in excludes:
-        cmd += ["--exclude", excl]
-    cmd += ["/", f"{target_root}/"]
+    # Build tar exclude args
+    tar_excludes = []
+    for d in exclude_dirs:
+        tar_excludes += ["--exclude", f"./{d}"]
 
-    print(f"[installer] rsync / -> {target_root}")
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
-    if result.returncode != 0:
-        raise RuntimeError(f"rsync failed (code {result.returncode}):\n{result.stderr[:500]}")
+    # Use tar pipe: tar from / | tar to target
+    print(f"[installer] Copying system to {target_root}...")
+    src_cmd = ["tar", "-C", "/", "-cf", "-"] + tar_excludes + ["."]
+    dst_cmd = ["tar", "-C", target_root, "-xf", "-"]
+
+    src_proc = subprocess.Popen(src_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    dst_proc = subprocess.Popen(dst_cmd, stdin=src_proc.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    src_proc.stdout.close()
+
+    _, dst_err = dst_proc.communicate(timeout=600)
+    src_proc.wait(timeout=600)
+
+    if src_proc.returncode != 0:
+        raise RuntimeError(f"tar source failed (code {src_proc.returncode})")
+    if dst_proc.returncode != 0:
+        raise RuntimeError(f"tar extract failed (code {dst_proc.returncode}):\n{dst_err.decode()[:500]}")
 
     # Recreate virtual filesystem mount points
     for d in ["proc", "sys", "dev", "run", "tmp", "media"]:
         os.makedirs(os.path.join(target_root, d), exist_ok=True)
 
-    # Copy kernel modules if not present
+    # Copy kernel modules from modloop if not present
     modloop = "/.modloop/modules"
     target_lib = os.path.join(target_root, "lib")
     if os.path.isdir(modloop) and not os.path.isdir(os.path.join(target_lib, "modules")):
-        print("[installer] Copying kernel modules from modloop...")
+        print("[installer] Copying kernel modules...")
         subprocess.run(["cp", "-a", modloop, target_lib],
                        capture_output=True, timeout=120)
 
@@ -271,7 +274,7 @@ def _run_installer():
     # Step 11: Configure system
     print("[installer] Configuring system...")
     try:
-        setup_user(MOUNT_ROOT, user_info["username"], user_info["password"], user_info["hostname"])
+        setup_user(MOUNT_ROOT, user_info["password"], user_info["hostname"])
         generate_fstab(MOUNT_ROOT, partitions, boot_mode)
         setup_network(MOUNT_ROOT, user_info["hostname"])
         copy_overlay(MOUNT_ROOT)

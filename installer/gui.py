@@ -247,19 +247,15 @@ def add_partition_dialog(free_mb, boot_mode):
 
 
 def user_setup():
-    """User configuration dialog.
+    """User configuration dialog — root password + hostname.
 
-    Returns: dict with username, password, hostname or None
+    Returns: dict with password, hostname or None
     """
-    username = _tofi_input(prompt="Username:", hint=_HINT_USERNAME)
-    if not username:
-        return None
-
-    password = _tofi_input(prompt="Password:", hint=_HINT_PASSWORD, hide_input=True)
+    password = _tofi_input(prompt="Root password:", hint=_HINT_PASSWORD, hide_input=True)
     if not password:
         return None
 
-    confirm = _tofi_input(prompt="Confirm:", hint=_HINT_CONFIRM, hide_input=True)
+    confirm = _tofi_input(prompt="Confirm password:", hint=_HINT_CONFIRM, hide_input=True)
     if password != confirm:
         _tofi(["OK"], prompt="Error: Passwords do not match!")
         return None
@@ -269,7 +265,6 @@ def user_setup():
         hostname = "superlite"
 
     return {
-        "username": username,
         "password": password,
         "hostname": hostname,
     }
