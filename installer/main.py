@@ -51,7 +51,6 @@ def _setup_local_repo():
     # Symlink /media/cdrom/apks to USB packages
     cdrom_apks = "/media/cdrom/apks"
     if os.path.isdir(cdrom_apks) and not os.path.islink(cdrom_apks):
-        # Remove empty dir and create symlink
         os.rmdir(cdrom_apks)
         os.symlink(os.path.dirname(usb_apks), cdrom_apks)
         print(f"[installer] Linked {cdrom_apks} -> {os.path.dirname(usb_apks)}")
@@ -59,6 +58,11 @@ def _setup_local_repo():
         os.makedirs(os.path.dirname(cdrom_apks), exist_ok=True)
         os.symlink(os.path.dirname(usb_apks), cdrom_apks)
         print(f"[installer] Created {cdrom_apks} -> {os.path.dirname(usb_apks)}")
+
+    # Disable network repos — use only local packages
+    with open("/etc/apk/repositories", "w") as f:
+        f.write("/media/cdrom/apks\n")
+    print("[installer] Disabled network repos, using local only")
 
 
 def _do_manual_partition(device, boot_mode):
