@@ -27,3 +27,7 @@ partman/partman
 partman/partman.exe
 partman/*.exe
 installer/__pycache__/
+
+# Website build
+website/node_modules/
+website/dist/

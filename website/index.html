@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SuperLite OS — Alpine Linux + LabWC Wayland</title>
+  <meta name="description" content="A lightweight Wayland desktop built on Alpine Linux. ~300MB ISO, fast, beautiful. No Yocto, no bitbake. Just works." />
+  <link rel="icon" type="image/svg+xml" href="/superlite-os/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <!-- Navigation -->
+  <nav class="nav" id="nav">
+    <div class="nav-inner">
+      <a href="#" class="nav-logo">
+        <span class="logo-icon">&#9672;</span>
+        <span>SuperLite OS</span>
+      </a>
+      <div class="nav-links" id="navLinks">
+        <a href="#story">Story</a>
+        <a href="#features">Features</a>
+        <a href="#specs">Specs</a>
+        <a href="#shortcuts">Shortcuts</a>
+        <a href="#build">Build</a>
+        <a href="https://github.com/kelvinzer0/superlite-os" target="_blank" rel="noopener">GitHub</a>
+      </div>
+      <button class="nav-toggle" id="navToggle" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <header class="hero">
+    <div class="hero-bg">
+      <div class="hero-gradient"></div>
+      <div class="hero-grid"></div>
+    </div>
+    <div class="hero-content">
+      <div class="hero-badge">
+        <span class="badge-dot"></span>
+        Alpine Linux + LabWC Wayland
+      </div>
+      <h1 class="hero-title">
+        <span class="title-thin">Super</span><span class="title-bold">Lite</span>
+        <span class="title-accent"> OS</span>
+      </h1>
+      <p class="hero-subtitle">One distro. 280 commits. Zero shortcuts.</p>
+      <p class="hero-desc">
+        Built from scratch on Alpine Linux with LabWC Wayland compositor.
+        A real desktop OS that fits in 300MB &mdash; not a toy, not a proof-of-concept.
+        Engineered through three installer rewrites, a custom package manager,
+        and a battle-tested glibc isolation layer to run Chrome on pure musl.
+      </p>
+      <div class="hero-stats">
+        <div class="stat">
+          <span class="stat-value">~300</span>
+          <span class="stat-label">MB ISO</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat">
+          <span class="stat-value">280</span>
+          <span class="stat-label">commits</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat">
+          <span class="stat-value">3</span>
+          <span class="stat-label">scripts</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat">
+          <span class="stat-value">0</span>
+          <span class="stat-label">systemd</span>
+        </div>
+      </div>
+      <div class="hero-actions">
+        <a href="https://github.com/kelvinzer0/superlite-os/releases" class="btn btn-primary" target="_blank" rel="noopener">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download ISO
+        </a>
+        <a href="#build" class="btn btn-secondary">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+          Build from Source
+        </a>
+      </div>
+      <div class="hero-build-badge">
+        <a href="https://github.com/kelvinzer0/superlite-os/actions/workflows/build.yml" target="_blank" rel="noopener">
+          <img src="https://github.com/kelvinzer0/superlite-os/actions/workflows/build.yml/badge.svg" alt="Build Status" />
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Story / Journey -->
+  <section class="section" id="story">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-badge">The Journey</span>
+        <h2>280 commits later.</h2>
+        <p>Every line earned through real problems, real debugging, real pivots.</p>
+      </div>
+      <div class="timeline">
+        <div class="timeline-item">
+          <div class="timeline-marker"></div>
+          <div class="timeline-content">
+            <h3>It started with 3 shell scripts</h3>
+            <p>An Alpine Linux profile, an overlay generator, and a build script.
+               No Yocto. No BitBake. No 6-hour build times.
+               The goal was simple: a full Wayland desktop that builds in minutes, not hours.</p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-marker"></div>
+          <div class="timeline-content">
+            <h3>The installer went through 3 lives</h3>
+            <p>First it was written in Go. Then Calamares &mdash; which turned out to be
+               removed from Alpine repos after v3.19. Finally landed on Python + tofi GUI.
+               Each rewrite taught something the previous one couldn't.</p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-marker"></div>
+          <div class="timeline-content">
+            <h3>Chrome on musl was a war</h3>
+            <p>Running Google Chrome on pure Alpine musl meant building an entire glibc isolation layer.
+               63 packages from Debian Bookworm. A custom <code>zapt</code> package manager that handles
+               .deb extraction with dependency resolution. Per-binary ldd checks. A library sandbox at
+               <code>/usr/lib/glibc/</code>. It took dozens of commits to get right.</p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-marker"></div>
+          <div class="timeline-content">
+            <h3>RAM was always the enemy</h3>
+            <p>Live USB booted into tmpfs &mdash; Chrome ate all the RAM.
+               Built a flash-overlay service that auto-creates an ext4 partition on first boot.
+               The OS now uses USB storage instead of RAM for the writable layer.
+               Desktop stays responsive even with 2GB RAM.</p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-marker"></div>
+          <div class="timeline-content">
+            <h3>The desktop kept evolving</h3>
+            <p>WhiteSur-Light became Catppuccin Mocha. One waybar became three.
+               Thunar became Double Commander (via zapt from Debian pool).
+               rofi was replaced with tofi. Every component was questioned,
+               tested, and replaced if something better existed.</p>
+          </div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-marker"></div>
+          <div class="timeline-content">
+            <h3>Still building.</h3>
+            <p>IPv6 support. TCP BBR. Offline USB installer with prebuilt bootloader.
+               Every commit solves a real problem encountered during actual use.
+               This isn't a weekend project &mdash; it's a production system under active development.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="section section-alt" id="features">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-badge">What You Get</span>
+        <h2>Real desktop. Tiny footprint.</h2>
+        <p>Not a minimal install. A complete, configured, ready-to-use system.</p>
+      </div>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <h3>5-Minute Build</h3>
+          <p>Docker or native Alpine. One command. Compare that to Yocto's 2-6 hour builds with 50GB disk usage.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          </div>
+          <h3>Wayland Native</h3>
+          <p>LabWC compositor &mdash; OpenBox-style window management for Wayland. No X11, no XWayland dependency.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+          </div>
+          <h3>~300MB ISO</h3>
+          <p>Full desktop with browser, file manager, terminal, notifications. USB boot, Rufus, Ventoy compatible.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <h3>Chrome on Musl</h3>
+          <p>Google Chrome runs on pure Alpine musl via a custom glibc isolation layer. 63 Debian libraries sandboxed at <code>/usr/lib/glibc/</code>.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+          </div>
+          <h3>Catppuccin Mocha</h3>
+          <p>Unified dark theme across labwc, waybar, mako, tofi, GTK. Three-panel layout with workspaces, system info, and controls.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+          </div>
+          <h3>USB Overlay</h3>
+          <p>Auto-creates ext4 partition on first boot. Overlayfs uses USB storage instead of RAM &mdash; desktop stays fast on low-memory machines.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          </div>
+          <h3>zapt Package Manager</h3>
+          <p>Custom .deb installer with dependency resolution for Alpine musl. Downloads from Debian pool, isolates glibc libraries, checks apk ownership conflicts.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+          </div>
+          <h3>Offline Installer</h3>
+          <p>Python + tofi GUI. Copies live USB via tar pipe. Prebuilt bootloader with GRUB fallback. sfdisk partitioning with GPT. No network needed.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Comparison -->
+  <section class="section" id="specs">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-badge">The Numbers</span>
+        <h2>Built different.</h2>
+        <p>Traditional embedded Linux vs. SuperLite OS.</p>
+      </div>
+      <div class="comparison-table">
+        <table>
+          <thead>
+            <tr>
+              <th></th>
+              <th class="col-yocto">Yocto / BitBake</th>
+              <th class="col-superlite">SuperLite OS</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Build time</td>
+              <td>2&ndash;6 hours</td>
+              <td class="highlight">5&ndash;15 minutes</td>
+            </tr>
+            <tr>
+              <td>Disk usage</td>
+              <td>50GB+</td>
+              <td class="highlight">&lt;1GB</td>
+            </tr>
+            <tr>
+              <td>Complexity</td>
+              <td>Layers, recipes, bitbake</td>
+              <td class="highlight">3 shell scripts</td>
+            </tr>
+            <tr>
+              <td>Initramfs</td>
+              <td>Custom hooks, Lua init</td>
+              <td class="highlight">Alpine handles it</td>
+            </tr>
+            <tr>
+              <td>Learning curve</td>
+              <td>Steep</td>
+              <td class="highlight">Copy this repo</td>
+            </tr>
+            <tr>
+              <td>ISO size</td>
+              <td>Varies (often 1GB+)</td>
+              <td class="highlight">~300MB</td>
+            </tr>
+            <tr>
+              <td>Desktop ready</td>
+              <td>Manual config</td>
+              <td class="highlight">Out of the box</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Keyboard Shortcuts -->
+  <section class="section section-alt" id="shortcuts">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-badge">Keyboard Shortcuts</span>
+        <h2>Productivity built in.</h2>
+        <p>Window management, workspaces, and system controls at your fingertips.</p>
+      </div>
+      <div class="shortcuts-grid">
+        <div class="shortcut-group">
+          <h3>Window Management</h3>
+          <div class="shortcut-list">
+            <div class="shortcut"><kbd>Super</kbd>+<kbd>M</kbd><span>Maximize / Restore</span></div>
+            <div class="shortcut"><kbd>Super</kbd>+<kbd>N</kbd><span>Minimize</span></div>
+            <div class="shortcut"><kbd>Super</kbd>+<kbd>F</kbd><span>Fullscreen</span></div>
+            <div class="shortcut"><kbd>Super</kbd>+<kbd>Shift</kbd>+<kbd>Q</kbd><span>Close window</span></div>
+            <div class="shortcut"><kbd>Super</kbd>+<kbd>T</kbd><span>Always on top</span></div>
+          </div>
+        </div>
+        <div class="shortcut-group">
+          <h3>Window Snapping</h3>
+          <div class="shortcut-list">
+            <div class="shortcut"><kbd>Super</kbd>+<kbd>&larr;</kbd><span>Snap left</span></div>
+            <div class="shortcut"><kbd>Super</kbd>+<kbd>&rarr;</kbd><span>Snap right</span></div>
+            <div class="shortcut"><kbd>Super</kbd>+<kbd>&uarr;</kbd><span>Snap top</span></div>
+            <div class="shortcut"><kbd>Super</kbd>+<kbd>&darr;</kbd><span>Snap bottom</span></div>
+            <div class="shortcut"><kbd>Super</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd><span>Snap center (66%)</span></div>
+          </div>
+        </div>
+        <div class="shortcut-group">
+          <h3>Workspaces</h3>
+          <div class="shortcut-list">
+            <div class="shortcut"><kbd>Super</kbd>+<kbd>1-4</kbd><span>Switch workspace</span></div>
+            <div class="shortcut"><kbd>Super</kbd>+<kbd>Shift</kbd>+<kbd>1-4</kbd><span>Move to workspace</span></div>
+            <div class="shortcut"><kbd>Super</kbd>+<kbd>Tab</kbd><span>Next window</span></div>
+            <div class="shortcut"><kbd>Super</kbd>+<kbd>Shift</kbd>+<kbd>Tab</kbd><span>Previous window</span></div>
+          </div>
+        </div>
+        <div class="shortcut-group">
+          <h3>System</h3>
+          <div class="shortcut-list">
+            <div class="shortcut"><kbd>Super</kbd>+<kbd>Enter</kbd><span>Terminal (foot)</span></div>
+            <div class="shortcut"><kbd>Super</kbd>+<kbd>Space</kbd><span>App launcher (tofi)</span></div>
+            <div class="shortcut"><kbd>Super</kbd>+<kbd>P</kbd><span>Screenshot</span></div>
+            <div class="shortcut"><kbd>Super</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd><span>Power menu</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Build -->
+  <section class="section" id="build">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-badge">Quick Start</span>
+        <h2>Build your own.</h2>
+        <p>Docker recommended. Works on any Linux with Docker installed.</p>
+      </div>
+      <div class="build-options">
+        <div class="build-card">
+          <div class="build-card-header">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M12 8v8"/><path d="M8 12h8"/></svg>
+            <h3>Docker Build</h3>
+            <span class="build-recommended">Recommended</span>
+          </div>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-dot red"></span>
+              <span class="code-dot yellow"></span>
+              <span class="code-dot green"></span>
+              <span class="code-title">Terminal</span>
+            </div>
+            <pre><code>git clone https://github.com/kelvinzer0/superlite-os.git
+cd superlite-os
+./build.sh --docker</code></pre>
+          </div>
+        </div>
+        <div class="build-card">
+          <div class="build-card-header">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 9h16"/><path d="M9 21V9"/></svg>
+            <h3>Native Alpine</h3>
+          </div>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-dot red"></span>
+              <span class="code-dot yellow"></span>
+              <span class="code-dot green"></span>
+              <span class="code-title">Alpine Linux</span>
+            </div>
+            <pre><code># On an Alpine system:
+./build.sh
+
+# Or set up environment only:
+./build.sh --setup-only
+cd /root/aports/scripts
+./mkimage.sh --profile superlite \
+  --arch x86_64 --outdir ~/iso/ --tag latest</code></pre>
+          </div>
+        </div>
+        <div class="build-card">
+          <div class="build-card-header">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+            <h3>Test in QEMU</h3>
+          </div>
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-dot red"></span>
+              <span class="code-dot yellow"></span>
+              <span class="code-dot green"></span>
+              <span class="code-title">QEMU</span>
+            </div>
+            <pre><code># Simple mode (serial console)
+./run-qemu-simple.sh
+
+# Full mode with GUI
+./run-qemu.sh --memory 2G --gui
+
+# Debug mode with tmux
+./run-qemu-debug.sh</code></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Desktop Stack -->
+  <section class="section section-alt" id="stack">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-badge">Desktop Stack</span>
+        <h2>Every component earned its place.</h2>
+        <p>Tested, questioned, replaced if something better existed.</p>
+      </div>
+      <div class="stack-grid">
+        <div class="stack-item">
+          <div class="stack-name">Alpine Linux</div>
+          <div class="stack-role">Base system &middot; musl libc</div>
+        </div>
+        <div class="stack-item">
+          <div class="stack-name">LabWC</div>
+          <div class="stack-role">Wayland compositor &middot; OpenBox-style</div>
+        </div>
+        <div class="stack-item">
+          <div class="stack-name">Waybar</div>
+          <div class="stack-role">3-panel layout &middot; sway/workspaces</div>
+        </div>
+        <div class="stack-item">
+          <div class="stack-name">Foot</div>
+          <div class="stack-role">Wayland terminal</div>
+        </div>
+        <div class="stack-item">
+          <div class="stack-name">Mako</div>
+          <div class="stack-role">Notification daemon</div>
+        </div>
+        <div class="stack-item">
+          <div class="stack-name">tofi</div>
+          <div class="stack-role">Full-screen app launcher</div>
+        </div>
+        <div class="stack-item">
+          <div class="stack-name">Double Commander</div>
+          <div class="stack-role">File manager &middot; via zapt</div>
+        </div>
+        <div class="stack-item">
+          <div class="stack-name">Catppuccin Mocha</div>
+          <div class="stack-role">Unified dark theme</div>
+        </div>
+        <div class="stack-item">
+          <div class="stack-name">Font Awesome 7</div>
+          <div class="stack-role">Icon font for waybar</div>
+        </div>
+        <div class="stack-item">
+          <div class="stack-name">zapt</div>
+          <div class="stack-role">.deb package manager &middot; glibc isolation</div>
+        </div>
+        <div class="stack-item">
+          <div class="stack-name">Google Chrome</div>
+          <div class="stack-role">Browser &middot; glibc sandbox</div>
+        </div>
+        <div class="stack-item">
+          <div class="stack-name">PipeWire</div>
+          <div class="stack-role">Audio stack</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="section cta">
+    <div class="container">
+      <h2>Stop building build systems.<br>Start building OSes.</h2>
+      <p>Clone the repo. Build the ISO. Boot it up. Under 15 minutes, guaranteed.</p>
+      <div class="cta-actions">
+        <a href="https://github.com/kelvinzer0/superlite-os" class="btn btn-primary btn-lg" target="_blank" rel="noopener">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+          Star on GitHub
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <span class="logo-icon">&#9672;</span>
+          <span>SuperLite OS</span>
+        </div>
+        <div class="footer-links">
+          <a href="https://github.com/kelvinzer0/superlite-os" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://github.com/kelvinzer0/superlite-os/releases" target="_blank" rel="noopener">Releases</a>
+          <a href="https://github.com/kelvinzer0/superlite-os/actions" target="_blank" rel="noopener">CI/CD</a>
+        </div>
+        <div class="footer-copy">MIT License &middot; Built with Alpine Linux</div>
+      </div>
+    </div>
+  </footer>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

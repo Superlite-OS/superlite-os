@@ -1,0 +1,27 @@
+name: Release SuperLite OS ISO
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build ISO in Docker
+        run: |
+          chmod +x ./build.sh
+          ./build.sh --docker --variant superlite-unified --tag "${GITHUB_REF_NAME}"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: output/**/*.iso
