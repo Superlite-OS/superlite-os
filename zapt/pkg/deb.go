@@ -479,7 +479,8 @@ func isBinaryPath(path string) bool {
 		strings.HasPrefix(path, "/sbin/") ||
 		strings.HasPrefix(path, "/usr/bin/") ||
 		strings.HasPrefix(path, "/usr/sbin/") ||
-		strings.HasPrefix(path, "/usr/libexec/")
+		strings.HasPrefix(path, "/usr/libexec/") ||
+		strings.HasPrefix(path, "/opt/")
 }
 
 // createGlibcWrapper moves a glibc-linked ELF binary to /usr/lib/glibc/bin/
