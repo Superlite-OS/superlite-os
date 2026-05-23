@@ -368,8 +368,8 @@ if [ -f "$CHROME_DEB" ]; then
     chmod 4755 "$tmp/opt/google/chrome/chrome-sandbox" 2>/dev/null || true
     mkdir -p "$tmp/usr/bin"
     # Symlinks point to zapt-created wrapper (sets LD_LIBRARY_PATH for glibc libs)
-    ln -sf /opt/google/chrome/google-chrome "$tmp/usr/bin/google-chrome-stable"
-    ln -sf /opt/google/chrome/google-chrome "$tmp/usr/bin/google-chrome"
+    ln -sf /opt/google/chrome/chrome "$tmp/usr/bin/google-chrome-stable"
+    ln -sf /opt/google/chrome/chrome "$tmp/usr/bin/google-chrome"
     rm -f "$CHROME_DEB"
 fi
 
