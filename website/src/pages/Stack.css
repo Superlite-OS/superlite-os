@@ -1,0 +1,30 @@
+.stack__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.stack__card {
+  background: var(--surface);
+  border: 1px solid rgba(205, 214, 244, 0.06);
+  border-radius: var(--radius-sm);
+  padding: 24px;
+  transition: 0.25s;
+}
+
+.stack__card:hover {
+  border-color: rgba(137, 180, 250, 0.2);
+  transform: translateY(-2px);
+}
+
+.stack__name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1rem;
+  margin-bottom: 6px;
+}
+
+.stack__role {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}

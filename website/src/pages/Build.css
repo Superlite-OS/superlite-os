@@ -1,0 +1,42 @@
+.build__wrapper {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.build__tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 20px;
+  background: rgba(205, 214, 244, 0.04);
+  padding: 4px;
+  border-radius: var(--radius-sm);
+}
+
+.build__tab {
+  flex: 1;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 500;
+  border-radius: var(--radius-xs);
+  transition: 0.2s;
+}
+
+.build__tab:hover {
+  color: var(--text-dim);
+}
+
+.build__tab--active {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.terminal__bar-title {
+  margin-left: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}

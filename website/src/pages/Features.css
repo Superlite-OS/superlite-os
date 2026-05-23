@@ -1,0 +1,229 @@
+/* ── Feature Detail ── */
+.fd-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 80px;
+}
+
+.fd {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 48px;
+  align-items: center;
+}
+
+.fd--reverse {
+  direction: rtl;
+}
+
+.fd--reverse > * {
+  direction: ltr;
+}
+
+.fd__num {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  opacity: 0.5;
+  margin-bottom: 12px;
+  display: block;
+}
+
+.fd__title {
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  font-weight: 800;
+  margin-bottom: 16px;
+  letter-spacing: -0.02em;
+}
+
+.fd__desc {
+  color: var(--text-dim);
+  line-height: 1.7;
+  margin-bottom: 20px;
+}
+
+.fd__list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fd__list li {
+  font-size: 0.88rem;
+  color: var(--text-dim);
+  padding-left: 20px;
+  position: relative;
+}
+
+.fd__list li::before {
+  content: '→';
+  position: absolute;
+  left: 0;
+  color: var(--accent);
+  opacity: 0.5;
+}
+
+/* ── Terminal ── */
+.terminal {
+  background: var(--bg-alt);
+  border: 1px solid rgba(205, 214, 244, 0.06);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.terminal__bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(205, 214, 244, 0.04);
+}
+
+.terminal__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.terminal__dot--r { background: #f38ba8; }
+.terminal__dot--y { background: #f9e2af; }
+.terminal__dot--g { background: #a6e3a1; }
+
+.terminal__body {
+  padding: 16px 20px;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  line-height: 1.9;
+}
+
+.term-line {
+  color: var(--text-dim);
+}
+
+.term-line--dim { color: var(--text-muted); }
+.term-line--accent { color: var(--accent); }
+.term-line--green { color: var(--green); }
+.term-line--prompt { color: var(--text); }
+
+.term-prompt {
+  color: var(--green);
+  user-select: none;
+}
+
+/* ── Architecture ── */
+.arch__header {
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+.arch__flow {
+  max-width: 500px;
+  margin: 0 auto 56px;
+  text-align: center;
+}
+
+.arch__node {
+  display: inline-block;
+  padding: 14px 22px;
+  background: var(--surface);
+  border: 1px solid rgba(205, 214, 244, 0.06);
+  border-radius: var(--radius-sm);
+}
+
+.arch__label {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.arch__desc {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.arch__arrow {
+  font-size: 1.2rem;
+  color: var(--text-muted);
+  margin: 10px 0;
+  opacity: 0.3;
+}
+
+.arch__branches {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.arch__or {
+  font-family: var(--font-display);
+  font-weight: 800;
+  color: var(--text-muted);
+  opacity: 0.3;
+}
+
+.arch__compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.arch__card {
+  padding: 28px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(205, 214, 244, 0.06);
+}
+
+.arch__card--bad { background: rgba(243, 139, 168, 0.04); }
+.arch__card--good { background: rgba(166, 227, 161, 0.04); border-color: rgba(166, 227, 161, 0.12); }
+
+.arch__card h3 {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 14px;
+}
+
+.arch__card ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.arch__card li {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  padding-left: 16px;
+  position: relative;
+}
+
+.arch__card li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  opacity: 0.3;
+}
+
+.c-red { color: var(--red); font-weight: 600; }
+.c-green { color: var(--green); font-weight: 600; }
+
+@media (max-width: 768px) {
+  .fd { grid-template-columns: 1fr; gap: 32px; }
+  .fd--reverse { direction: ltr; }
+  .arch__compare { grid-template-columns: 1fr; }
+  .arch__branches { flex-direction: column; }
+}
