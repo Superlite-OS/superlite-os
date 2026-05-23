@@ -1,10 +1,27 @@
 .footer {
-  border-top: 1px solid rgba(205, 214, 244, 0.05);
-  padding: 28px 0;
+  border-top: 1px solid rgba(122, 162, 247, 0.06);
+  padding: 24px 0;
+  position: relative;
+  background: var(--bg);
+}
+
+.footer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 40px;
+  background-image: url("data:image/svg+xml,%3Csvg width='4' height='4' viewBox='0 0 4 4' xmlns='http://www.w3.org/2000/svg'%3E%3Crect x='0' y='0' width='1' height='1' fill='%237aa2f7' fill-opacity='0.05'/%3E%3Crect x='2' y='2' width='1' height='1' fill='%237aa2f7' fill-opacity='0.05'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 4px 4px;
+  pointer-events: none;
+  mask-image: linear-gradient(180deg, black, transparent);
+  -webkit-mask-image: linear-gradient(180deg, black, transparent);
 }
 
 .footer__inner {
-  max-width: 1100px;
+  max-width: 1000px;
   margin: 0 auto;
   padding: 0 24px;
   display: flex;
@@ -20,21 +37,23 @@
   gap: 10px;
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .footer__glyph {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  background: linear-gradient(135deg, var(--accent), var(--mauve));
+  width: 24px;
+  height: 24px;
+  background: var(--accent);
   color: var(--bg);
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 0.75rem;
-  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.65rem;
+  border-radius: 0;
 }
 
 .footer__links {
@@ -44,18 +63,29 @@
 
 .footer__links a {
   color: var(--text-muted);
-  font-size: 0.82rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
   transition: 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.footer__links a i {
+  font-size: 0.7rem;
 }
 
 .footer__links a:hover {
   color: var(--accent);
+  text-shadow: 0 0 8px var(--accent-glow);
 }
 
 .footer__copy {
-  font-size: 0.78rem;
+  font-size: 0.68rem;
   color: var(--text-muted);
-  opacity: 0.6;
+  letter-spacing: 0.04em;
 }
 
 @media (max-width: 768px) {

@@ -1,10 +1,19 @@
-import type { FC } from 'react';
+import type { FC, ReactNode } from 'react';
 import { PageHero } from '../components/PageHero';
 import { Reveal } from '../components/Reveal';
 import './Features.css';
 
+const parseInlineCode = (html: string): ReactNode[] => {
+  const parts = html.split(/(<code>.*?<\/code>)/g);
+  return parts.map((part, i) => {
+    const m = part.match(/^<code>(.*?)<\/code>$/);
+    return m ? <code key={i}>{m[1]}</code> : part;
+  });
+};
+
 interface FeatureDetailProps {
   num: string;
+  icon: string;
   title: string;
   description: string;
   details: string[];
@@ -12,15 +21,15 @@ interface FeatureDetailProps {
   reverse?: boolean;
 }
 
-const FeatureDetail: FC<FeatureDetailProps> = ({ num, title, description, details, terminal, reverse }) => (
+const FeatureDetail: FC<FeatureDetailProps> = ({ num, icon, title, description, details, terminal, reverse }) => (
   <Reveal>
     <div className={`fd${reverse ? ' fd--reverse' : ''}`}>
       <div className="fd__text">
         <span className="fd__num">{num}</span>
-        <h2 className="fd__title">{title}</h2>
-        <p className="fd__desc" dangerouslySetInnerHTML={{ __html: description }} />
+        <h2 className="fd__title"><i className={icon} />{title}</h2>
+        <p className="fd__desc">{parseInlineCode(description)}</p>
         <ul className="fd__list">
-          {details.map((d) => <li key={d} dangerouslySetInnerHTML={{ __html: d }} />)}
+          {details.map((d) => <li key={d}><i className="fa-solid fa-check" /> {parseInlineCode(d)}</li>)}
         </ul>
       </div>
       <div className="fd__visual">
@@ -47,6 +56,7 @@ const FeatureDetail: FC<FeatureDetailProps> = ({ num, title, description, detail
 const FEATURES: FeatureDetailProps[] = [
   {
     num: '01',
+    icon: 'fa-brands fa-chrome',
     title: 'Chrome on musl',
     description:
       'Running Google Chrome on pure Alpine musl libc was a war. The result: a custom glibc isolation layer that sandboxes 63 Debian Bookworm libraries at <code>/usr/lib/glibc/</code>. No VM. No container. No Flatpak.',
@@ -71,6 +81,7 @@ const FEATURES: FeatureDetailProps[] = [
   },
   {
     num: '02',
+    icon: 'fa-solid fa-desktop',
     title: 'Wayland native',
     description:
       'LabWC compositor — OpenBox-style window management for Wayland. Snapping, workspaces, shading, fullscreen toggle. No X11 legacy. No XWayland dependency.',
@@ -95,6 +106,7 @@ const FEATURES: FeatureDetailProps[] = [
   },
   {
     num: '03',
+    icon: 'fa-brands fa-usb',
     title: 'USB overlay',
     description:
       'Live USB boot normally runs from tmpfs — everything in RAM. Chrome alone eats 1GB+. SuperLite auto-creates an ext4 partition on first boot and uses overlayfs to redirect writes to USB storage.',
@@ -117,6 +129,7 @@ const FEATURES: FeatureDetailProps[] = [
   },
   {
     num: '04',
+    icon: 'fa-solid fa-hard-drive',
     title: 'Offline installer',
     description:
       'Went through three lives: Go, Calamares (removed from Alpine repos after v3.19), and finally Python + tofi GUI. Each rewrite taught something the previous one couldn\'t.',
@@ -144,6 +157,7 @@ const FEATURES: FeatureDetailProps[] = [
   },
   {
     num: '05',
+    icon: 'fa-solid fa-box-archive',
     title: 'zapt package manager',
     description:
       'A custom .deb installer built for Alpine musl. Downloads from Debian pool, resolves dependencies, extracts libraries, generates ldd-based wrappers.',
@@ -167,6 +181,7 @@ const FEATURES: FeatureDetailProps[] = [
   },
   {
     num: '06',
+    icon: 'fa-solid fa-palette',
     title: 'Catppuccin Mocha',
     description:
       'Unified dark theme across every component. Evolved from WhiteSur-Light — tested, questioned, and replaced when Catppuccin proved better for adoption.',
@@ -195,8 +210,8 @@ const FEATURES: FeatureDetailProps[] = [
 ];
 
 export const Features: FC = () => (
-  <>
-    <PageHero eyebrow="Features" subtitle="Not a minimal install. A complete, configured, ready-to-use system.">
+  <div className="page-enter">
+    <PageHero eyebrow={<><i className="fa-solid fa-bolt" /> Features</>} subtitle="Not a minimal install. A complete, ready-to-use system.">
       Real desktop.<br />Tiny footprint.
     </PageHero>
 
@@ -213,7 +228,7 @@ export const Features: FC = () => (
       <div className="container">
         <Reveal className="arch__header">
           <span className="eyebrow">Architecture</span>
-          <h2>3 scripts. No magic.</h2>
+          <h2>3 scripts, no magic</h2>
         </Reveal>
         <Reveal>
           <div className="arch__flow">
@@ -230,7 +245,7 @@ export const Features: FC = () => (
         </Reveal>
         <Reveal>
           <div className="arch__compare">
-            <div className="arch__card arch__card--bad">
+            <div className="arch__card arch__card--bad card-hover">
               <h3>Yocto / BitBake</h3>
               <ul>
                 <li><span className="c-red">2-6 hour</span> builds</li>
@@ -239,7 +254,7 @@ export const Features: FC = () => (
                 <li>Custom initramfs hooks</li>
               </ul>
             </div>
-            <div className="arch__card arch__card--good">
+            <div className="arch__card arch__card--good card-hover">
               <h3>SuperLite OS</h3>
               <ul>
                 <li><span className="c-green">5-15 min</span> builds</li>
@@ -252,5 +267,5 @@ export const Features: FC = () => (
         </Reveal>
       </div>
     </section>
-  </>
+  </div>
 );

@@ -378,7 +378,7 @@ fi
 # Chrome's own .so deps (GTK, pango, etc.) to /usr/lib/glibc/. The core
 # glibc (ld-linux, libc.so.6, etc.) must be installed separately.
 LIBC6_DEB="/tmp/libc6.deb"
-LIBC6_URL="http://deb.debian.org/debian/pool/main/g/glibc/libc6_2.36-9+deb12u10_amd64.deb"
+LIBC6_URL="https://deb.debian.org/debian/pool/main/g/glibc/libc6_2.36-9+deb12u10_amd64.deb"
 echo "Downloading libc6 for glibc core..."
 wget -q -O "$LIBC6_DEB" "$LIBC6_URL" 2>&1 || {
     echo "Warning: libc6 download failed"
@@ -444,7 +444,7 @@ DCWRAP
     chmod +x "$tmp/usr/bin/doublecmd"
 fi
 
-# Clone and install Chrome extensions
+# Clone and install Chrome extensions + build native hosts
 EXTENSIONS_DIR="$tmp/usr/share/chrome/extensions"
 mkdir -p "$EXTENSIONS_DIR"
 
@@ -455,6 +455,12 @@ if command -v git >/dev/null 2>&1; then
     git clone --depth=1 https://github.com/kelvinzer0/br-download-manager.git /tmp/br-download-manager 2>&1 || true
     if [ -d "/tmp/br-download-manager/extension" ]; then
         cp -a /tmp/br-download-manager/extension "$BRDM_EXT"
+    fi
+    # Build native host BEFORE cleanup
+    if command -v cargo >/dev/null 2>&1 && [ -d "/tmp/br-download-manager/src" ]; then
+        echo "Building br-download-manager native host..."
+        (cd /tmp/br-download-manager && cargo build --release 2>/dev/null && \
+            cp target/release/br "$tmp/usr/local/bin/brdm-host") 2>&1 || true
     fi
     rm -rf /tmp/br-download-manager
 fi
@@ -467,24 +473,13 @@ if command -v git >/dev/null 2>&1; then
     if [ -d "/tmp/remote-browser-control/extension" ]; then
         cp -a /tmp/remote-browser-control/extension "$RBC_EXT"
     fi
-    rm -rf /tmp/remote-browser-control
-fi
-
-# Build native hosts for extensions (if Rust is available)
-if command -v cargo >/dev/null 2>&1; then
-    # BR Download Manager native host
-    if [ -d "/tmp/br-download-manager/src" ]; then
-        echo "Building br-download-manager native host..."
-        (cd /tmp/br-download-manager && cargo build --release 2>/dev/null && \
-            cp target/release/br "$tmp/usr/local/bin/brdm-host") 2>&1 || true
-    fi
-
-    # Remote Browser Control native host
-    if [ -d "/tmp/remote-browser-control/host" ]; then
+    # Build native host BEFORE cleanup
+    if command -v cargo >/dev/null 2>&1 && [ -d "/tmp/remote-browser-control/host" ]; then
         echo "Building remote-browser-control native host..."
         (cd /tmp/remote-browser-control/host && cargo build --release 2>/dev/null && \
             cp target/release/rbc-host "$tmp/usr/local/bin/rbc-host") 2>&1 || true
     fi
+    rm -rf /tmp/remote-browser-control
 fi
 
 # Set up Chrome managed policies
@@ -860,8 +855,8 @@ done
 # Auto-partition: if no SUPERLITE-RW found, create one on USB boot media
 if [ -z "$OVERLAY_DEV" ] && [ -L /media/cdrom ]; then
     _media=$(readlink -f /media/cdrom)  # e.g. /media/sdb1
-    _dev=$(echo "$_media" | sed 's/[0-9p]*$//')  # e.g. /dev/sdb
-    _dev=$(echo "$_dev" | sed 's|/media/||')      # e.g. sdb → /dev/sdb
+    _dev=$(echo "$_media" | sed 's/[0-9p]*$//')  # e.g. /media/sdb
+    _dev=$(echo "$_dev" | sed 's|/media/|/dev/|')  # e.g. /dev/sdb
 
     # Only partition USB devices (sd*, not sr* CDROM)
     case "$_dev" in
@@ -962,5 +957,5 @@ ipv6.ip6-privacy=2
 EOF
 
 # ── Generate apkovl ───────────────────────────────────────────────────────────
-tar -c -C "$tmp" etc root usr opt lib lib64 | gzip -9n > "$HOSTNAME.apkovl.tar.gz"
+tar -c -C "$tmp" sbin etc root usr opt lib lib64 | gzip -9n > "$HOSTNAME.apkovl.tar.gz"
 echo "[overlay] Generated: $HOSTNAME.apkovl.tar.gz"

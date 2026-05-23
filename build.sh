@@ -73,7 +73,7 @@ _docker_build() {
     mkdir -p "$output_dir"
 
     docker run --rm \
-        --privileged \
+        --cap-add SYS_ADMIN \
         -e VARIANT="$variant" \
         -e TAG="$tag" \
         -v "${SCRIPT_DIR}:/build" \

@@ -10,12 +10,14 @@ interface Shortcut {
 
 interface ShortcutGroup {
   title: string;
+  icon: string;
   shortcuts: Shortcut[];
 }
 
-const GROUPS: ShortcutGroup[] = [
+const GROUPS: (ShortcutGroup & { icon: string })[] = [
   {
     title: 'Window Management',
+    icon: 'fa-solid fa-window-maximize',
     shortcuts: [
       { keys: ['Super', 'M'], label: 'Maximize / Restore' },
       { keys: ['Super', 'N'], label: 'Minimize' },
@@ -26,6 +28,7 @@ const GROUPS: ShortcutGroup[] = [
   },
   {
     title: 'Window Snapping',
+    icon: 'fa-solid fa-table-columns',
     shortcuts: [
       { keys: ['Super', '←'], label: 'Snap left' },
       { keys: ['Super', '→'], label: 'Snap right' },
@@ -36,6 +39,7 @@ const GROUPS: ShortcutGroup[] = [
   },
   {
     title: 'Workspaces',
+    icon: 'fa-solid fa-th',
     shortcuts: [
       { keys: ['Super', '1–4'], label: 'Switch workspace' },
       { keys: ['Super', 'Shift', '1–4'], label: 'Move to workspace' },
@@ -45,6 +49,7 @@ const GROUPS: ShortcutGroup[] = [
   },
   {
     title: 'System',
+    icon: 'fa-solid fa-gear',
     shortcuts: [
       { keys: ['Super', 'Enter'], label: 'Terminal (foot)' },
       { keys: ['Super', 'Space'], label: 'App launcher (tofi)' },
@@ -66,8 +71,8 @@ const KeyCombo: FC<{ keys: string[] }> = ({ keys }) => (
 );
 
 export const Shortcuts: FC = () => (
-  <>
-    <PageHero eyebrow="Keyboard Shortcuts" subtitle="Window management, workspaces, and system controls at your fingertips.">
+  <div className="page-enter">
+    <PageHero eyebrow={<><i className="fa-solid fa-keyboard" /> Keyboard Shortcuts</>} subtitle="Window management, workspaces, and system controls.">
       Productivity built in.
     </PageHero>
 
@@ -76,8 +81,8 @@ export const Shortcuts: FC = () => (
         <div className="sc__grid">
           {GROUPS.map((group, gi) => (
             <Reveal key={group.title} delay={gi * 100}>
-              <div className="sc__group">
-                <h3 className="sc__group-title">{group.title}</h3>
+              <div className="sc__group card-hover">
+                <h3 className="sc__group-title"><i className={group.icon} /> {group.title}</h3>
                 <div className="sc__list">
                   {group.shortcuts.map((s) => (
                     <div key={s.label} className="sc__item">
@@ -92,5 +97,5 @@ export const Shortcuts: FC = () => (
         </div>
       </div>
     </section>
-  </>
+  </div>
 );

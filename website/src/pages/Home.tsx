@@ -1,7 +1,44 @@
-import type { FC } from 'react';
+import { useState, useEffect, type FC } from 'react';
 import { Link } from 'react-router-dom';
 import { Reveal } from '../components/Reveal';
+import { Counter } from '../components/Counter';
 import './Home.css';
+
+const WALLET = '0xf0555d40dbFB4e3Bf07044282B78F2fE1f51Ef72';
+const GOAL = 1; // 1 ETH
+
+const useEthBalance = () => {
+  const [balance, setBalance] = useState(0);
+
+  useEffect(() => {
+    const fetchBalance = async () => {
+      try {
+        const res = await fetch('https://eth.llamarpc.com', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            method: 'eth_getBalance',
+            params: [WALLET, 'latest'],
+            id: 1,
+          }),
+        });
+        const data = await res.json();
+        if (data.result && typeof data.result === 'string' && data.result.startsWith('0x')) {
+          const wei = parseInt(data.result, 16);
+          if (!isNaN(wei)) setBalance(wei / 1e18);
+        }
+      } catch {
+        // fallback: stay at 0
+      }
+    };
+    fetchBalance();
+    const interval = setInterval(fetchBalance, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return balance;
+};
 
 interface BarDef {
   name: string;
@@ -19,23 +56,27 @@ const BARS: BarDef[] = [
   { name: 'Alpine base (no desktop)', size: '~50 MB', w: 0.25, cls: 'bar--alpine' },
 ];
 
-export const Home: FC = () => (
-  <>
+export const Home: FC = () => {
+  const balance = useEthBalance();
+  const pct = Math.min((balance / GOAL) * 100, 100);
+
+  return (
+  <div className="page-enter">
     {/* Hero */}
     <header className="hero">
       <div className="hero__bg" />
       <div className="hero__content">
         <div className="hero__tag">
           <span className="hero__dot" />
-          Open Source &middot; MIT License &middot; Fully Free
+          Open source
         </div>
         <h1 className="hero__title">
           A full Linux desktop<br />
-          in <span className="hero__size">300MB</span>.
+          in <span className="hero__size gradient-text"><Counter end={300} suffix="MB" /></span>
         </h1>
         <p className="hero__sub">
-          Alpine Linux. LabWC Wayland. Google Chrome. File manager. Notifications.<br />
-          Everything you need. Nothing you don't. Builds in 5 minutes.
+          Wayland desktop, Chrome, Double Commander, notifications.<br />
+          Complete system. Builds in 15 minutes.
         </p>
         <div className="hero__actions">
           <a
@@ -44,21 +85,13 @@ export const Home: FC = () => (
             target="_blank"
             rel="noopener"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
+            <i className="fa-solid fa-download" />
             Download ISO
           </a>
           <Link to="/build" className="btn btn--ghost">
-            Build from source &rarr;
+            <i className="fa-solid fa-code" />
+            Build from source <i className="fa-solid fa-arrow-right" />
           </Link>
-        </div>
-        <div className="hero__badge">
-          <a href="https://github.com/kelvinzer0/superlite-os/actions/workflows/build.yml" target="_blank" rel="noopener">
-            <img src="https://github.com/kelvinzer0/superlite-os/actions/workflows/build.yml/badge.svg" alt="Build Status" />
-          </a>
         </div>
       </div>
     </header>
@@ -67,8 +100,8 @@ export const Home: FC = () => (
     <section className="section" id="compare">
       <div className="container">
         <Reveal className="compare__header">
-          <span className="eyebrow">The Numbers</span>
-          <h2>Smaller than your Docker image.</h2>
+          <span className="eyebrow"><i className="fa-solid fa-chart-simple" /> The Numbers</span>
+          <h2>Smaller than your Docker image</h2>
         </Reveal>
         <div className="compare__grid">
           {BARS.map((bar) => (
@@ -86,7 +119,7 @@ export const Home: FC = () => (
             </Reveal>
           ))}
         </div>
-        <p className="compare__note">Full desktop. Browser. File manager. Waybar. Notifications. Theme. Font.</p>
+        <p className="compare__note">All of this — desktop, browser, Double Commander, theme — in 300MB.</p>
       </div>
     </section>
 
@@ -94,9 +127,9 @@ export const Home: FC = () => (
     <section className="section section--dark">
       <div className="container">
         <Reveal className="screenshot__header">
-          <span className="eyebrow">The Desktop</span>
-          <h2>This is what 300MB looks like.</h2>
-          <p>Catppuccin Mocha. Three-panel Waybar. LabWC compositor. Foot terminal.</p>
+          <span className="eyebrow"><i className="fa-solid fa-image" /> The Desktop</span>
+          <h2>This is what 300MB looks like</h2>
+          <p>Catppuccin Mocha theme. Three-panel Waybar. LabWC compositor.</p>
         </Reveal>
         <Reveal>
           <div className="screenshot__frame">
@@ -114,20 +147,61 @@ export const Home: FC = () => (
       </div>
     </section>
 
+    {/* Support */}
+    <section className="section support">
+      <div className="container">
+        <Reveal className="support__inner">
+          <span className="eyebrow"><i className="fa-solid fa-heart" /> Support the Future</span>
+          <h2>Help fund the next release</h2>
+          <p className="support__text">
+            SuperLite OS thrives thanks to the dedication of its developers and the generous support from users like you.
+            A new version is published as soon as contributions reach the funding target.
+            After each release, the counter resets and a new target is set for the next cycle.
+          </p>
+          <div className="support__progress">
+            <div className="support__progress-header">
+              <span className="support__progress-label">Next release funding</span>
+              <span className="support__progress-amount">{balance.toFixed(4)} / {GOAL} ETH</span>
+            </div>
+            <div className="support__progress-bar">
+              <div className="support__progress-fill" style={{ width: `${pct}%` }} />
+            </div>
+            <span className="support__progress-pct">{pct.toFixed(1)}% funded</span>
+          </div>
+          <div className="support__wallet">
+            <div className="support__coin">
+              <i className="fa-brands fa-ethereum" />
+              <span>ETH</span>
+            </div>
+            <img
+              className="support__qr"
+              src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=0xf0555d40dbFB4e3Bf07044282B78F2fE1f51Ef72&bgcolor=0a0a0f&color=7aa2f7&margin=8"
+              alt="ETH wallet QR code"
+              width="180"
+              height="180"
+            />
+          </div>
+        </Reveal>
+      </div>
+    </section>
+
     {/* CTA */}
     <section className="section cta">
       <div className="container">
-        <h2>Stop building build systems.<br />Start building OSes.</h2>
+        <h2 className="glitch" data-text="Stop building build systems, start building OSes">Stop building build systems,<br />start building OSes</h2>
         <p>Clone. Build. Boot. Under 15 minutes.</p>
         <div className="cta__actions">
           <a href="https://github.com/kelvinzer0/superlite-os/releases" className="btn btn--primary btn--lg" target="_blank" rel="noopener">
+            <i className="fa-solid fa-download" />
             Download ISO
           </a>
           <a href="https://github.com/kelvinzer0/superlite-os" className="btn btn--ghost btn--lg" target="_blank" rel="noopener">
+            <i className="fa-brands fa-github" />
             Star on GitHub
           </a>
         </div>
       </div>
     </section>
-  </>
-);
+  </div>
+  );
+};

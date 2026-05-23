@@ -1,0 +1,294 @@
+/* ══════════════════════════════════════════════
+   Animations & Transitions
+   ══════════════════════════════════════════════ */
+
+/* ── Page fade-in ── */
+@keyframes pageIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page-enter {
+  animation: pageIn 0.4s ease-out both;
+}
+
+/* ── Glitch text ── */
+@keyframes glitch {
+  0%, 100% { clip-path: inset(0 0 0 0); transform: translate(0); }
+  10% { clip-path: inset(20% 0 60% 0); transform: translate(-2px, 1px); }
+  20% { clip-path: inset(60% 0 5% 0); transform: translate(2px, -1px); }
+  30% { clip-path: inset(10% 0 70% 0); transform: translate(-1px, 2px); }
+  40% { clip-path: inset(50% 0 30% 0); transform: translate(1px, -2px); }
+  50% { clip-path: inset(0 0 0 0); transform: translate(0); }
+}
+
+@keyframes glitchColor {
+  0%, 100% { text-shadow: none; }
+  10% { text-shadow: -2px 0 var(--red), 2px 0 var(--sky); }
+  20% { text-shadow: 2px 0 var(--green), -2px 0 var(--lavender); }
+  30% { text-shadow: -1px 0 var(--peach), 1px 0 var(--accent); }
+  40% { text-shadow: none; }
+  50% { text-shadow: 1px 0 var(--red), -1px 0 var(--teal); }
+}
+
+.glitch {
+  position: relative;
+}
+
+.glitch::before,
+.glitch::after {
+  content: attr(data-text);
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.glitch::before {
+  color: var(--red);
+  animation: glitch 4s infinite linear;
+  opacity: 0.6;
+}
+
+.glitch::after {
+  color: var(--sky);
+  animation: glitch 4s infinite linear reverse;
+  opacity: 0.6;
+}
+
+.glitch--subtle::before,
+.glitch--subtle::after {
+  animation-duration: 8s;
+  opacity: 0.3;
+}
+
+/* ── Typing cursor ── */
+@keyframes blinkCursor {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+.typing-cursor::after {
+  content: '|';
+  color: var(--accent);
+  animation: blinkCursor 1s step-end infinite;
+  margin-left: 2px;
+  font-weight: 300;
+}
+
+/* ── Pulse glow ── */
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 20px var(--accent-glow); }
+  50% { box-shadow: 0 0 40px var(--accent-glow), 0 0 80px rgba(122, 162, 247, 0.1); }
+}
+
+.pulse-glow {
+  animation: pulseGlow 3s ease-in-out infinite;
+}
+
+/* ── Shimmer button effect ── */
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.btn--primary {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn--primary::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.1) 40%,
+    rgba(255, 255, 255, 0.2) 50%,
+    rgba(255, 255, 255, 0.1) 60%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 3s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* ── Float animation ── */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.float {
+  animation: float 4s ease-in-out infinite;
+}
+
+/* ── Gradient text shift ── */
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.gradient-text {
+  background: linear-gradient(
+    135deg,
+    var(--accent) 0%,
+    var(--lavender) 25%,
+    var(--sky) 50%,
+    var(--accent) 75%,
+    var(--lavender) 100%
+  );
+  background-size: 300% 300%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: gradientShift 6s ease-in-out infinite;
+}
+
+.gradient-text:hover {
+  animation-duration: 2s;
+}
+
+/* ── Slide-up reveal ── */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.reveal-up {
+  opacity: 0;
+  animation: slideUp 0.6s ease-out forwards;
+}
+
+.reveal-up--d1 { animation-delay: 0.1s; }
+.reveal-up--d2 { animation-delay: 0.2s; }
+.reveal-up--d3 { animation-delay: 0.3s; }
+.reveal-up--d4 { animation-delay: 0.4s; }
+.reveal-up--d5 { animation-delay: 0.5s; }
+.reveal-up--d6 { animation-delay: 0.6s; }
+
+/* ── Stagger children ── */
+.stagger > * {
+  opacity: 0;
+  animation: slideUp 0.5s ease-out forwards;
+}
+
+.stagger > *:nth-child(1) { animation-delay: 0.05s; }
+.stagger > *:nth-child(2) { animation-delay: 0.1s; }
+.stagger > *:nth-child(3) { animation-delay: 0.15s; }
+.stagger > *:nth-child(4) { animation-delay: 0.2s; }
+.stagger > *:nth-child(5) { animation-delay: 0.25s; }
+.stagger > *:nth-child(6) { animation-delay: 0.3s; }
+.stagger > *:nth-child(7) { animation-delay: 0.35s; }
+.stagger > *:nth-child(8) { animation-delay: 0.4s; }
+.stagger > *:nth-child(9) { animation-delay: 0.45s; }
+.stagger > *:nth-child(10) { animation-delay: 0.5s; }
+.stagger > *:nth-child(11) { animation-delay: 0.55s; }
+.stagger > *:nth-child(12) { animation-delay: 0.6s; }
+
+/* ── Card hover lift + glow ── */
+.card-hover {
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-4px);
+  border-color: rgba(122, 162, 247, 0.2);
+  box-shadow:
+    0 8px 32px rgba(122, 162, 247, 0.1),
+    0 0 0 1px rgba(122, 162, 247, 0.15);
+}
+
+/* ── Scale-in ── */
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.scale-in {
+  animation: scaleIn 0.4s ease-out both;
+}
+
+/* ── Scanline sweep ── */
+@keyframes scanSweep {
+  0% { top: -10%; }
+  100% { top: 110%; }
+}
+
+.scan-sweep::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: 0.3;
+  animation: scanSweep 4s linear infinite;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ── Counter number styling ── */
+.count-num {
+  font-variant-numeric: tabular-nums;
+  transition: all 0.1s;
+}
+
+/* ── Icon spin on hover ── */
+@keyframes iconSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spin-hover:hover i {
+  animation: iconSpin 0.6s ease-in-out;
+}
+
+/* ── Border gradient ── */
+@keyframes borderGlow {
+  0%, 100% { border-color: rgba(122, 162, 247, 0.08); }
+  50% { border-color: rgba(122, 162, 247, 0.25); }
+}
+
+.border-pulse {
+  animation: borderGlow 3s ease-in-out infinite;
+}
+
+/* ── Noise jitter for terminal ── */
+@keyframes noiseJitter {
+  0%, 100% { transform: translate(0); }
+  10% { transform: translate(-1px, 0); }
+  30% { transform: translate(1px, 0); }
+  50% { transform: translate(0, 1px); }
+  70% { transform: translate(-1px, -1px); }
+  90% { transform: translate(1px, 0); }
+}
+
+.terminal:hover .term-line--accent {
+  animation: noiseJitter 0.3s ease-in-out;
+}

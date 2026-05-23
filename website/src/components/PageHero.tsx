@@ -2,7 +2,7 @@ import type { FC, ReactNode } from 'react';
 import './PageHero.css';
 
 interface PageHeroProps {
-  eyebrow: string;
+  eyebrow: ReactNode;
   children: ReactNode;
   subtitle?: string;
 }

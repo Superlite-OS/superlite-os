@@ -1,0 +1,18 @@
+.bg-layer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 30%, rgba(180, 190, 220, 0.08), transparent 70%),
+    radial-gradient(ellipse 60% 40% at 20% 80%, rgba(122, 162, 247, 0.05), transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 70%, rgba(160, 170, 200, 0.05), transparent 60%),
+    linear-gradient(180deg, rgba(10, 10, 15, 0.96) 0%, rgba(10, 10, 15, 0.88) 40%, rgba(10, 10, 15, 0.96) 100%),
+    url('/superlite-os/bg-linus.webp') no-repeat center center / auto 100%;
+}

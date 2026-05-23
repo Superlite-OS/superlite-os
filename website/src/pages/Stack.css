@@ -1,30 +1,61 @@
 .stack__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
 }
 
 .stack__card {
   background: var(--surface);
-  border: 1px solid rgba(205, 214, 244, 0.06);
+  border: 1px solid rgba(122, 162, 247, 0.08);
   border-radius: var(--radius-sm);
-  padding: 24px;
+  padding: 20px;
   transition: 0.25s;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stack__icon {
+  font-size: 1.3rem;
+  color: var(--accent);
+  opacity: 0.6;
+  margin-bottom: 4px;
 }
 
 .stack__card:hover {
-  border-color: rgba(137, 180, 250, 0.2);
+  border-color: rgba(122, 162, 247, 0.2);
+  box-shadow: 0 0 16px rgba(122, 162, 247, 0.06);
   transform: translateY(-2px);
+}
+
+/* Dithered corner accent */
+.stack__card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 16px;
+  height: 16px;
+  background-image: url("data:image/svg+xml,%3Csvg width='2' height='2' viewBox='0 0 2 2' xmlns='http://www.w3.org/2000/svg'%3E%3Crect x='0' y='1' width='1' height='1' fill='%237aa2f7' fill-opacity='0.2'/%3E%3Crect x='1' y='0' width='1' height='1' fill='%237aa2f7' fill-opacity='0.2'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 2px 2px;
+  pointer-events: none;
+  mask-image: linear-gradient(135deg, black 0%, transparent 60%);
+  -webkit-mask-image: linear-gradient(135deg, black 0%, transparent 60%);
 }
 
 .stack__name {
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 1rem;
-  margin-bottom: 6px;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .stack__role {
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   color: var(--text-muted);
+  letter-spacing: 0.02em;
 }

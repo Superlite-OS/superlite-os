@@ -5,10 +5,10 @@ import './Build.css';
 
 type Tab = 'docker' | 'alpine' | 'qemu';
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'docker', label: 'Docker' },
-  { id: 'alpine', label: 'Alpine Native' },
-  { id: 'qemu', label: 'Test in QEMU' },
+const TABS: { id: Tab; label: string; icon: string }[] = [
+  { id: 'docker', label: 'Docker', icon: 'fa-brands fa-docker' },
+  { id: 'alpine', label: 'Alpine Native', icon: 'fa-brands fa-linux' },
+  { id: 'qemu', label: 'Test in QEMU', icon: 'fa-solid fa-play' },
 ];
 
 const PANELS: Record<Tab, { title: string; code: string }> = {
@@ -47,8 +47,8 @@ export const Build: FC = () => {
   const panel = PANELS[active];
 
   return (
-    <>
-      <PageHero eyebrow="Quick Start" subtitle="Docker or native Alpine. Under 15 minutes.">
+    <div className="page-enter">
+      <PageHero eyebrow={<><i className="fa-solid fa-hammer" /> Quick Start</>} subtitle="Docker or native Alpine. Under 15 minutes.">
         Build it yourself.
       </PageHero>
 
@@ -63,13 +63,14 @@ export const Build: FC = () => {
                     className={`build__tab${active === tab.id ? ' build__tab--active' : ''}`}
                     onClick={() => setActive(tab.id)}
                   >
+                    <i className={tab.icon} />
                     {tab.label}
                   </button>
                 ))}
               </div>
 
               <div className="build__panel">
-                <div className="terminal">
+                <div className="terminal scan-sweep">
                   <div className="terminal__bar">
                     <span className="terminal__dot terminal__dot--r" />
                     <span className="terminal__dot terminal__dot--y" />
@@ -96,6 +97,6 @@ export const Build: FC = () => {
           </Reveal>
         </div>
       </section>
-    </>
+    </div>
   );
 };

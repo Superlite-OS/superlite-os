@@ -3,11 +3,12 @@ import { Link, useLocation } from 'react-router-dom';
 import './Nav.css';
 
 const NAV_ITEMS = [
-  { to: '/', label: 'Home' },
-  { to: '/features', label: 'Features' },
-  { to: '/stack', label: 'Stack' },
-  { to: '/shortcuts', label: 'Shortcuts' },
-  { to: '/build', label: 'Build' },
+  { to: '/', label: 'Home', icon: 'fa-solid fa-house' },
+  { to: '/features', label: 'Features', icon: 'fa-solid fa-bolt' },
+  { to: '/stack', label: 'Stack', icon: 'fa-solid fa-layer-group' },
+  { to: '/shortcuts', label: 'Shortcuts', icon: 'fa-solid fa-keyboard' },
+  { to: '/build', label: 'Build', icon: 'fa-solid fa-hammer' },
+  { to: '/docs', label: 'Docs', icon: 'fa-solid fa-book' },
 ] as const;
 
 export const Nav: FC = () => {
@@ -34,13 +35,14 @@ export const Nav: FC = () => {
         </Link>
 
         <div className={`nav__links${open ? ' nav__links--open' : ''}`}>
-          {NAV_ITEMS.map(({ to, label }) => (
+          {NAV_ITEMS.map(({ to, label, icon }) => (
             <Link
               key={to}
               to={to}
               className={`nav__link${pathname === to ? ' nav__link--active' : ''}`}
             >
-              {label}
+              <i className={icon} />
+              <span>{label}</span>
             </Link>
           ))}
         </div>
@@ -51,11 +53,12 @@ export const Nav: FC = () => {
           target="_blank"
           rel="noopener"
         >
-          Download
+          <i className="fa-solid fa-download" />
+          <span>Download</span>
         </a>
 
         <button
-          className="nav__toggle"
+          className={`nav__toggle${open ? ' nav__toggle--open' : ''}`}
           aria-label="Toggle menu"
           onClick={() => setOpen((v) => !v)}
         >
