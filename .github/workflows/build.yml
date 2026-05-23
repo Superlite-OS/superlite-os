@@ -135,11 +135,16 @@ jobs:
               fi
             done
 
-            # Chrome glibc wrapper
-            if [ -f "$APKOVL_TMP/opt/google/chrome/chrome-glibc-wrapper" ]; then
-              echo "  ✓ Chrome glibc wrapper present"
+            # Chrome glibc wrapper (zapt wraps /opt/google/chrome/google-chrome)
+            if [ -f "$APKOVL_TMP/opt/google/chrome/google-chrome" ]; then
+              if head -1 "$APKOVL_TMP/opt/google/chrome/google-chrome" | grep -q "^#!/"; then
+                echo "  ✓ Chrome glibc wrapper present (google-chrome is wrapper)"
+              else
+                echo "  ✗ Chrome binary NOT wrapped (still raw ELF)"
+                ERRORS=$((ERRORS+1))
+              fi
             else
-              echo "  ✗ Chrome glibc wrapper MISSING"
+              echo "  ✗ Chrome binary MISSING from /opt/google/chrome/"
               ERRORS=$((ERRORS+1))
             fi
 
