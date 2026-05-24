@@ -80,7 +80,7 @@ export const Home: FC = () => {
         </p>
         <div className="hero__actions">
           <a
-            href="https://github.com/kelvinzer0/superlite-os/releases"
+            href="https://github.com/Superlite-OS/superlite-os/releases"
             className="btn btn--primary"
             target="_blank"
             rel="noopener"
@@ -191,11 +191,11 @@ export const Home: FC = () => {
         <h2 className="glitch" data-text="Stop building build systems, start building OSes">Stop building build systems,<br />start building OSes</h2>
         <p>Clone. Build. Boot. Under 15 minutes.</p>
         <div className="cta__actions">
-          <a href="https://github.com/kelvinzer0/superlite-os/releases" className="btn btn--primary btn--lg" target="_blank" rel="noopener">
+          <a href="https://github.com/Superlite-OS/superlite-os/releases" className="btn btn--primary btn--lg" target="_blank" rel="noopener">
             <i className="fa-solid fa-download" />
             Download ISO
           </a>
-          <a href="https://github.com/kelvinzer0/superlite-os" className="btn btn--ghost btn--lg" target="_blank" rel="noopener">
+          <a href="https://github.com/Superlite-OS/superlite-os" className="btn btn--ghost btn--lg" target="_blank" rel="noopener">
             <i className="fa-brands fa-github" />
             Star on GitHub
           </a>

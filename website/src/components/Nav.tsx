@@ -48,7 +48,7 @@ export const Nav: FC = () => {
         </div>
 
         <a
-          href="https://github.com/kelvinzer0/superlite-os/releases"
+          href="https://github.com/Superlite-OS/superlite-os/releases"
           className="nav__cta"
           target="_blank"
           rel="noopener"
