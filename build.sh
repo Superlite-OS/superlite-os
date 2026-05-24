@@ -123,6 +123,12 @@ _docker_build() {
                     --outdir /build/output/${VARIANT}/ \\
                     --tag ${TAG}
             "
+
+            # Inject heavy binaries into modloop (Chrome, glibc, zapt, etc.)
+            if [ -f /build/inject-modloop.sh ]; then
+                echo "[build] Injecting extras into modloop..."
+                sh /build/inject-modloop.sh "/build/output/${VARIANT}" /build
+            fi
         '
     log "ISO built at: ${output_dir}/"
 }
@@ -197,6 +203,12 @@ _native_build() {
             --outdir "$output_dir" \
             --tag "$tag"
     )
+
+    # Inject heavy binaries into modloop (Chrome, glibc, zapt, etc.)
+    if [ -f "${SCRIPT_DIR}/inject-modloop.sh" ]; then
+        log "Injecting extras into modloop..."
+        sh "${SCRIPT_DIR}/inject-modloop.sh" "$output_dir" "$SCRIPT_DIR"
+    fi
 }
 
 # ── Main ──────────────────────────────────────────────────────────────────────

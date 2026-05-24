@@ -296,8 +296,11 @@ if [ -d "$_ICON_PNG_DIR" ]; then
     cp -a "$_ICON_PNG_DIR"/* "$tmp"/etc/skel/.icons/superlite/48x48/ 2>/dev/null || true
 fi
 
-# ── Build and install zapt ────────────────────────────────────────────────────
-# zapt is a Go-based multi-source package manager
+# NOTE: Heavy binaries (Chrome, glibc, zapt, curl-impersonate, Double Commander)
+# are injected into the modloop squashfs by inject-modloop.sh after ISO build.
+# This keeps the apkovl small (< 10MB config-only) for low-RAM boot.
+
+# ── Install zapt config only (binary injected by inject-modloop.sh) ────────
 ZAPT_DIR=""
 for dir in \
     "$SCRIPT_DIR/../../zapt" \
@@ -309,102 +312,11 @@ for dir in \
         break
     fi
 done
-
-if [ -n "$ZAPT_DIR" ] && command -v go >/dev/null 2>&1; then
-    echo "Building zapt..."
-    (cd "$ZAPT_DIR" && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o "$tmp"/usr/local/bin/zapt .) 2>&1 || {
-        echo "Warning: zapt build failed (see output above)"
-    }
-
-    # Install zapt config
+if [ -n "$ZAPT_DIR" ]; then
     mkdir -p "$tmp"/etc/zapt
     if [ -f "$ZAPT_DIR/etc/sources.conf" ]; then
         cp "$ZAPT_DIR/etc/sources.conf" "$tmp"/etc/zapt/sources.conf
     fi
-fi
-
-# ── Install curl-impersonate (TLS fingerprint bypass) ────────────────────────
-# NOTE: curl-impersonate binary is glibc-linked; needs gcompat in the ISO to run.
-# During build, we only install files to the overlay — we do NOT exec the binary
-# because the build Docker container may not have gcompat.
-CURL_IMP_VERSION="0.6.1"
-CURL_IMP_URL="https://github.com/lwthiker/curl-impersonate/releases/download/v${CURL_IMP_VERSION}/curl-impersonate-v${CURL_IMP_VERSION}.x86_64-linux-gnu.tar.gz"
-
-echo "Installing curl-impersonate..."
-wget -q -O /tmp/curl-impersonate.tar.gz "$CURL_IMP_URL" 2>/dev/null || true
-if [ -f /tmp/curl-impersonate.tar.gz ]; then
-    mkdir -p "$tmp/usr/local/lib/curl-impersonate"
-    tar -xzf /tmp/curl-impersonate.tar.gz -C "$tmp/usr/local/lib/curl-impersonate" 2>/dev/null || true
-    if [ -f "$tmp/usr/local/lib/curl-impersonate/curl-impersonate-chrome" ]; then
-        chmod +x "$tmp/usr/local/lib/curl-impersonate/curl-impersonate-chrome"
-        # Symlink binary directly (gcompat handles glibc in the ISO)
-        mkdir -p "$tmp/usr/local/bin"
-        ln -sf /usr/local/lib/curl-impersonate/curl-impersonate-chrome "$tmp/usr/local/bin/curl-impersonate-chrome"
-        ln -sf /usr/local/bin/curl-impersonate-chrome "$tmp/usr/local/bin/curl"
-        # Symlink wrapper scripts to PATH
-        for w in "$tmp"/usr/local/lib/curl-impersonate/curl_*; do
-            [ -f "$w" ] || continue
-            ln -sf "/usr/local/lib/curl-impersonate/$(basename "$w")" "$tmp/usr/local/bin/$(basename "$w")"
-        done
-        echo "  curl-impersonate installed (curl → curl-impersonate-chrome)"
-    else
-        echo "  Warning: curl-impersonate binary not found in tarball"
-    fi
-    rm -f /tmp/curl-impersonate.tar.gz
-fi
-
-# ── Install Google Chrome + glibc compat ──────────────────────────────────────
-CHROME_DEB="/tmp/google-chrome-stable.deb"
-echo "Downloading Google Chrome..."
-wget -q -O "$CHROME_DEB" "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb" 2>&1 || {
-    echo "Warning: Chrome download failed"
-}
-
-if [ -f "$CHROME_DEB" ]; then
-    echo "Installing Chrome via zapt..."
-    "$tmp/usr/local/bin/zapt" install --root "$tmp" "$CHROME_DEB" 2>&1 || {
-        echo "Warning: Chrome install failed (see output above)"
-    }
-    chmod 4755 "$tmp/opt/google/chrome/chrome-sandbox" 2>/dev/null || true
-    mkdir -p "$tmp/usr/bin"
-    # Symlinks point to zapt-created wrapper (sets LD_LIBRARY_PATH for glibc libs)
-    ln -sf /opt/google/chrome/chrome "$tmp/usr/bin/google-chrome-stable"
-    ln -sf /opt/google/chrome/chrome "$tmp/usr/bin/google-chrome"
-    rm -f "$CHROME_DEB"
-fi
-
-# ── glibc symlinks for ELF loader ─────────────────────────────────────────
-# zapt auto-resolves libc6 when installing Chrome .deb (dependency resolution).
-# We only need to create symlinks so the kernel ELF loader can find ld-linux.
-if [ -f "$tmp/usr/lib/glibc/ld-linux-x86-64.so.2" ]; then
-    mkdir -p "$tmp/lib64" "$tmp/lib"
-    ln -sf /usr/lib/glibc/ld-linux-x86-64.so.2 "$tmp/lib64/ld-linux-x86-64.so.2"
-    ln -sf /usr/lib/glibc/libc.so.6 "$tmp/lib/libc.so.6"
-    echo "  glibc loader symlinks created"
-else
-    echo "  Warning: glibc not found — zapt may have failed to resolve libc6"
-fi
-
-# ── Install Double Commander via zapt (Debian pool) ─────────────────────────
-echo "Installing Double Commander via zapt..."
-"$tmp/usr/local/bin/zapt" install --root "$tmp" doublecmd-qt 2>&1 || {
-    echo "  WARNING: Double Commander install failed, falling back to thunar"
-}
-# Ensure wrapper exists (fallback to thunar)
-if [ ! -f "$tmp/usr/bin/doublecmd" ]; then
-    mkdir -p "$tmp/usr/bin"
-    cat > "$tmp/usr/bin/doublecmd" <<'DCWRAP'
-#!/bin/sh
-if command -v doublecmd-qt >/dev/null 2>&1; then
-    exec doublecmd-qt "$@"
-elif command -v thunar >/dev/null 2>&1; then
-    exec thunar "$@"
-else
-    echo "No file manager found" >&2
-    exit 1
-fi
-DCWRAP
-    chmod +x "$tmp/usr/bin/doublecmd"
 fi
 
 # Clone and install Chrome extensions + build native hosts
@@ -920,5 +832,10 @@ ipv6.ip6-privacy=2
 EOF
 
 # ── Generate apkovl ───────────────────────────────────────────────────────────
-tar -c -C "$tmp" sbin etc root usr opt lib lib64 | gzip -9n > "$HOSTNAME.apkovl.tar.gz"
+# Only include dirs that exist (heavy binaries moved to modloop via inject-modloop.sh)
+_TAR_DIRS=""
+for _d in sbin etc root usr opt lib lib64; do
+    [ -d "$tmp/$_d" ] && _TAR_DIRS="$_TAR_DIRS $_d"
+done
+tar -c -C "$tmp" $_TAR_DIRS | gzip -9n > "$HOSTNAME.apkovl.tar.gz"
 echo "[overlay] Generated: $HOSTNAME.apkovl.tar.gz"
