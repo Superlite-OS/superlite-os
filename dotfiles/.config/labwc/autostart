@@ -27,7 +27,6 @@ waybar -c "$HOME/.config/waybar/config" -s "$HOME/.config/waybar/style.css" >>"$
 mako >>"$LOG_DIR/mako.log" 2>&1 &
 # Workspace indicator daemon (listens on /tmp/workspace pipe)
 sh "$HOME/.config/scripts/workspaces.sh" &
-gammastep -O 5600 >/dev/null 2>&1 &
 # NOTE: requires passwordless sudo for suspend: add to /etc/sudoers:
 #   username ALL=(ALL) NOPASSWD: /usr/bin/zzz, /usr/bin/reboot, /usr/bin/poweroff
 swayidle -w timeout 600 'sudo zzz' 2>&1 &
@@ -39,4 +38,4 @@ brightnessctl set 80% 2>&1 &
 command -v gsettings >/dev/null 2>&1 && gsettings set org.gnome.desktop.interface gtk-theme 'Catppuccin-Mocha' 2>&1 &
 command -v gsettings >/dev/null 2>&1 && gsettings set org.gnome.desktop.interface font-name 'JetBrains Mono 10' 2>&1 &
 command -v gsettings >/dev/null 2>&1 && gsettings set org.gnome.desktop.interface icon-theme 'SuperLite' 2>&1 &
-command -v gsettings >/dev/null 2>&1 && gsettings set org.gnome.desktop.interface cursor-theme 'simp1e-cursors' 2>&1 &
+command -v gsettings >/dev/null 2>&1 && gsettings set org.gnome.desktop.interface cursor-theme 'Adwaita' 2>&1 &

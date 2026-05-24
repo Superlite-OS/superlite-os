@@ -64,9 +64,6 @@
 		<item label="Disconnect">
 			<action name="Execute"><command>/root/.config/scripts/vpn.sh disconnect</command></action>
 		</item>
-		<item label="Register WARP">
-			<action name="Execute"><command>foot -e sh -c "wgcf register; wgcf generate; echo Done; read"</command></action>
-		</item>
 	</menu>
 </menu> <!-- root-menu -->
 </openbox_menu>
