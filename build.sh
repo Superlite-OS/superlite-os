@@ -78,7 +78,7 @@ _docker_build() {
         -e TAG="$tag" \
         -v "${SCRIPT_DIR}:/build" \
         -w /build \
-        alpine:edge \
+        alpine:3.23 \
         sh -c '
             set -e
             apk add --no-cache alpine-sdk build-base apk-tools alpine-conf \
@@ -117,9 +117,8 @@ _docker_build() {
                     --profile ${VARIANT} \\
                     --arch x86_64 \\
                     --hostkeys \\
-                    --repository https://dl-cdn.alpinelinux.org/alpine/edge/main \\
-                    --repository https://dl-cdn.alpinelinux.org/alpine/edge/community \\
-                    --repository https://dl-cdn.alpinelinux.org/alpine/edge/testing \\
+                    --repository https://dl-cdn.alpinelinux.org/alpine/v3.23/main \\
+                    --repository https://dl-cdn.alpinelinux.org/alpine/v3.23/community \\
                     --outdir /build/output/${VARIANT}/ \\
                     --tag ${TAG}
             "
@@ -197,9 +196,8 @@ _native_build() {
             --profile "$variant" \
             --arch x86_64 \
             --hostkeys \
-            --repository https://dl-cdn.alpinelinux.org/alpine/edge/main \
-            --repository https://dl-cdn.alpinelinux.org/alpine/edge/community \
-            --repository https://dl-cdn.alpinelinux.org/alpine/edge/testing \
+            --repository https://dl-cdn.alpinelinux.org/alpine/v3.23/main \
+            --repository https://dl-cdn.alpinelinux.org/alpine/v3.23/community \
             --outdir "$output_dir" \
             --tag "$tag"
     )
