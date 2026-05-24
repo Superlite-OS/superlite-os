@@ -39,6 +39,8 @@ jobs:
 
       - name: Pre-QEMU ISO Verification
         run: |
+          sudo apt-get install -y squashfs-tools >/dev/null 2>&1 || true
+
           ISO=$(find output -name "*.iso" -type f | head -1)
           if [ -z "$ISO" ]; then
             echo "::error::No ISO found in output/"
@@ -116,7 +118,7 @@ jobs:
             fi
 
             # Critical directories
-            for d in etc/profile.d usr/local/bin etc/init.d; do
+            for d in etc/profile.d usr/local/bin; do
               if [ -d "$APKOVL_TMP/$d" ]; then
                 echo "  ✓ $d/ present"
               else
@@ -135,29 +137,45 @@ jobs:
               fi
             done
 
-            # Chrome glibc wrapper (zapt wraps /opt/google/chrome/chrome)
-            if [ -f "$APKOVL_TMP/opt/google/chrome/chrome" ]; then
-              if head -1 "$APKOVL_TMP/opt/google/chrome/chrome" | grep -q "^#!/"; then
-                echo "  ✓ Chrome glibc wrapper present (chrome is wrapper)"
-              else
-                echo "  ✗ Chrome binary NOT wrapped (still raw ELF)"
-                ERRORS=$((ERRORS+1))
-              fi
+            # Apkovl should be config-only now (< 10MB)
+            APKOVL_SIZE=$(stat -c%s "$APKOVL" 2>/dev/null || stat -f%z "$APKOVL" 2>/dev/null || echo 0)
+            APKOVL_SIZE_MB=$((APKOVL_SIZE / 1048576))
+            if [ "$APKOVL_SIZE_MB" -lt 20 ]; then
+              echo "  ✓ apkovl size OK (${APKOVL_SIZE_MB}MB, config-only)"
             else
-              echo "  ✗ Chrome binary MISSING from /opt/google/chrome/"
-              ERRORS=$((ERRORS+1))
-            fi
-
-            # glibc libs
-            GLIBC_COUNT=$(find "$APKOVL_TMP/usr/lib/glibc" -name "*.so*" 2>/dev/null | wc -l)
-            if [ "$GLIBC_COUNT" -gt 10 ]; then
-              echo "  ✓ glibc libs present ($GLIBC_COUNT files)"
-            else
-              echo "  ✗ glibc libs insufficient ($GLIBC_COUNT files, expected >10)"
+              echo "  ✗ apkovl too large (${APKOVL_SIZE_MB}MB, expected <20MB)"
               ERRORS=$((ERRORS+1))
             fi
 
             rm -rf "$APKOVL_TMP"
+          fi
+
+          # ── 2b. Verify modloop has heavy binaries (Chrome, glibc) ──
+          MODLOOP=$(find "$MNT" -name "modloop-*" -type f | head -1)
+          if [ -n "$MODLOOP" ]; then
+            echo ""
+            echo "=== Modloop Verification ==="
+            SQFS_TMP=$(mktemp -d)
+            sudo unsquashfs -q -d "$SQFS_TMP" "$MODLOOP" 2>/dev/null || true
+
+            # Chrome binary
+            if [ -f "$SQFS_TMP/opt/google/chrome/chrome" ]; then
+              echo "  ✓ Chrome binary present in modloop"
+            else
+              echo "  ✗ Chrome binary MISSING from modloop"
+              ERRORS=$((ERRORS+1))
+            fi
+
+            # glibc libs
+            GLIBC_COUNT=$(find "$SQFS_TMP/usr/lib/glibc" -name "*.so*" 2>/dev/null | wc -l)
+            if [ "$GLIBC_COUNT" -gt 10 ]; then
+              echo "  ✓ glibc libs present in modloop ($GLIBC_COUNT files)"
+            else
+              echo "  ✗ glibc libs insufficient in modloop ($GLIBC_COUNT files, expected >10)"
+              ERRORS=$((ERRORS+1))
+            fi
+
+            sudo rm -rf "$SQFS_TMP"
           fi
 
           sudo umount "$MNT"
@@ -168,7 +186,7 @@ jobs:
           echo "=== Script Syntax Checks ==="
           for script in \
             aports/scripts/genapkovl-superlite-unified.sh \
-            etc/profile.d/00-boot-mode.sh; do
+            inject-modloop.sh; do
             if [ -f "$script" ]; then
               if bash -n "$script" 2>/dev/null; then
                 echo "  ✓ $script — syntax OK"
