@@ -2,7 +2,7 @@
 # ============================================================================
 # SuperLite OS — Modloop Extras Injector
 # Injects heavy binaries into modloop squashfs after mkimage.sh builds ISO.
-# Called by build.sh. Runs inside Docker container or on native Alpine host.
+# Uses xorriso in-place replacement — preserves original boot records.
 #
 # Usage: inject-modloop.sh <output_dir> [repo_dir]
 # ============================================================================
@@ -31,22 +31,23 @@ TMPDIR=$(mktemp -d)
 cleanup() { rm -rf "$TMPDIR"; }
 trap cleanup EXIT
 
-# Extract ISO contents via xorriso
-log "Extracting ISO..."
-xorriso -indev "$ISO_FILE" -osirrox on -extract / "$TMPDIR" >/dev/null 2>&1
+# Extract ONLY modloop from ISO (not entire ISO)
+log "Extracting modloop from ISO..."
+xorriso -indev "$ISO_FILE" -osirrox on \
+    -extract /boot/modloop-lts "$TMPDIR/modloop-lts" >/dev/null 2>&1
 
-MODLOOP="$TMPDIR/boot/modloop-lts"
-if [ ! -f "$MODLOOP" ]; then
+if [ ! -f "$TMPDIR/modloop-lts" ]; then
     log "ERROR: modloop-lts not found in ISO"
     exit 1
 fi
 
+OLD_SIZE=$(du -sh "$TMPDIR/modloop-lts" | cut -f1)
+
 # Unsquashfs into temp
 SQFS="$TMPDIR/squashfs-root"
-OLD_SIZE=$(du -sh "$MODLOOP" | cut -f1)
 log "Unsquashing modloop ($OLD_SIZE)..."
-unsquashfs -q -d "$SQFS" "$MODLOOP"
-rm "$MODLOOP"
+unsquashfs -q -d "$SQFS" "$TMPDIR/modloop-lts"
+rm "$TMPDIR/modloop-lts"
 
 # ── Build zapt (Go static binary) ──────────────────────────────────────────
 ZAPT_DIR=""
@@ -125,41 +126,18 @@ fi
 
 # ── Repack squashfs ────────────────────────────────────────────────────────
 log "Repacking modloop..."
-mksquashfs "$SQFS" "$MODLOOP" -comp xz -b 1M -noappend >/dev/null 2>&1
-NEW_SIZE=$(du -sh "$MODLOOP" | cut -f1)
+mksquashfs "$SQFS" "$TMPDIR/modloop-lts" -comp xz -b 1M -noappend >/dev/null 2>&1
+NEW_SIZE=$(du -sh "$TMPDIR/modloop-lts" | cut -f1)
 rm -rf "$SQFS"
 
-# ── Rebuild ISO (preserving boot) ──────────────────────────────────────────
+# ── Replace modloop in ISO (preserves boot records) ────────────────────────
 NEW_ISO="${ISO_FILE%.iso}.new.iso"
-log "Rebuilding ISO..."
+log "Replacing modloop in ISO (in-place, preserving boot records)..."
 
-# Find MBR for hybrid boot
-MBR=""
-for f in "$TMPDIR/boot/syslinux/isohdpfx.bin" \
-         /usr/lib/syslinux/mbr/isohdpfx.bin \
-         /usr/share/syslinux/isohdpfx.bin; do
-    [ -f "$f" ] && MBR="$f" && break
-done
-
-_XORRISO_ARGS=""
-if [ -n "$MBR" ]; then
-    _XORRISO_ARGS="-isohybrid-mbr $MBR"
-fi
-
-xorriso -as mkisofs \
-    -r -J \
-    $_XORRISO_ARGS \
-    -c boot/syslinux/boot.cat \
-    -b boot/syslinux/isolinux.bin \
-    -no-emul-boot \
-    -boot-load-size 4 \
-    -boot-info-table \
-    -eltorito-alt-boot \
-    -e boot/grub/efi.img \
-    -no-emul-boot \
-    -isohybrid-gpt-basdat \
-    -o "$NEW_ISO" \
-    "$TMPDIR" >/dev/null 2>&1
+xorriso -indev "$ISO_FILE" \
+    -boot_image any keep \
+    -map "$TMPDIR/modloop-lts" /boot/modloop-lts \
+    -outdev "$NEW_ISO" >/dev/null 2>&1
 
 mv "$NEW_ISO" "$ISO_FILE"
 log "Done: $ISO_FILE ($(du -sh "$ISO_FILE" | cut -f1))"
