@@ -707,11 +707,12 @@ mountpoint -q /sys  || mount -t sysfs sysfs /sys
 mountpoint -q /dev  || mount -t devtmpfs devtmpfs /dev
 for mod in loop squashfs ext4 overlay; do modprobe "$mod" 2>/dev/null; done
 
-# Symlink /media/cdrom to actual boot media (USB flash, CDROM, etc.)
-# Stock Alpine modloop hardcodes /media/cdrom — this fixes USB boot
+# Symlink /media/cdrom to actual boot media (USB flash, CDROM, SD card, etc.)
+# Stock Alpine modloop hardcodes /media/cdrom — this fixes USB/SD boot
+# Handles: sd*, nvme*, mmcblk*, sr*, usb
 if [ ! -e /media/cdrom ]; then
     sleep 1
-    for _m in /media/sd* /media/usb /media/mmcblk* /media/sr*; do
+    for _m in /media/sd* /media/nvme* /media/mmcblk* /media/usb /media/sr*; do
         [ -d "$_m" ] || continue
         if [ -d "$_m/boot" ] || [ -d "$_m/apks" ] || [ -f "$_m/modloop-lts" ]; then
             ln -sf "$_m" /media/cdrom
@@ -722,31 +723,58 @@ fi
 
 # ── USB overlay: use ext4 partition as writable layer (saves RAM) ──
 # Auto-creates partition on first boot if USB has free space
+# Inspired by bin456789/reinstall (12k★) — dynamic NVMe/MMCblk handling
+
+# Partition naming: nvme0n1p1 vs sda1 vs mmcblk0p1
+_partition_name() {
+    _disk="$1" _num="$2"
+    case "$_disk" in
+        /dev/nvme*|/dev/mmcblk*|/dev/md*) echo "${_disk}p${_num}" ;;
+        *)                                 echo "${_disk}${_num}" ;;
+    esac
+}
+
+# Refresh partition table nodes after sfdisk
+_refresh_parts() {
+    partprobe "$1" 2>/dev/null || true
+    partx -u "$1" 2>/dev/null || true
+    mdev -sf 2>/dev/null || true
+}
+
+# Find boot disk from /media/cdrom symlink
+_boot_disk=""
+if [ -L /media/cdrom ]; then
+    _media=$(readlink -f /media/cdrom)  # e.g. /dev/sdb1
+    # Strip partition number: sdb1→sdb, nvme0n1p1→nvme0n1, mmcblk0p1→mmcblk0
+    case "$_media" in
+        /dev/nvme*|/dev/mmcblk*|/dev/md*)
+            _boot_disk=$(echo "$_media" | sed 's/p[0-9]*$//')
+            ;;
+        /dev/sd*)
+            _boot_disk=$(echo "$_media" | sed 's/[0-9]*$//')
+            ;;
+    esac
+fi
+
 OVERLAY_DEV=""
 for _d in /dev/disk/by-label/SUPERLITE-RW /dev/disk/by-label/superlite-rw; do
     [ -b "$_d" ] && OVERLAY_DEV="$_d" && break
 done
 
-# Auto-partition: if no SUPERLITE-RW found, create one on USB boot media
-if [ -z "$OVERLAY_DEV" ] && [ -L /media/cdrom ]; then
-    _media=$(readlink -f /media/cdrom)  # e.g. /media/sdb1
-    _dev=$(echo "$_media" | sed 's/[0-9p]*$//')  # e.g. /media/sdb
-    _dev=$(echo "$_dev" | sed 's|/media/|/dev/|')  # e.g. /dev/sdb
-
-    # Only partition USB devices (sd*, not sr* CDROM)
-    case "$_dev" in
-        /dev/sd*|/dev/mmcblk*)
-            # Check if partition 2 already exists
-            _p2="${_dev}2"
-            case "$_dev" in /dev/mmcblk*) _p2="${_dev}p2" ;; esac
+# Auto-partition: if no SUPERLITE-RW found, create one on boot media
+if [ -z "$OVERLAY_DEV" ] && [ -n "$_boot_disk" ] && [ -b "$_boot_disk" ]; then
+    case "$_boot_disk" in
+        /dev/sd*|/dev/mmcblk*|/dev/nvme*)
+            _p2=$(_partition_name "$_boot_disk" 2)
 
             if [ ! -b "$_p2" ] && command -v sfdisk >/dev/null 2>&1; then
-                # Create partition 2 with remaining space
-                echo ", +" | sfdisk -a -q "$_dev" 2>/dev/null
-                sleep 1
-                # Format as ext4
+                # Append partition with remaining space
+                echo ", +" | sfdisk -a -q "$_boot_disk" 2>/dev/null
+                _refresh_parts "$_boot_disk"
+
+                # Format as ext4 (disable 64bit for Alpine compat)
                 if [ -b "$_p2" ] && command -v mkfs.ext4 >/dev/null 2>&1; then
-                    mkfs.ext4 -L SUPERLITE-RW -F "$_p2" >/dev/null 2>&1
+                    mkfs.ext4 -O ^64bit -L SUPERLITE-RW -F "$_p2" >/dev/null 2>&1
                     OVERLAY_DEV="$_p2"
                 fi
             fi
