@@ -63,7 +63,6 @@ wpaperd
 swayidle
 mako
 tofi
-gammastep
 brightnessctl
 gsettings-desktop-schemas
 
@@ -80,9 +79,7 @@ font-awesome
 font-terminus
 font-dejavu
 font-jetbrains-mono
-font-tamzen
 papirus-icon-theme
-simp1e-cursors
 
 # --- Desktop Tools ---
 util-linux
@@ -102,8 +99,6 @@ gvfs
 imv
 mpv
 wf-recorder
-lxappearance
-qt5ct
 bluez
 tlp
 acpi
@@ -131,7 +126,6 @@ lvm2
 mdadm
 smartmontools
 hdparm
-sdparm
 nvme-cli
 hd-idle
 
@@ -151,9 +145,8 @@ openssh-server
 ndisc6
 iproute2
 
-# --- VPN (Cloudflare WARP) ---
+# --- VPN ---
 wireguard-tools
-wgcf
 
 # --- Email ---
 thunderbird
