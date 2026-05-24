@@ -57,7 +57,7 @@ done
 if [ -n "$ZAPT_DIR" ] && command -v go >/dev/null 2>&1; then
     log "Building zapt..."
     (cd "$ZAPT_DIR" && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-        go build -ldflags="-s -w" -o "$SQFS/usr/local/bin/zapt" .) || {
+        go build -buildvcs=false -ldflags="-s -w" -o "$SQFS/usr/local/bin/zapt" .) || {
         log "WARNING: zapt build failed"
     }
     mkdir -p "$SQFS/etc/zapt"
