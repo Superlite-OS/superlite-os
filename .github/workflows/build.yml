@@ -39,7 +39,7 @@ jobs:
 
       - name: Pre-QEMU ISO Verification
         run: |
-          sudo apt-get install -y squashfs-tools >/dev/null 2>&1 || true
+          sudo apt-get install -y squashfs-tools xxd >/dev/null 2>&1 || true
 
           ISO=$(find output -name "*.iso" -type f | head -1)
           if [ -z "$ISO" ]; then
@@ -180,6 +180,73 @@ jobs:
 
           sudo umount "$MNT"
           rm -rf "$MNT"
+
+          # ── 2c. Boot integrity checks ──
+          echo ""
+          echo "=== Boot Integrity ==="
+
+          # MBR boot signature (0x55AA at offset 510-511)
+          MBR_SIG=$(xxd -s 510 -l 2 -p "$ISO" 2>/dev/null)
+          if [ "$MBR_SIG" = "55aa" ]; then
+            echo "  ✓ MBR boot signature (0x55AA) present"
+          else
+            echo "  ✗ MBR boot signature MISSING (got: $MBR_SIG)"
+            ERRORS=$((ERRORS+1))
+          fi
+
+          # El Torito boot catalog (boot.cat) — check first 2 bytes
+          MNT_TMP=$(mktemp -d)
+          sudo mount -o loop,ro "$ISO" "$MNT_TMP" 2>/dev/null || true
+          if [ -f "$MNT_TMP/boot/syslinux/boot.cat" ]; then
+            BCAT_SIZE=$(stat -c%s "$MNT_TMP/boot/syslinux/boot.cat" 2>/dev/null || echo 0)
+            if [ "$BCAT_SIZE" -gt 512 ]; then
+              echo "  ✓ El Torito boot catalog valid (${BCAT_SIZE} bytes)"
+            else
+              echo "  ✗ El Torito boot catalog too small (${BCAT_SIZE} bytes)"
+              ERRORS=$((ERRORS+1))
+            fi
+          else
+            echo "  ✗ El Torito boot.cat MISSING"
+            ERRORS=$((ERRORS+1))
+          fi
+
+          # isolinux.bin present
+          if [ -f "$MNT_TMP/boot/syslinux/isolinux.bin" ]; then
+            echo "  ✓ isolinux.bin present"
+          else
+            echo "  ✗ isolinux.bin MISSING"
+            ERRORS=$((ERRORS+1))
+          fi
+
+          # ldlinux.c32 present (syslinux chain loader)
+          if [ -f "$MNT_TMP/boot/syslinux/ldlinux.c32" ]; then
+            echo "  ✓ ldlinux.c32 present (chain loader)"
+          else
+            echo "  ✗ ldlinux.c32 MISSING — syslinux cannot chain-load kernel"
+            ERRORS=$((ERRORS+1))
+          fi
+
+          # EFI boot image present
+          if [ -f "$MNT_TMP/boot/grub/efi.img" ] && [ -f "$MNT_TMP/efi/boot/bootx64.efi" ]; then
+            echo "  ✓ EFI boot images present (grub/efi.img + efi/boot/bootx64.efi)"
+          else
+            echo "  ✗ EFI boot images MISSING"
+            ERRORS=$((ERRORS+1))
+          fi
+
+          # syslinux.cfg references correct kernel
+          if [ -f "$MNT_TMP/boot/syslinux/syslinux.cfg" ]; then
+            if grep -q "vmlinuz-lts" "$MNT_TMP/boot/syslinux/syslinux.cfg" && \
+               grep -q "initramfs-lts" "$MNT_TMP/boot/syslinux/syslinux.cfg"; then
+              echo "  ✓ syslinux.cfg references vmlinuz-lts + initramfs-lts"
+            else
+              echo "  ✗ syslinux.cfg has wrong kernel/initramfs path"
+              ERRORS=$((ERRORS+1))
+            fi
+          fi
+
+          sudo umount "$MNT_TMP" 2>/dev/null || true
+          rm -rf "$MNT_TMP"
 
           # ── 3. Script syntax checks ──
           echo ""
