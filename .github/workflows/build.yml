@@ -310,34 +310,33 @@ jobs:
           cat > "$EXPECT_PY" << 'PYEOF'
           import sys, textwrap
           iso, out = sys.argv[1], sys.argv[2]
+          pr = chr(92) + "]#"
           script = textwrap.dedent(f"""
             set timeout 180
             spawn qemu-system-x86_64 -m 2048 -cdrom {iso} -boot d -no-reboot -nographic -serial mon:stdio -cpu qemu64 -display none
 
             # Phase 1: Wait for shell prompt (auto-login as root)
-            # Prompt has ANSI escapes like [root@~]# \033[6n
-            # Strip terminal queries by sending stty first, then match ]#
             expect {{
-              -re {{\]#}} {{ puts "\\n>>> BOOT_OK" }}
+              -re {{{pr}}} {{ puts "\\n>>> BOOT_OK" }}
               timeout {{ puts "\\n>>> BOOT_TIMEOUT"; exit 1 }}
             }}
             # Disable terminal control sequences
-            send "stty -echo -onlcr\r"
+            send "stty -echo -onlcr\\r"
             sleep 1
-            expect -re {{\]#}}
+            expect -re {{{pr}}}
 
             # Phase 2: Run checks
-            set checks [list \
-              {{"Kernel version" "uname -r" "lts"}} \
-              {{"Root user" "whoami" "root"}} \
-              {{"Chrome binary" "test -f /opt/google/chrome/chrome && echo CHROME_OK" "CHROME_OK"}} \
-              {{"glibc libs" "test -f /usr/lib/glibc/ld-linux-x86-64.so.2 && echo GLIBC_OK" "GLIBC_OK"}} \
-              {{"zapt binary" "test -f /usr/local/bin/zapt && echo ZAPT_OK" "ZAPT_OK"}} \
-              {{"Terax binary" "find /usr -name terax -type f 2>/dev/null | head -1" "terax"}} \
-              {{"labwc package" "apk info labwc 2>/dev/null" "labwc"}} \
-              {{"Waybar binary" "command -v waybar" "/usr/bin/waybar"}} \
-              {{"Seatd binary" "command -v seatd" "/usr/bin/seatd"}} \
-              {{"PipeWire binary" "command -v pipewire" "/usr/bin/pipewire"}} \
+            set checks [list \\
+              {{"Kernel version" "uname -r" "lts"}} \\
+              {{"Root user" "whoami" "root"}} \\
+              {{"Chrome binary" "test -f /opt/google/chrome/chrome && echo CHROME_OK" "CHROME_OK"}} \\
+              {{"glibc libs" "test -f /usr/lib/glibc/ld-linux-x86-64.so.2 && echo GLIBC_OK" "GLIBC_OK"}} \\
+              {{"zapt binary" "test -f /usr/local/bin/zapt && echo ZAPT_OK" "ZAPT_OK"}} \\
+              {{"Terax binary" "find /usr -name terax -type f 2>/dev/null | head -1" "terax"}} \\
+              {{"labwc package" "apk info labwc 2>/dev/null" "labwc"}} \\
+              {{"Waybar binary" "command -v waybar" "/usr/bin/waybar"}} \\
+              {{"Seatd binary" "command -v seatd" "/usr/bin/seatd"}} \\
+              {{"PipeWire binary" "command -v pipewire" "/usr/bin/pipewire"}} \\
             ]
 
             set fail_count 0
@@ -350,9 +349,9 @@ jobs:
               expect {{
                 -re $pattern {{ puts "\\n>>> CHECK_OK: $label" }}
                 timeout {{ puts "\\n>>> CHECK_FAIL: $label"; incr fail_count }}
-                "~#" {{ puts "\\n>>> CHECK_FAIL: $label (no match)"; incr fail_count }}
+                -re {{{pr}}} {{ puts "\\n>>> CHECK_FAIL: $label (no match)"; incr fail_count }}
               }}
-              expect -re {\]#}
+              expect -re {{{pr}}}
             }}
 
             send "poweroff\\r"
