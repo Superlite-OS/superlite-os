@@ -102,18 +102,11 @@ jobs:
             APKOVL_TMP=$(mktemp -d)
             tar -xzf "$APKOVL" -C "$APKOVL_TMP" 2>/dev/null || tar -xzf "$APKOVL" -C "$APKOVL_TMP"
 
-            # sbin/init exists (USB overlay feature)
-            if [ -f "$APKOVL_TMP/sbin/init" ]; then
-              echo "  ✓ /sbin/init present (USB overlay enabled)"
-              # Verify it has overlayfs logic
-              if grep -q "overlay" "$APKOVL_TMP/sbin/init" 2>/dev/null; then
-                echo "  ✓ /sbin/init contains overlayfs logic"
-              else
-                echo "  ✗ /sbin/init missing overlayfs logic"
-                ERRORS=$((ERRORS+1))
-              fi
+            # superlite-boot OpenRC service (USB overlay feature)
+            if [ -f "$APKOVL_TMP/etc/init.d/superlite-boot" ]; then
+              echo "  ✓ superlite-boot OpenRC service present"
             else
-              echo "  ✗ /sbin/init MISSING — USB overlay feature broken"
+              echo "  ✗ superlite-boot OpenRC service MISSING"
               ERRORS=$((ERRORS+1))
             fi
 
