@@ -304,12 +304,12 @@ jobs:
           echo "=== QEMU Boot + Login + Package Test ==="
           echo "ISO: $ISO"
 
-          # Write expect script
+          # Write expect script via python (avoids YAML heredoc issues)
           EXPECT_SCRIPT=$(mktemp)
-          python3 << 'PYEOF' "$ISO" "$EXPECT_SCRIPT"
+          EXPECT_PY=$(mktemp --suffix=.py)
+          cat > "$EXPECT_PY" << 'PYEOF'
           import sys, textwrap
-          iso = sys.argv[1]
-          out = sys.argv[2]
+          iso, out = sys.argv[1], sys.argv[2]
           script = textwrap.dedent(f"""
             set timeout 180
             spawn qemu-system-x86_64 -m 2048 -cdrom {iso} -boot d -no-reboot -nographic -serial mon:stdio -cpu qemu64 -display none
@@ -359,6 +359,8 @@ jobs:
           with open(out, 'w') as f:
               f.write(script)
           PYEOF
+          python3 "$EXPECT_PY" "$ISO" "$EXPECT_SCRIPT"
+          rm -f "$EXPECT_PY"
 
           # Run expect script
           EXPECT_LOG=$(mktemp)
