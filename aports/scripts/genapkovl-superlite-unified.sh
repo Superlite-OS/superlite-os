@@ -106,6 +106,50 @@ _refresh_parts() {
 start() {
     ebegin "SuperLite boot setup"
 
+    # Bind mount modloop contents into root filesystem
+    # Alpine's modloop service only symlinks /lib/modules from /.modloop/
+    # Injected binaries (Chrome, glibc, zapt, terax, curl-imp, doublecmd)
+    # live in /.modloop/ but need to be accessible at standard paths
+    if [ -d /.modloop ]; then
+        # /opt is entirely from modloop (Chrome + dependencies)
+        [ -d /.modloop/opt ] && mount --bind /.modloop/opt /opt 2>/dev/null || true
+        # /usr/lib/glibc — glibc libs for Chrome/curl-impersonate
+        [ -d /.modloop/usr/lib/glibc ] && {
+            mkdir -p /usr/lib/glibc
+            mount --bind /.modloop/usr/lib/glibc /usr/lib/glibc 2>/dev/null || true
+        }
+        # /usr/local/lib/curl-impersonate
+        [ -d /.modloop/usr/local/lib/curl-impersonate ] && {
+            mkdir -p /usr/local/lib/curl-impersonate
+            mount --bind /.modloop/usr/local/lib/curl-impersonate /usr/local/lib/curl-impersonate 2>/dev/null || true
+        }
+        # /lib/doublecmd — Double Commander libs
+        [ -d /.modloop/lib/doublecmd ] && {
+            mkdir -p /lib/doublecmd
+            mount --bind /.modloop/lib/doublecmd /lib/doublecmd 2>/dev/null || true
+        }
+        # Symlink individual binaries (dirs mixed with apkovl files)
+        for _bin in zapt; do
+            [ -f "/.modloop/usr/local/bin/$_bin" ] && [ ! -f "/usr/local/bin/$_bin" ] && \
+                ln -sf "/.modloop/usr/local/bin/$_bin" "/usr/local/bin/$_bin"
+        done
+        for _bin in terax doublecmd google-chrome-stable google-chrome; do
+            [ -f "/.modloop/bin/$_bin" ] && [ ! -f "/bin/$_bin" ] && \
+                ln -sf "/.modloop/bin/$_bin" "/bin/$_bin"
+        done
+        # Symlink curl-impersonate wrappers to PATH
+        for _bin in curl-impersonate-chrome curl-impersonate-ff; do
+            [ -f "/.modloop/usr/local/bin/$_bin" ] && [ ! -f "/usr/local/bin/$_bin" ] && \
+                ln -sf "/.modloop/usr/local/bin/$_bin" "/usr/local/bin/$_bin"
+        done
+        # glibc ELF loader symlink
+        if [ -f /.modloop/usr/lib/glibc/ld-linux-x86-64.so.2 ]; then
+            [ -d /lib64 ] || mkdir -p /lib64
+            [ -f /lib64/ld-linux-x86-64.so.2 ] || \
+                ln -sf /usr/lib/glibc/ld-linux-x86-64.so.2 /lib64/ld-linux-x86-64.so.2
+        fi
+    fi
+
     # Symlink /media/cdrom if not already set by initramfs
     if [ ! -e /media/cdrom ]; then
         for _m in /media/sd* /media/nvme* /media/mmcblk* /media/usb /media/sr*; do
