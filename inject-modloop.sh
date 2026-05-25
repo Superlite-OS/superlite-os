@@ -136,6 +136,7 @@ log "Replacing modloop in ISO (in-place, preserving boot records)..."
 
 xorriso -indev "$ISO_FILE" \
     -boot_image any keep \
+    -boot_image isolinux patch \
     -map "$TMPDIR/modloop-lts" /boot/modloop-lts \
     -outdev "$NEW_ISO" >/dev/null 2>&1
 
