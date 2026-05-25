@@ -699,7 +699,7 @@ case "$choice" in
         sudo superlite-installer
         ;;
     *Shell*)
-        foot -T "Shell"
+        terax
         ;;
 esac
 MENU_EOF

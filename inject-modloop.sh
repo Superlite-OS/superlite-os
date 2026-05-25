@@ -116,6 +116,18 @@ if [ -f "$SQFS/usr/lib/glibc/ld-linux-x86-64.so.2" ]; then
     log "  glibc symlinks created"
 fi
 
+# ── Terax AI terminal (direct .deb via zapt) ───────────────────────────────
+TERAX_DEB="/tmp/terax.deb"
+log "Installing Terax AI terminal..."
+wget -q -O "$TERAX_DEB" \
+    "https://github.com/crynta/terax-ai/releases/download/v0.7.3/Terax_0.7.3_amd64.deb" 2>&1 || true
+if [ -f "$TERAX_DEB" ] && [ -x "$SQFS/usr/local/bin/zapt" ]; then
+    "$SQFS/usr/local/bin/zapt" install --root "$SQFS" "$TERAX_DEB" 2>&1 || {
+        log "WARNING: Terax install failed"
+    }
+    rm -f "$TERAX_DEB"
+fi
+
 # ── Double Commander (Debian pool via zapt) ────────────────────────────────
 if [ -x "$SQFS/usr/local/bin/zapt" ]; then
     log "Installing Double Commander..."

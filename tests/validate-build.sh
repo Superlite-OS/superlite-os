@@ -37,7 +37,7 @@ echo ""
 echo "Dotfiles:"
 if [ -d "${TOP_DIR}/dotfiles/.config/labwc" ]; then pass "LabWC config"; else fail "LabWC config missing"; fi
 if [ -d "${TOP_DIR}/dotfiles/.config/waybar" ]; then pass "Waybar config"; else fail "Waybar config missing"; fi
-if [ -d "${TOP_DIR}/dotfiles/.config/foot" ]; then pass "Foot config"; else fail "Foot config missing"; fi
+# Foot removed — terminal replaced by terax (deb via zapt)
 if [ -d "${TOP_DIR}/dotfiles/.config/mako" ]; then pass "Mako config"; else fail "Mako config missing"; fi
 if [ -d "${TOP_DIR}/dotfiles/.config/tofi" ]; then pass "Tofi config"; else fail "Tofi config missing"; fi
 if [ -d "${TOP_DIR}/dotfiles/.config/gtk-3.0" ]; then pass "GTK3 settings"; else fail "GTK3 settings missing"; fi

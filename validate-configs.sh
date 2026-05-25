@@ -16,7 +16,7 @@ DOTFILES="/dotfiles"
 header "1. Package Availability (community+testing repos)"
 # ============================================================
 PACKAGES=(
-  labwc foot waybar swaybg wlr-randr swayidle mako brightnessctl
+  labwc terax waybar swaybg wlr-randr swayidle mako brightnessctl
   font-awesome font-jetbrains-mono pipewire wireplumber
   grim slurp wtype libnotify polkit xwayland
 )

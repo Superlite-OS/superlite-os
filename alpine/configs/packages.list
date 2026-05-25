@@ -43,7 +43,6 @@ xf86-input-libinput
 
 # --- Wayland Desktop ---
 labwc
-foot
 mesa-dri-gallium
 mesa-egl
 mesa-gl

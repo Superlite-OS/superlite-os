@@ -186,10 +186,10 @@
     <repeatRate>25</repeatRate>
     <repeatDelay>600</repeatDelay>
     <keybind key="W-Return">
-      <action name="Execute" command="foot"/>
+      <action name="Execute" command="terax"/>
     </keybind>
     <keybind key="W-S-Return">
-      <action name="Execute" command="foot --override=colors.background=000000 --override=colors.foreground=ffffff"/>
+      <action name="Execute" command="terax"/>
     </keybind>
     <keybind key="W-Space">
       <action name="Execute" command="tofi-drun"/>
