@@ -333,7 +333,7 @@ jobs:
               {{"glibc libs" "test -f /usr/lib/glibc/ld-linux-x86-64.so.2 && echo GLIBC_OK" "GLIBC_OK"}} \\
               {{"zapt binary" "test -f /usr/local/bin/zapt && echo ZAPT_OK" "ZAPT_OK"}} \\
               {{"Terax binary" "find /usr -name terax -type f 2>/dev/null | head -1" "terax"}} \\
-              {{"labwc package" "apk info labwc 2>/dev/null" "labwc"}} \\
+              {{"labwc package" "apk list --installed 2>/dev/null | grep labwc" "labwc"}} \\
               {{"Waybar binary" "command -v waybar" "/usr/bin/waybar"}} \\
               {{"Seatd binary" "command -v seatd" "/usr/bin/seatd"}} \\
               {{"PipeWire binary" "command -v pipewire" "/usr/bin/pipewire"}} \\
@@ -345,13 +345,25 @@ jobs:
               set cmd [lindex $check 1]
               set pattern [lindex $check 2]
               send "$cmd\\r"
-              sleep 2
+              # Wait for prompt, capture all output before it
+              set output ""
               expect {{
-                -re $pattern {{ puts "\\n>>> CHECK_OK: $label" }}
-                timeout {{ puts "\\n>>> CHECK_FAIL: $label"; incr fail_count }}
-                -re {{{pr}}} {{ puts "\\n>>> CHECK_FAIL: $label (no match)"; incr fail_count }}
+                -re "(.*){pr}" {{
+                  set output $expect_out(1,string)
+                }}
+                timeout {{
+                  puts "\\n>>> CHECK_FAIL: $label timeout"
+                  incr fail_count
+                  continue
+                }}
               }}
-              expect -re {{{pr}}}
+              # Check if pattern is in captured output
+              if {{[string match "*$pattern*" $output]}} {{
+                puts "\\n>>> CHECK_OK: $label"
+              }} else {{
+                puts "\\n>>> CHECK_FAIL: $label (output: [string range $output 0 80])"
+                incr fail_count
+              }}
             }}
 
             send "poweroff\\r"
