@@ -168,6 +168,30 @@ jobs:
               ERRORS=$((ERRORS+1))
             fi
 
+            # Terax terminal
+            if find "$SQFS_TMP" -name "terax" -type f 2>/dev/null | head -1 | grep -q .; then
+              echo "  ✓ Terax terminal present in modloop"
+            else
+              echo "  ✗ Terax terminal MISSING from modloop"
+              ERRORS=$((ERRORS+1))
+            fi
+
+            # zapt package manager
+            if [ -f "$SQFS_TMP/usr/local/bin/zapt" ]; then
+              echo "  ✓ zapt package manager present in modloop"
+            else
+              echo "  ✗ zapt MISSING from modloop"
+              ERRORS=$((ERRORS+1))
+            fi
+
+            # Double Commander
+            if find "$SQFS_TMP" -name "doublecmd" -type f 2>/dev/null | head -1 | grep -q .; then
+              echo "  ✓ Double Commander present in modloop"
+            else
+              echo "  ✗ Double Commander MISSING from modloop"
+              ERRORS=$((ERRORS+1))
+            fi
+
             sudo rm -rf "$SQFS_TMP"
           fi
 
