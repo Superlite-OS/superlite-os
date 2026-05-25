@@ -79,14 +79,22 @@ if [ -f /tmp/curl-imp.tar.gz ]; then
     if [ -f "$SQFS/usr/local/lib/curl-impersonate/curl-impersonate-chrome" ]; then
         chmod +x "$SQFS/usr/local/lib/curl-impersonate/curl-impersonate-chrome"
         mkdir -p "$SQFS/usr/local/bin"
-        ln -sf /usr/local/lib/curl-impersonate/curl-impersonate-chrome \
-            "$SQFS/usr/local/bin/curl-impersonate-chrome"
-        ln -sf /usr/local/bin/curl-impersonate-chrome "$SQFS/usr/local/bin/curl"
+        # Wrapper scripts for curl-impersonate (glibc binary needs ld-linux loader)
         for w in "$SQFS"/usr/local/lib/curl-impersonate/curl_*; do
             [ -f "$w" ] || continue
-            ln -sf "/usr/local/lib/curl-impersonate/$(basename "$w")" \
-                "$SQFS/usr/local/bin/$(basename "$w")"
+            _wname=$(basename "$w")
+            cat > "$SQFS/usr/local/bin/$_wname" << CW
+#!/bin/sh
+exec /usr/lib/glibc/ld-linux-x86-64.so.2 --library-path /usr/local/lib/curl-impersonate:/usr/lib/glibc $w "\$@"
+CW
+            chmod +x "$SQFS/usr/local/bin/$_wname"
         done
+        # curl -> curl-impersonate-chrome wrapper
+        cat > "$SQFS/usr/local/bin/curl" << 'CW'
+#!/bin/sh
+exec /usr/lib/glibc/ld-linux-x86-64.so.2 --library-path /usr/local/lib/curl-impersonate:/usr/lib/glibc /usr/local/lib/curl-impersonate/curl-impersonate-chrome "$@"
+CW
+        chmod +x "$SQFS/usr/local/bin/curl"
         log "  curl-impersonate installed"
     fi
     rm -f /tmp/curl-imp.tar.gz
@@ -166,14 +174,22 @@ if [ -d "$SQFS/usr/lib/glibc" ]; then
 fi
 
 # ── Download missing Debian deps that zapt can't find ──────────────────────
-# libsystemd0 — terax dependency, zapt search fails for this package
+# These are transitive deps not resolved by zapt from local .deb files.
+# libsystemd0 → liblzma5, liblz4-1; also libhwy1 (Debian ver, not Alpine's GCC13)
+# libxcb-image0, libxcb-keysyms1, libxcb-render-util0, libxcb-cursor0 → Qt xcb plugin
 log "Downloading missing Debian deps..."
-for _pkg in libsystemd0; do
-    _url="https://deb.debian.org/debian/pool/main/s/systemd/${_pkg}_*.deb"
-    _found=$(wget -q -O /dev/null --spider "$_url" 2>&1 && echo "ok" || echo "")
-    # Search Packages.gz for exact filename
-    _pkgfile=$(wget -qO- "https://deb.debian.org/debian/dists/bookworm/main/binary-amd64/Packages.gz" 2>/dev/null \
-        | gunzip 2>/dev/null | grep -A1 "^Package: ${_pkg}$" | grep "^Filename:" | head -1 | sed 's/Filename: //')
+PACKAGES_GZ="/tmp/superlite-packages.gz"
+wget -q -O "$PACKAGES_GZ" \
+    "https://deb.debian.org/debian/dists/bookworm/main/binary-amd64/Packages.gz" 2>/dev/null || true
+
+_download_deb_pkg() {
+    _pkg="$1"
+    if [ ! -f "$PACKAGES_GZ" ]; then
+        log "  WARNING: Packages.gz not available, skipping $_pkg"
+        return 1
+    fi
+    _pkgfile=$(zcat "$PACKAGES_GZ" 2>/dev/null | grep -A1 "^Package: ${_pkg}$" \
+        | grep "^Filename:" | head -1 | sed 's/Filename: //')
     if [ -n "$_pkgfile" ]; then
         log "  Downloading $_pkg from $_pkgfile"
         wget -q -O "/tmp/${_pkg}.deb" "https://deb.debian.org/debian/${_pkgfile}" 2>&1 || true
@@ -183,8 +199,15 @@ for _pkg in libsystemd0; do
         fi
     else
         log "  WARNING: $_pkg not found in Debian bookworm"
+        return 1
     fi
+}
+
+for _pkg in libsystemd0 liblzma5 liblz4-1 libhwy1 \
+    libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-cursor0; do
+    _download_deb_pkg "$_pkg"
 done
+rm -f "$PACKAGES_GZ"
 
 # ── Terax AI terminal (direct .deb via zapt) ───────────────────────────────
 TERAX_DEB="/tmp/terax.deb"
@@ -204,6 +227,42 @@ if [ -x "$SQFS/usr/local/bin/zapt" ]; then
     "$SQFS/usr/local/bin/zapt" install --root "$SQFS" doublecmd-qt 2>&1 || {
         log "WARNING: Double Commander install failed"
     }
+fi
+
+# ── Create glibc wrappers for terax and doublecmd ──────────────────────────
+# These are glibc ELF binaries that need the glibc ELF loader (ld-linux-x86-64.so.2)
+# to run on musl Alpine. zapt's createGlibcWrapper handles Chrome, but terax and
+# doublecmd are installed from .deb files where the wrapper might not be created.
+if [ -d "$SQFS/usr/lib/glibc" ]; then
+    _glibc_ld="$SQFS/usr/lib/glibc/ld-linux-x86-64.so.2"
+    if [ -f "$_glibc_ld" ]; then
+        # Terax wrapper
+        _terax_bin="$SQFS/usr/lib/glibc/bin/terax"
+        if [ -f "$_terax_bin" ] && [ ! -f "$SQFS/usr/bin/terax" ]; then
+            mkdir -p "$SQFS/usr/bin"
+            cat > "$SQFS/usr/bin/terax" << 'TW'
+#!/bin/sh
+exec /usr/lib/glibc/ld-linux-x86-64.so.2 --library-path /usr/lib/glibc /usr/lib/glibc/bin/terax "$@"
+TW
+            chmod +x "$SQFS/usr/bin/terax"
+            log "  Created terax wrapper"
+        fi
+        # Doublecmd wrapper
+        _dc_bin="$SQFS/lib/doublecmd/doublecmd"
+        if [ -f "$_dc_bin" ] && [ ! -f "$SQFS/usr/bin/doublecmd" ]; then
+            mkdir -p "$SQFS/usr/bin"
+            cat > "$SQFS/usr/bin/doublecmd" << 'DW'
+#!/bin/sh
+exec /usr/lib/glibc/ld-linux-x86-64.so.2 --library-path /usr/lib/glibc /lib/doublecmd/doublecmd "$@"
+DW
+            chmod +x "$SQFS/usr/bin/doublecmd"
+            log "  Created doublecmd wrapper"
+        fi
+        # Create /lib64/ld-linux-x86-64.so.2 symlink for glibc binaries
+        # that have hardcoded ELF interpreter path
+        mkdir -p "$SQFS/lib64"
+        ln -sf /usr/lib/glibc/ld-linux-x86-64.so.2 "$SQFS/lib64/ld-linux-x86-64.so.2"
+    fi
 fi
 
 # ── Strip binaries ─────────────────────────────────────────────────────────
@@ -239,7 +298,7 @@ find "$SQFS/usr/share/locale" -mindepth 1 -maxdepth 1 ! -name "en" ! -name "en_U
 # ── UPX compress static binaries ───────────────────────────────────────────
 if command -v upx >/dev/null 2>&1; then
     log "Compressing binaries with UPX..."
-    for _bin in "$SQFS/usr/local/bin/zapt" "$SQFS/usr/local/lib/curl-impersonate/curl-impersonate-chrome"; do
+    for _bin in "$SQFS/usr/local/bin/zapt"; do
         [ -f "$_bin" ] && file "$_bin" 2>/dev/null | grep -q "ELF" && {
             upx --best "$_bin" 2>/dev/null || true
         }

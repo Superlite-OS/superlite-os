@@ -148,10 +148,10 @@ start() {
             [ -f "/.modloop/usr/local/bin/$_bin" ] && [ ! -f "/usr/local/bin/$_bin" ] && \
                 ln -sf "/.modloop/usr/local/bin/$_bin" "/usr/local/bin/$_bin"
         done
-        # glibc ELF loader symlink
+        # glibc ELF loader symlink — must point to real glibc loader (not gcompat)
         [ -d /lib64 ] || mkdir -p /lib64
         [ -f /lib64/ld-linux-x86-64.so.2 ] || \
-            ln -sf /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 /lib64/ld-linux-x86-64.so.2
+            ln -sf /usr/lib/glibc/ld-linux-x86-64.so.2 /lib64/ld-linux-x86-64.so.2
     fi
 
     # Symlink /media/cdrom if not already set by initramfs
