@@ -82,7 +82,7 @@ _docker_build() {
         sh -c '
             set -e
             apk add --no-cache alpine-sdk build-base apk-tools alpine-conf \
-                busybox fakeroot syslinux xorriso squashfs-tools mtools dosfstools \
+                busybox fakeroot syslinux xorriso squashfs-tools mtools dosfstools upx \
                 grub-efi grub-bios lua5.4 git go librsvg
 
             adduser -D build

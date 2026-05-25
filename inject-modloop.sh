@@ -58,7 +58,7 @@ done
 if [ -n "$ZAPT_DIR" ] && command -v go >/dev/null 2>&1; then
     log "Building zapt..."
     (cd "$ZAPT_DIR" && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-        go build -buildvcs=false -ldflags="-s -w" -o "$SQFS/usr/local/bin/zapt" .) || {
+        go build -buildvcs=false -trimpath -ldflags="-s -w" -o "$SQFS/usr/local/bin/zapt" .) || {
         log "WARNING: zapt build failed"
     }
     mkdir -p "$SQFS/etc/zapt"
@@ -124,9 +124,49 @@ if [ -x "$SQFS/usr/local/bin/zapt" ]; then
     }
 fi
 
-# ── Repack squashfs ────────────────────────────────────────────────────────
-log "Repacking modloop..."
-mksquashfs "$SQFS" "$TMPDIR/modloop-lts" -comp xz -b 1M -noappend >/dev/null 2>&1
+# ── Strip binaries ─────────────────────────────────────────────────────────
+log "Stripping binaries..."
+_command_strip() {
+    command -v strip >/dev/null 2>&1 || return 0
+    find "$SQFS/usr/lib" "$SQFS/usr/lib64" "$SQFS/lib" "$SQFS/lib64" \
+        -name "*.so*" -type f -exec strip --strip-unneeded {} \; 2>/dev/null || true
+    find "$SQFS/usr/bin" "$SQFS/usr/sbin" "$SQFS/opt" \
+        -type f -exec sh -c 'file "$1" 2>/dev/null | grep -q "ELF" && strip --strip-unneeded "$1" 2>/dev/null' _ {} \; || true
+}
+_command_strip
+
+# ── Chrome cleanup ─────────────────────────────────────────────────────────
+log "Cleaning up Chrome..."
+if [ -d "$SQFS/opt/google/chrome" ]; then
+    # Remove all locales except en-US (~30MB)
+    find "$SQFS/opt/google/chrome/locales" -name "*.pak" ! -name "en-US.pak" -delete 2>/dev/null || true
+    # Remove crashpad, updater, docs
+    rm -rf "$SQFS/opt/google/chrome/crashpad" 2>/dev/null || true
+    rm -rf "$SQFS/opt/google/chrome/debug" 2>/dev/null || true
+    rm -rf "$SQFS/usr/share/doc/google-chrome-stable" 2>/dev/null || true
+    # Remove debug symbols
+    find "$SQFS/opt/google/chrome" -name "*.debug" -delete 2>/dev/null || true
+    find "$SQFS/opt/google/chrome" -name "*.dbg" -delete 2>/dev/null || true
+fi
+
+# ── Remove docs/man/locale ─────────────────────────────────────────────────
+log "Removing docs/man/locale..."
+rm -rf "$SQFS/usr/share/doc" "$SQFS/usr/share/man" 2>/dev/null || true
+find "$SQFS/usr/share/locale" -mindepth 1 -maxdepth 1 ! -name "en" ! -name "en_US" -exec rm -rf {} \; 2>/dev/null || true
+
+# ── UPX compress static binaries ───────────────────────────────────────────
+if command -v upx >/dev/null 2>&1; then
+    log "Compressing binaries with UPX..."
+    for _bin in "$SQFS/usr/local/bin/zapt" "$SQFS/usr/local/lib/curl-impersonate/curl-impersonate-chrome"; do
+        [ -f "$_bin" ] && file "$_bin" 2>/dev/null | grep -q "ELF" && {
+            upx --best "$_bin" 2>/dev/null || true
+        }
+    done
+fi
+
+# ── Repack squashfs with x86 BCJ filter ────────────────────────────────────
+log "Repacking modloop (xz + x86 BCJ filter)..."
+mksquashfs "$SQFS" "$TMPDIR/modloop-lts" -comp xz -b 1M -Xbcj x86 -noappend >/dev/null 2>&1
 NEW_SIZE=$(du -sh "$TMPDIR/modloop-lts" | cut -f1)
 rm -rf "$SQFS"
 
