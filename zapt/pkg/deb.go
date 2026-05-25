@@ -457,6 +457,25 @@ func installFilesToRoot(dataDir, backupDir, root string) (installed, skipped int
 			if err != nil {
 				return err
 			}
+
+			// For glibcLibDir: fix absolute symlinks that break in squashfs
+			if strings.HasPrefix(destPath, glibcLibDir+"/") {
+				// If real file already exists at dest, skip this symlink
+				if existing, err := os.Lstat(fullPath); err == nil && existing.Mode().IsRegular() {
+					installed++
+					return nil
+				}
+				// Absolute symlink → create relative to basename
+				if filepath.IsAbs(linkTarget) {
+					os.Remove(fullPath)
+					if err := os.Symlink(filepath.Base(linkTarget), fullPath); err != nil {
+						return err
+					}
+					installed++
+					return nil
+				}
+			}
+
 			os.Remove(fullPath) // Remove existing if any
 			if err := os.Symlink(linkTarget, fullPath); err != nil {
 				return err

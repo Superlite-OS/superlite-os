@@ -115,6 +115,7 @@ fi
 if [ -d "$SQFS/usr/lib/glibc" ]; then
     log "Fixing glibc symlinks..."
     # Resolve broken symlinks in /usr/lib/glibc/
+    # zapt redirects ALL .so files to /usr/lib/glibc/ (not /lib/x86_64-linux-gnu/)
     for link in "$SQFS"/usr/lib/glibc/*; do
         [ -L "$link" ] || continue
         [ -f "$link" ] && continue  # symlink target exists, OK
@@ -122,11 +123,13 @@ if [ -d "$SQFS/usr/lib/glibc" ]; then
         target=$(readlink "$link")
         fname=$(basename "$link")
         real_file=""
-        # Search in /lib/x86_64-linux-gnu/ and other lib dirs
-        for dir in "$SQFS/lib/x86_64-linux-gnu" "$SQFS/lib"; do
+        # Search in /usr/lib/glibc/ itself (zapt redirects all .so here)
+        for dir in "$SQFS/usr/lib/glibc" "$SQFS/lib/x86_64-linux-gnu" "$SQFS/lib"; do
             [ -f "$dir/$fname" ] && { real_file="$dir/$fname"; break; }
-            # Target might itself be a symlink chain — resolve
             [ -L "$dir/$fname" ] && [ -f "$dir/$fname" ] && { real_file="$dir/$fname"; break; }
+            # Also check if symlink target exists in this dir
+            [ -f "$dir/$target" ] && { real_file="$dir/$target"; break; }
+            [ -L "$dir/$target" ] && [ -f "$dir/$target" ] && { real_file="$dir/$target"; break; }
             # Try to find ld-*.so (versioned name)
             for f in "$dir"/ld-*.so.* "$dir"/ld-linux*.so.*; do
                 [ -f "$f" ] && { real_file="$f"; break 2; }
