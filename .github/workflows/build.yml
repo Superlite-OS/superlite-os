@@ -333,7 +333,7 @@ jobs:
               {{"glibc libs" "test -f /usr/lib/glibc/ld-linux-x86-64.so.2 && echo GLIBC_OK" "GLIBC_OK"}} \\
               {{"zapt binary" "test -f /usr/local/bin/zapt && echo ZAPT_OK" "ZAPT_OK"}} \\
               {{"Terax binary" "find /usr -name terax -type f 2>/dev/null | head -1" "terax"}} \\
-              {{"labwc package" "apk list --installed 2>/dev/null | grep labwc" "labwc"}} \\
+              {{"labwc binary" "command -v labwc || find /usr -name labwc -type f 2>/dev/null | head -1" "labwc"}} \\
               {{"Waybar binary" "command -v waybar" "/usr/bin/waybar"}} \\
               {{"Seatd binary" "command -v seatd" "/usr/bin/seatd"}} \\
               {{"PipeWire binary" "command -v pipewire" "/usr/bin/pipewire"}} \\
