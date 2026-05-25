@@ -207,6 +207,16 @@ for _pkg in libsystemd0 liblzma5 liblz4-1 libhwy1 \
     libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-cursor0; do
     _download_deb_pkg "$_pkg"
 done
+
+# Download webkit2gtk + full transitive glibc deps using helper script
+# This resolves the entire dependency tree and extracts only .so files
+_download_glibc_deps_py="$REPO_DIR/download-glibc-deps.py"
+if [ -f "$_download_glibc_deps_py" ] && command -v python3 >/dev/null 2>&1; then
+    log "Downloading webkit2gtk glibc deps (full dependency tree)..."
+    python3 "$_download_glibc_deps_py" "$SQFS/usr/lib/glibc" "$PACKAGES_GZ" 2>&1 || {
+        log "WARNING: webkit2gtk deps download failed"
+    }
+fi
 rm -f "$PACKAGES_GZ"
 
 # ── Terax AI terminal (direct .deb via zapt) ───────────────────────────────
