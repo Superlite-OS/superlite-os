@@ -1,5 +1,5 @@
 [Default Applications]
-application/pdf=firefox.desktop
+application/pdf=google-chrome.desktop
 application/msword=open-with-web.desktop
 application/vnd.openxmlformats-officedocument.wordprocessingml.document=open-with-web.desktop
 application/vnd.ms-excel=open-with-web.desktop
@@ -11,3 +11,14 @@ application/vnd.oasis.opendocument.spreadsheet=open-with-web.desktop
 application/vnd.oasis.opendocument.presentation=open-with-web.desktop
 text/csv=open-with-web.desktop
 application/vnd.debian.binary-package=zapt.desktop
+image/png=google-chrome.desktop
+image/jpeg=google-chrome.desktop
+image/gif=google-chrome.desktop
+image/svg+xml=google-chrome.desktop
+image/webp=google-chrome.desktop
+video/mp4=google-chrome.desktop
+video/webm=google-chrome.desktop
+video/x-matroska=google-chrome.desktop
+video/quicktime=google-chrome.desktop
+audio/mpeg=google-chrome.desktop
+audio/ogg=google-chrome.desktop
