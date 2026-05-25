@@ -514,10 +514,15 @@ func isBinaryPath(path string) bool {
 }
 
 // createGlibcWrapper moves a glibc-linked ELF binary to /usr/lib/glibc/bin/
-// and creates a shell wrapper at the original location that sets LD_LIBRARY_PATH.
-// The wrapper always uses absolute runtime paths (without root prefix) so it
-// works correctly when the filesystem is mounted at a different location
-// (e.g., modloop squashfs mounted at /.modloop/).
+// and creates a shell wrapper at the original location.
+//
+// The wrapper directly invokes the glibc ELF loader (ld-linux-x86-64.so.2)
+// to run the binary, bypassing the kernel's default musl ELF loader.
+// This is necessary because ELF interpreter paths are hardcoded at compile time
+// and Alpine's /lib/ld-linux-x86-64.so.2 doesn't exist (musl uses /lib/ld-musl-*).
+//
+// Wrapper format:
+//   exec /usr/lib/glibc/ld-linux-x86-64.so.2 --library-path /usr/lib/glibc /usr/lib/glibc/bin/chrome "$@"
 func createGlibcWrapper(binPath, root string) error {
 	glibcBin := filepath.Join(root, glibcLibDir, "bin")
 	if err := os.MkdirAll(glibcBin, 0755); err != nil {
@@ -532,15 +537,14 @@ func createGlibcWrapper(binPath, root string) error {
 	}
 
 	// Runtime path: always use absolute path without root prefix
-	// At runtime, the binary will be at /usr/lib/glibc/bin/<name> (via bind mount)
 	runtimePath := filepath.Join(glibcLibDir, "bin", binName)
 
-	// Create wrapper script at original location
-	// Include all possible glibc library paths for robustness
+	// Create wrapper script that invokes glibc ELF loader directly
+	// This handles both interpreter loading AND library resolution
+	elfLoader := glibcLibDir + "/ld-linux-x86-64.so.2"
 	wrapper := fmt.Sprintf(`#!/bin/sh
-export LD_LIBRARY_PATH="%s:/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH:-}"
-exec "%s" "$@"
-`, glibcLibDir, runtimePath)
+exec %s --library-path %s %s "$@"
+`, elfLoader, glibcLibDir, runtimePath)
 
 	if err := os.WriteFile(binPath, []byte(wrapper), 0755); err != nil {
 		return err
