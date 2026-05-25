@@ -118,6 +118,12 @@ start() {
             mkdir -p /usr/lib/glibc
             mount --bind /.modloop/usr/lib/glibc /usr/lib/glibc 2>/dev/null || true
         }
+        # /lib/x86_64-linux-gnu — real glibc .so files (ld-linux, libc, etc.)
+        # Debian glibc .deb puts files here; symlinks in /usr/lib/glibc/ point here
+        [ -d /.modloop/lib/x86_64-linux-gnu ] && {
+            mkdir -p /lib/x86_64-linux-gnu
+            mount --bind /.modloop/lib/x86_64-linux-gnu /lib/x86_64-linux-gnu 2>/dev/null || true
+        }
         # /usr/local/lib/curl-impersonate
         [ -d /.modloop/usr/local/lib/curl-impersonate ] && {
             mkdir -p /usr/local/lib/curl-impersonate
@@ -143,11 +149,9 @@ start() {
                 ln -sf "/.modloop/usr/local/bin/$_bin" "/usr/local/bin/$_bin"
         done
         # glibc ELF loader symlink
-        if [ -f /.modloop/usr/lib/glibc/ld-linux-x86-64.so.2 ]; then
-            [ -d /lib64 ] || mkdir -p /lib64
-            [ -f /lib64/ld-linux-x86-64.so.2 ] || \
-                ln -sf /usr/lib/glibc/ld-linux-x86-64.so.2 /lib64/ld-linux-x86-64.so.2
-        fi
+        [ -d /lib64 ] || mkdir -p /lib64
+        [ -f /lib64/ld-linux-x86-64.so.2 ] || \
+            ln -sf /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 /lib64/ld-linux-x86-64.so.2
     fi
 
     # Symlink /media/cdrom if not already set by initramfs

@@ -108,12 +108,58 @@ if [ -f "$CHROME_DEB" ] && [ -x "$SQFS/usr/local/bin/zapt" ]; then
     rm -f "$CHROME_DEB"
 fi
 
-# glibc ELF loader symlinks
-if [ -f "$SQFS/usr/lib/glibc/ld-linux-x86-64.so.2" ]; then
-    mkdir -p "$SQFS/lib64" "$SQFS/lib"
-    ln -sf /usr/lib/glibc/ld-linux-x86-64.so.2 "$SQFS/lib64/ld-linux-x86-64.so.2"
-    ln -sf /usr/lib/glibc/libc.so.6 "$SQFS/lib/libc.so.6"
-    log "  glibc symlinks created"
+# Fix glibc symlinks: Debian glibc .deb puts real .so files in
+# /lib/x86_64-linux-gnu/ and /usr/lib/glibc/ has symlinks pointing there.
+# These absolute symlinks break when squashfs is mounted elsewhere.
+# Fix: copy real files into /usr/lib/glibc/ and remove broken symlinks.
+if [ -d "$SQFS/usr/lib/glibc" ]; then
+    log "Fixing glibc symlinks..."
+    # Resolve broken symlinks in /usr/lib/glibc/
+    for link in "$SQFS"/usr/lib/glibc/*; do
+        [ -L "$link" ] || continue
+        [ -f "$link" ] && continue  # symlink target exists, OK
+        # Symlink target is broken — find the real file
+        target=$(readlink "$link")
+        fname=$(basename "$link")
+        real_file=""
+        # Search in /lib/x86_64-linux-gnu/ and other lib dirs
+        for dir in "$SQFS/lib/x86_64-linux-gnu" "$SQFS/lib"; do
+            [ -f "$dir/$fname" ] && { real_file="$dir/$fname"; break; }
+            # Target might itself be a symlink chain — resolve
+            [ -L "$dir/$fname" ] && [ -f "$dir/$fname" ] && { real_file="$dir/$fname"; break; }
+            # Try to find ld-*.so (versioned name)
+            for f in "$dir"/ld-*.so.* "$dir"/ld-linux*.so.*; do
+                [ -f "$f" ] && { real_file="$f"; break 2; }
+            done
+        done
+        if [ -n "$real_file" ]; then
+            rm "$link"
+            cp "$real_file" "$link"
+            log "  Fixed: $fname (was -> $target)"
+        else
+            log "  WARNING: $fname broken symlink, no real file found"
+        fi
+    done
+    # Ensure ld-linux ELF loader symlink resolves
+    if [ -f "$SQFS/usr/lib/glibc/ld-linux-x86-64.so.2" ]; then
+        mkdir -p "$SQFS/lib64"
+        ln -sf /usr/lib/glibc/ld-linux-x86-64.so.2 "$SQFS/lib64/ld-linux-x86-64.so.2"
+    fi
+    # Also copy libc.so.6 and libm.so.6 for glibc wrapper scripts
+    for so in libc.so.6 libm.so.6 libpthread.so.0 libdl.so.2 librt.so.1; do
+        if [ -L "$SQFS/usr/lib/glibc/$so" ] && [ ! -f "$SQFS/usr/lib/glibc/$so" ]; then
+            target=$(readlink "$SQFS/usr/lib/glibc/$so")
+            for dir in "$SQFS/lib/x86_64-linux-gnu" "$SQFS/lib"; do
+                if [ -f "$dir/$so" ]; then
+                    rm "$SQFS/usr/lib/glibc/$so"
+                    cp "$dir/$so" "$SQFS/usr/lib/glibc/$so"
+                    log "  Fixed: $so"
+                    break
+                fi
+            done
+        fi
+    done
+    log "  glibc symlinks fixed"
 fi
 
 # ── Terax AI terminal (direct .deb via zapt) ───────────────────────────────

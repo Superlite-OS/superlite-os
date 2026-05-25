@@ -11,6 +11,7 @@ import (
 )
 
 var installRoot string
+var allowProtected bool
 
 var installCmd = &cobra.Command{
 	Use:   "install [package or .deb file]",

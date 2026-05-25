@@ -343,6 +343,36 @@ func installFilesWithSafety(dataDir, backupDir string) (installed, skipped int, 
 			if err != nil {
 				return err
 			}
+
+			// For files going to glibcLibDir: fix broken absolute symlinks
+			if strings.HasPrefix(destPath, glibcLibDir+"/") {
+				// If real file already exists at dest, skip this symlink
+				if existing, err := os.Lstat(destPath); err == nil && existing.Mode().IsRegular() {
+					installed++
+					return nil
+				}
+				// Absolute symlink pointing outside glibcLibDir → will break in squashfs
+				// Resolve: copy the real target file instead of creating a broken symlink
+				if filepath.IsAbs(linkTarget) {
+					// Try to find the real file in the .deb extraction
+					// The target might have been extracted to glibcLibDir with a different name
+					// Just create a relative symlink to the basename (same dir)
+					relTarget := filepath.Base(linkTarget)
+					realTarget := filepath.Join(filepath.Dir(destPath), relTarget)
+					if _, err := os.Stat(realTarget); err == nil {
+						os.Remove(destPath)
+						if err := os.Symlink(relTarget, destPath); err != nil {
+							return err
+						}
+						installed++
+						return nil
+					}
+					// Target doesn't exist yet — skip, will be created when real file is extracted
+					installed++
+					return nil
+				}
+			}
+
 			os.Remove(destPath) // Remove existing if any
 			if err := os.Symlink(linkTarget, destPath); err != nil {
 				return err
@@ -575,8 +605,14 @@ func isSoFile(path string) bool {
 	return false
 }
 
-// isProtectedLib checks if a path is a protected system library
+// isProtectedLib checks if a path is a protected system library.
+// Paths already redirected to glibcLibDir are NOT protected — they are
+// isolated from musl and safe to install.
 func isProtectedLib(path string) bool {
+	// Allow glibcLibDir — these are isolated from musl system libs
+	if strings.HasPrefix(path, glibcLibDir+"/") {
+		return false
+	}
 	for _, lib := range protectedLibs {
 		if strings.Contains(path, lib) {
 			return true
