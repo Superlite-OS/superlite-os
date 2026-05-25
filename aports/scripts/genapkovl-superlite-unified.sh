@@ -658,8 +658,13 @@ for arg in $(cat /proc/cmdline 2>/dev/null); do
 done
 
 # Auto-detect QEMU/VirtualBox — skip labwc in VM without display
+# Only set shell mode if no VGA console AND running in a VM
 if [ -z "$MODE" ] && grep -q "console=ttyS0" /proc/cmdline 2>/dev/null; then
-    MODE="shell"
+    # Check if we're in a VM (QEMU/VirtualBox/KVM) without real display
+    if grep -qE "(qemu|virtualbox|kvm|hyperv)" /proc/cpuinfo 2>/dev/null || \
+       [ ! -d /sys/class/drm/card0 ] 2>/dev/null; then
+        MODE="shell"
+    fi
 fi
 
 # Start seatd + elogind for all modes (labwc needs libseat session)
