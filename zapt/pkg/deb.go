@@ -552,10 +552,12 @@ func createGlibcWrapper(binPath, root string) error {
 
 	// Create wrapper script that invokes glibc ELF loader directly
 	// This handles both interpreter loading AND library resolution
+	// Include /usr/lib and /lib as fallback for Alpine system libs
 	elfLoader := glibcLibDir + "/ld-linux-x86-64.so.2"
+	libPath := glibcLibDir + ":/usr/lib:/lib"
 	wrapper := fmt.Sprintf(`#!/bin/sh
 exec %s --library-path %s %s "$@"
-`, elfLoader, glibcLibDir, runtimePath)
+`, elfLoader, libPath, runtimePath)
 
 	if err := os.WriteFile(binPath, []byte(wrapper), 0755); err != nil {
 		return err

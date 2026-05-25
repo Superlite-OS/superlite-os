@@ -165,6 +165,27 @@ if [ -d "$SQFS/usr/lib/glibc" ]; then
     log "  glibc symlinks fixed"
 fi
 
+# ── Download missing Debian deps that zapt can't find ──────────────────────
+# libsystemd0 — terax dependency, zapt search fails for this package
+log "Downloading missing Debian deps..."
+for _pkg in libsystemd0; do
+    _url="https://deb.debian.org/debian/pool/main/s/systemd/${_pkg}_*.deb"
+    _found=$(wget -q -O /dev/null --spider "$_url" 2>&1 && echo "ok" || echo "")
+    # Search Packages.gz for exact filename
+    _pkgfile=$(wget -qO- "https://deb.debian.org/debian/dists/bookworm/main/binary-amd64/Packages.gz" 2>/dev/null \
+        | gunzip 2>/dev/null | grep -A1 "^Package: ${_pkg}$" | grep "^Filename:" | head -1 | sed 's/Filename: //')
+    if [ -n "$_pkgfile" ]; then
+        log "  Downloading $_pkg from $_pkgfile"
+        wget -q -O "/tmp/${_pkg}.deb" "https://deb.debian.org/debian/${_pkgfile}" 2>&1 || true
+        if [ -f "/tmp/${_pkg}.deb" ] && [ -x "$SQFS/usr/local/bin/zapt" ]; then
+            "$SQFS/usr/local/bin/zapt" install --root "$SQFS" "/tmp/${_pkg}.deb" 2>&1 || true
+            rm -f "/tmp/${_pkg}.deb"
+        fi
+    else
+        log "  WARNING: $_pkg not found in Debian bookworm"
+    fi
+done
+
 # ── Terax AI terminal (direct .deb via zapt) ───────────────────────────────
 TERAX_DEB="/tmp/terax.deb"
 log "Installing Terax AI terminal..."
