@@ -75,7 +75,87 @@ mkdir -p "$tmp"/etc/apk
     sed '/# --- Boot (ISO only/,$d; s/#.*//; /^[[:space:]]*$/d' "$CONFIGS_DIR/packages.list" | sort -u
 } | makefile root:root 0644 "$tmp"/etc/apk/world
 
+# ── superlite-boot: flash disk detection + USB overlay ────────────────────────
+# Replaces custom /sbin/init. Alpine's stock init handles overlayfs/modloop.
+# This service handles: boot media symlink, USB overlay auto-partition.
+mkdir -p "$tmp"/etc/init.d
+makefile root:root 0755 "$tmp"/etc/init.d/superlite-boot <<'SVCEOF'
+#!/sbin/openrc-run
+
+description="SuperLite boot: flash disk detection + USB overlay"
+
+depend() {
+    after modloop mdev
+    keyword -docker -lxc -openvz -prefix -vserver
+}
+
+_partition_name() {
+    _disk="$1" _num="$2"
+    case "$_disk" in
+        /dev/nvme*|/dev/mmcblk*|/dev/md*) echo "${_disk}p${_num}" ;;
+        *)                                 echo "${_disk}${_num}" ;;
+    esac
+}
+
+_refresh_parts() {
+    partprobe "$1" 2>/dev/null || true
+    partx -u "$1" 2>/dev/null || true
+    mdev -sf 2>/dev/null || true
+}
+
+start() {
+    ebegin "SuperLite boot setup"
+
+    # Symlink /media/cdrom if not already set by initramfs
+    if [ ! -e /media/cdrom ]; then
+        for _m in /media/sd* /media/nvme* /media/mmcblk* /media/usb /media/sr*; do
+            [ -d "$_m" ] || continue
+            if [ -d "$_m/boot" ] || [ -d "$_m/apks" ] || [ -f "$_m/modloop-lts" ]; then
+                ln -sf "$_m" /media/cdrom
+                break
+            fi
+        done
+    fi
+
+    # Find SUPERLITE-RW partition
+    OVERLAY_DEV=""
+    for _d in /dev/disk/by-label/SUPERLITE-RW /dev/disk/by-label/superlite-rw; do
+        [ -b "$_d" ] && OVERLAY_DEV="$_d" && break
+    done
+
+    # Auto-partition if no SUPERLITE-RW found
+    if [ -z "$OVERLAY_DEV" ] && [ -L /media/cdrom ]; then
+        _media=$(readlink -f /media/cdrom)
+        case "$_media" in
+            /dev/nvme*|/dev/mmcblk*|/dev/md*)
+                _boot_disk=$(echo "$_media" | sed 's/p[0-9]*$//')
+                ;;
+            /dev/sd*)
+                _boot_disk=$(echo "$_media" | sed 's/[0-9]*$//')
+                ;;
+            *) _boot_disk="" ;;
+        esac
+
+        if [ -n "$_boot_disk" ] && [ -b "$_boot_disk" ]; then
+            _p2=$(_partition_name "$_boot_disk" 2)
+            if [ ! -b "$_p2" ] && command -v sfdisk >/dev/null 2>&1; then
+                einfo "Creating overlay partition on $_boot_disk"
+                echo ", +" | sfdisk -a -q "$_boot_disk" 2>/dev/null
+                _refresh_parts "$_boot_disk"
+                if [ -b "$_p2" ] && command -v mkfs.ext4 >/dev/null 2>&1; then
+                    mkfs.ext4 -O ^64bit -L SUPERLITE-RW -F "$_p2" >/dev/null 2>&1
+                    OVERLAY_DEV="$_p2"
+                fi
+            fi
+        fi
+    fi
+
+    eend 0
+}
+SVCEOF
+
 # ── OpenRC services ───────────────────────────────────────────────────────────
+rc_add superlite-boot boot
 rc_add devfs sysinit
 rc_add dmesg sysinit
 rc_add mdev sysinit
@@ -698,115 +778,10 @@ tmpfs           /tmp     tmpfs    defaults,noatime      0 0
 tmpfs           /run     tmpfs    defaults,noatime      0 0
 EOF
 
-# ── /sbin/init ────────────────────────────────────────────────────────────────
-mkdir -p "$tmp"/sbin
-makefile root:root 0755 "$tmp"/sbin/init <<'INITEOF'
-#!/bin/sh
-mountpoint -q /proc || mount -t proc proc /proc
-mountpoint -q /sys  || mount -t sysfs sysfs /sys
-mountpoint -q /dev  || mount -t devtmpfs devtmpfs /dev
-for mod in loop squashfs ext4 overlay; do modprobe "$mod" 2>/dev/null; done
-
-# Symlink /media/cdrom to actual boot media (USB flash, CDROM, SD card, etc.)
-# Stock Alpine modloop hardcodes /media/cdrom — this fixes USB/SD boot
-# Handles: sd*, nvme*, mmcblk*, sr*, usb
-if [ ! -e /media/cdrom ]; then
-    sleep 1
-    for _m in /media/sd* /media/nvme* /media/mmcblk* /media/usb /media/sr*; do
-        [ -d "$_m" ] || continue
-        if [ -d "$_m/boot" ] || [ -d "$_m/apks" ] || [ -f "$_m/modloop-lts" ]; then
-            ln -sf "$_m" /media/cdrom
-            break
-        fi
-    done
-fi
-
-# ── USB overlay: use ext4 partition as writable layer (saves RAM) ──
-# Auto-creates partition on first boot if USB has free space
-# Inspired by bin456789/reinstall (12k★) — dynamic NVMe/MMCblk handling
-
-# Partition naming: nvme0n1p1 vs sda1 vs mmcblk0p1
-_partition_name() {
-    _disk="$1" _num="$2"
-    case "$_disk" in
-        /dev/nvme*|/dev/mmcblk*|/dev/md*) echo "${_disk}p${_num}" ;;
-        *)                                 echo "${_disk}${_num}" ;;
-    esac
-}
-
-# Refresh partition table nodes after sfdisk
-_refresh_parts() {
-    partprobe "$1" 2>/dev/null || true
-    partx -u "$1" 2>/dev/null || true
-    mdev -sf 2>/dev/null || true
-}
-
-# Find boot disk from /media/cdrom symlink
-_boot_disk=""
-if [ -L /media/cdrom ]; then
-    _media=$(readlink -f /media/cdrom)  # e.g. /dev/sdb1
-    # Strip partition number: sdb1→sdb, nvme0n1p1→nvme0n1, mmcblk0p1→mmcblk0
-    case "$_media" in
-        /dev/nvme*|/dev/mmcblk*|/dev/md*)
-            _boot_disk=$(echo "$_media" | sed 's/p[0-9]*$//')
-            ;;
-        /dev/sd*)
-            _boot_disk=$(echo "$_media" | sed 's/[0-9]*$//')
-            ;;
-    esac
-fi
-
-OVERLAY_DEV=""
-for _d in /dev/disk/by-label/SUPERLITE-RW /dev/disk/by-label/superlite-rw; do
-    [ -b "$_d" ] && OVERLAY_DEV="$_d" && break
-done
-
-# Auto-partition: if no SUPERLITE-RW found, create one on boot media
-if [ -z "$OVERLAY_DEV" ] && [ -n "$_boot_disk" ] && [ -b "$_boot_disk" ]; then
-    case "$_boot_disk" in
-        /dev/sd*|/dev/mmcblk*|/dev/nvme*)
-            _p2=$(_partition_name "$_boot_disk" 2)
-
-            if [ ! -b "$_p2" ] && command -v sfdisk >/dev/null 2>&1; then
-                # Append partition with remaining space
-                echo ", +" | sfdisk -a -q "$_boot_disk" 2>/dev/null
-                _refresh_parts "$_boot_disk"
-
-                # Format as ext4 (disable 64bit for Alpine compat)
-                if [ -b "$_p2" ] && command -v mkfs.ext4 >/dev/null 2>&1; then
-                    mkfs.ext4 -O ^64bit -L SUPERLITE-RW -F "$_p2" >/dev/null 2>&1
-                    OVERLAY_DEV="$_p2"
-                fi
-            fi
-            ;;
-    esac
-fi
-
-# Mount overlay if partition exists (pre-existing or just created)
-if [ -n "$OVERLAY_DEV" ] && [ -b "$OVERLAY_DEV" ]; then
-    mkdir -p /media/rw
-    if mount -o rw "$OVERLAY_DEV" /media/rw 2>/dev/null; then
-        mkdir -p /media/rw/upper /media/rw/work
-        mkdir -p /media/overlay
-        if mount -t overlay overlay \
-            -o lowerdir=/,upperdir=/media/rw/upper,workdir=/media/rw/work \
-            /media/overlay 2>/dev/null; then
-            # Move mount points into overlay
-            for _mp in proc sys dev media; do
-                mount --move "/$_mp" "/media/overlay/$_mp" 2>/dev/null
-            done
-            cd /media/overlay
-            mkdir -p .overlay_root
-            pivot_root . .overlay_root
-            exec /sbin/openrc sysinit
-        fi
-        umount /media/rw 2>/dev/null
-    fi
-fi
-
-# Fallback: normal tmpfs boot
-exec /sbin/openrc sysinit
-INITEOF
+# ── /sbin/init: use Alpine stock init (no override) ──────────────────────────
+# Alpine's initramfs handles: overlayfs, apkovl extraction, modloop mount,
+# switch_root → openrc sysinit. Custom /sbin/init caused boot hang by
+# fighting with stock init. Flash disk detection is now an OpenRC service.
 
 # ── Sysctl (IPv6 & Network) ─────────────────────────────────────────────────
 mkdir -p "$tmp"/etc/sysctl.d
