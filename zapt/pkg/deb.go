@@ -351,23 +351,15 @@ func installFilesWithSafety(dataDir, backupDir string) (installed, skipped int, 
 					installed++
 					return nil
 				}
-				// Absolute symlink pointing outside glibcLibDir → will break in squashfs
-				// Resolve: copy the real target file instead of creating a broken symlink
+				// Absolute symlink pointing outside glibcLibDir → will break in squashfs.
+				// Always create a relative symlink to basename. The real file will be
+				// extracted to the same glibcLibDir later in the archive.
+				// E.g., /usr/lib/glibc/ld-linux-x86-64.so.2 -> ld-2.36.so
 				if filepath.IsAbs(linkTarget) {
-					// Try to find the real file in the .deb extraction
-					// The target might have been extracted to glibcLibDir with a different name
-					// Just create a relative symlink to the basename (same dir)
-					relTarget := filepath.Base(linkTarget)
-					realTarget := filepath.Join(filepath.Dir(destPath), relTarget)
-					if _, err := os.Stat(realTarget); err == nil {
-						os.Remove(destPath)
-						if err := os.Symlink(relTarget, destPath); err != nil {
-							return err
-						}
-						installed++
-						return nil
+					os.Remove(destPath)
+					if err := os.Symlink(filepath.Base(linkTarget), destPath); err != nil {
+						return err
 					}
-					// Target doesn't exist yet — skip, will be created when real file is extracted
 					installed++
 					return nil
 				}
