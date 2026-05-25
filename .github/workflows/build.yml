@@ -265,3 +265,65 @@ jobs:
             exit 1
           fi
           echo "✓ Pre-QEMU verification PASSED — all checks clean"
+
+      - name: QEMU Boot Test
+        timeout-minutes: 5
+        run: |
+          sudo apt-get install -y qemu-system-x86 >/dev/null 2>&1 || true
+
+          ISO=$(find output -name "*.iso" -type f | head -1)
+          if [ -z "$ISO" ]; then
+            echo "::error::No ISO found for QEMU test"
+            exit 1
+          fi
+
+          echo "=== QEMU Boot Test ==="
+          echo "ISO: $ISO"
+          echo "Testing: BIOS boot (syslinux) with serial console"
+
+          # Boot ISO in QEMU with serial console, capture output
+          # Timeout after 120s — if kernel never starts, it's stuck
+          SERIAL_LOG=$(mktemp)
+          BOOT_OK=false
+
+          timeout 120 qemu-system-x86_64 \
+            -m 1024 \
+            -cdrom "$ISO" \
+            -boot d \
+            -no-reboot \
+            -nographic \
+            -serial mon:stdio \
+            -cpu qemu64 \
+            -display none \
+            > "$SERIAL_LOG" 2>&1 &
+          QEMU_PID=$!
+
+          # Poll for boot success indicators
+          for i in $(seq 1 120); do
+            if ! kill -0 $QEMU_PID 2>/dev/null; then
+              echo "  QEMU exited at ${i}s"
+              break
+            fi
+            # Check for kernel boot markers
+            if grep -qE "(login:|Welcome to Alpine|OpenRC|superlite|modloop)" "$SERIAL_LOG" 2>/dev/null; then
+              BOOT_OK=true
+              echo "  ✓ Boot successful — kernel started in ${i}s"
+              kill $QEMU_PID 2>/dev/null || true
+              break
+            fi
+            sleep 1
+          done
+
+          kill $QEMU_PID 2>/dev/null || true
+          wait $QEMU_PID 2>/dev/null || true
+
+          if [ "$BOOT_OK" = false ]; then
+            echo "  ✗ Boot FAILED — ISO stuck (no kernel output in 120s)"
+            echo "  Last 20 lines of serial output:"
+            tail -20 "$SERIAL_LOG" 2>/dev/null
+            rm -f "$SERIAL_LOG"
+            exit 1
+          fi
+
+          rm -f "$SERIAL_LOG"
+          echo "✓ QEMU boot test PASSED"
