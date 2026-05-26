@@ -677,7 +677,7 @@ done
 if [ -z "$MODE" ] && grep -q "console=ttyS0" /proc/cmdline 2>/dev/null; then
     # Check if we're in a VM (QEMU/VirtualBox/KVM) without real display
     if grep -qE "(qemu|virtualbox|kvm|hyperv)" /proc/cpuinfo 2>/dev/null || \
-       [ ! -d /sys/class/drm/card0 ] 2>/dev/null; then
+       ! ls /sys/class/drm/card* >/dev/null 2>&1; then
         MODE="shell"
     fi
 fi
