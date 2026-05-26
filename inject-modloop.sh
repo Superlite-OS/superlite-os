@@ -85,6 +85,8 @@ if [ -f /tmp/curl-imp.tar.gz ]; then
             _wname=$(basename "$w")
             cat > "$SQFS/usr/local/bin/$_wname" << CW
 #!/bin/sh
+[ -z "\$WAYLAND_DISPLAY" ] && export WAYLAND_DISPLAY=wayland-0
+[ -z "\$XDG_RUNTIME_DIR" ] && export XDG_RUNTIME_DIR=/tmp/0-runtime-dir
 exec /usr/lib/glibc/ld-linux-x86-64.so.2 --library-path /usr/local/lib/curl-impersonate:/usr/lib/glibc $w "\$@"
 CW
             chmod +x "$SQFS/usr/local/bin/$_wname"
@@ -92,6 +94,8 @@ CW
         # curl -> curl-impersonate-chrome wrapper
         cat > "$SQFS/usr/local/bin/curl" << 'CW'
 #!/bin/sh
+[ -z "$WAYLAND_DISPLAY" ] && export WAYLAND_DISPLAY=wayland-0
+[ -z "$XDG_RUNTIME_DIR" ] && export XDG_RUNTIME_DIR=/tmp/0-runtime-dir
 exec /usr/lib/glibc/ld-linux-x86-64.so.2 --library-path /usr/local/lib/curl-impersonate:/usr/lib/glibc /usr/local/lib/curl-impersonate/curl-impersonate-chrome "$@"
 CW
         chmod +x "$SQFS/usr/local/bin/curl"
@@ -291,6 +295,8 @@ if [ -d "$SQFS/usr/lib/glibc" ]; then
             mkdir -p "$SQFS/usr/bin"
             cat > "$SQFS/usr/bin/terax" << 'TW'
 #!/bin/sh
+[ -z "$WAYLAND_DISPLAY" ] && export WAYLAND_DISPLAY=wayland-0
+[ -z "$XDG_RUNTIME_DIR" ] && export XDG_RUNTIME_DIR=/tmp/0-runtime-dir
 exec /usr/lib/glibc/ld-linux-x86-64.so.2 --library-path /usr/lib/glibc /usr/lib/glibc/bin/terax "$@"
 TW
             chmod +x "$SQFS/usr/bin/terax"
@@ -302,6 +308,8 @@ TW
             mkdir -p "$SQFS/usr/bin"
             cat > "$SQFS/usr/bin/doublecmd" << 'DW'
 #!/bin/sh
+[ -z "$WAYLAND_DISPLAY" ] && export WAYLAND_DISPLAY=wayland-0
+[ -z "$XDG_RUNTIME_DIR" ] && export XDG_RUNTIME_DIR=/tmp/0-runtime-dir
 exec /usr/lib/glibc/ld-linux-x86-64.so.2 --library-path /usr/lib/glibc /lib/doublecmd/doublecmd "$@"
 DW
             chmod +x "$SQFS/usr/bin/doublecmd"

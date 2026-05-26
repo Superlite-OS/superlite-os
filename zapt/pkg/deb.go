@@ -556,6 +556,8 @@ func createGlibcWrapper(binPath, root string) error {
 	elfLoader := glibcLibDir + "/ld-linux-x86-64.so.2"
 	libPath := glibcLibDir + ":/usr/lib:/lib"
 	wrapper := fmt.Sprintf(`#!/bin/sh
+[ -z "$WAYLAND_DISPLAY" ] && export WAYLAND_DISPLAY=wayland-0
+[ -z "$XDG_RUNTIME_DIR" ] && export XDG_RUNTIME_DIR=/tmp/0-runtime-dir
 exec %s --library-path %s %s "$@"
 `, elfLoader, libPath, runtimePath)
 
