@@ -428,6 +428,17 @@ fi
 # are injected into the modloop squashfs by inject-modloop.sh after ISO build.
 # This keeps the apkovl small (< 10MB config-only) for low-RAM boot.
 
+# Symlinks for glibc wrapper scripts in modloop.
+# The modloop mounts /opt, /usr/lib/glibc, /usr/local/lib/curl-impersonate
+# but NOT /usr/bin. Wrapper scripts live at /.modloop/usr/bin/ in the squashfs.
+# Create symlinks in apkovl so they appear at the expected PATH locations.
+mkdir -p "$tmp"/usr/bin
+mkdir -p "$tmp"/usr/local/bin
+ln -sf /.modloop/usr/bin/terax "$tmp"/usr/bin/terax
+ln -sf /.modloop/usr/bin/doublecmd "$tmp"/usr/bin/doublecmd
+ln -sf /.modloop/usr/local/bin/curl "$tmp"/usr/local/bin/curl
+ln -sf /.modloop/usr/local/bin/curl-impersonate-chrome "$tmp"/usr/local/bin/curl-impersonate-chrome
+
 # ── Install zapt config only (binary injected by inject-modloop.sh) ────────
 ZAPT_DIR=""
 for dir in \
