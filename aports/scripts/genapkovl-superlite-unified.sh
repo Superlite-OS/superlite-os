@@ -617,7 +617,6 @@ export XDG_CURRENT_DESKTOP=labwc:wlroots
 export QT_QPA_PLATFORM=wayland
 export MOZ_ENABLE_WAYLAND=1
 export GDK_BACKEND=wayland,x11
-export WLR_LIBINPUT_NO_DEVICES=1
 unset LIBVA_DRIVER_NAME
 unset VDPAU_DRIVER
 export XDG_SEAT=seat0
@@ -638,7 +637,6 @@ if test -z "${XDG_SESSION_TYPE}"; then
     export MOZ_ENABLE_WAYLAND=1
     export GDK_BACKEND=wayland,x11
 fi
-[ -z "$WLR_LIBINPUT_NO_DEVICES" ] && export WLR_LIBINPUT_NO_DEVICES=1
 unset LIBVA_DRIVER_NAME
 unset VDPAU_DRIVER
 PROFILE_EOF
