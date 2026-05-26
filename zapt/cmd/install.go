@@ -170,6 +170,8 @@ func resolveDep(depName string, visited map[string]bool) error {
 	if visited[depName] {
 		return nil
 	}
+	// Mark as visited IMMEDIATELY to prevent re-entry from transitive deps
+	visited[depName] = true
 
 	// Check virtual package mapping
 	origName := depName
