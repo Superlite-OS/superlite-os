@@ -10,7 +10,7 @@
     <adaptiveSync>no</adaptiveSync>
     <allowTearing>no</allowTearing>
     <reuseOutputMode>no</reuseOutputMode>
-    <xwaylandPersistence>no</xwaylandPersistence>
+    <xwaylandPersistence>yes</xwaylandPersistence>
   </core>
 
   <placement>

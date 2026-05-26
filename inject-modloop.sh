@@ -136,7 +136,8 @@ _download_deb_pkg() {
 # Core glibc deps — installed BEFORE Chrome/Terax/Doublecmd
 for _pkg in libsystemd0 liblzma5 liblz4-1 libhwy1 libstdc++6 libgcc-s1 \
     libaom3 libdav1d6 libgav1-1 libsvtav1enc1 \
-    libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-cursor0; do
+    libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-cursor0 \
+    libxslt1.1; do
     _download_deb_pkg "$_pkg"
 done
 
@@ -165,6 +166,39 @@ if [ -f "$CHROME_DEB" ] && [ -x "$SQFS/usr/local/bin/zapt" ]; then
     ln -sf /opt/google/chrome/chrome "$SQFS/usr/bin/google-chrome-stable"
     ln -sf /opt/google/chrome/chrome "$SQFS/usr/bin/google-chrome"
     rm -f "$CHROME_DEB"
+fi
+
+# ── Chrome data file symlinks for glibc ELF binary ─────────────────────────
+# Chrome ELF binary lives at /usr/lib/glibc/bin/chrome. It resolves data files
+# (icudtl.dat, resources.pak, etc.) relative to /proc/self/exe → that directory.
+# The actual data is at /opt/google/chrome/ so we symlink everything into
+# /usr/lib/glibc/bin/ so Chrome can find them at runtime.
+if [ -d "$SQFS/opt/google/chrome" ] && [ -d "$SQFS/usr/lib/glibc/bin" ]; then
+    log "Symlinking Chrome data files into glibc/bin..."
+    _chrome_count=0
+    for _f in "$SQFS"/opt/google/chrome/*; do
+        _bn=$(basename "$_f")
+        [ -e "$SQFS/usr/lib/glibc/bin/$_bn" ] || {
+            ln -sf "/opt/google/chrome/$_bn" "$SQFS/usr/lib/glibc/bin/$_bn"
+            _chrome_count=$((_chrome_count + 1))
+        }
+    done
+    log "  Chrome data symlinks: $_chrome_count"
+
+    # Symlink Mesa DRI drivers into glibc path so Chrome's glibc mesa can find them
+    if [ -d "$SQFS/usr/lib/dri" ]; then
+        mkdir -p "$SQFS/usr/lib/glibc/dri"
+        _dri_count=0
+        for _dri in "$SQFS"/usr/lib/dri/*.so; do
+            [ -f "$_dri" ] || continue
+            _bn=$(basename "$_dri")
+            [ -e "$SQFS/usr/lib/glibc/dri/$_bn" ] || {
+                ln -sf "/usr/lib/dri/$_bn" "$SQFS/usr/lib/glibc/dri/$_bn"
+                _dri_count=$((_dri_count + 1))
+            }
+        done
+        log "  DRI driver symlinks: $_dri_count"
+    fi
 fi
 
 # ── Fix glibc symlinks (robust version-mismatch handling) ──────────────────
@@ -264,6 +298,42 @@ if [ -d "$SQFS/usr/lib/glibc" ]; then
     rm -f "$_lookup"
     log "  glibc symlinks fixed ($_fix_count fixes)"
 fi
+# ── Fix Qt5 platform plugin directory structure ─────────────────────────────
+# zapt flattens all .so files into /usr/lib/glibc/ but Qt5 needs plugins in
+# a specific directory tree: qt5/plugins/platforms/, qt5/plugins/wayland/, etc.
+# Detect Qt5 plugin .so files and create the expected directory structure.
+if [ -d "$SQFS/usr/lib/glibc" ]; then
+    log "Fixing Qt5 platform plugin directory structure..."
+    _qt5_fix=0
+    for _plugin in libqxcb libqwayland libqwayland-generic libqwayland-egl; do
+        _so_file=$(find "$SQFS/usr/lib/glibc" -maxdepth 1 -name "${_plugin}*.so*" -type f | head -1)
+        [ -z "$_so_file" ] && continue
+        _so_name=$(basename "$_so_file")
+        case "$_plugin" in
+            libqxcb)     _dir="platforms" ;;
+            libqwayland*) _dir="wayland" ;;
+        esac
+        _plugin_dir="$SQFS/usr/lib/glibc/qt5/plugins/$_dir"
+        mkdir -p "$_plugin_dir"
+        if [ ! -e "$_plugin_dir/$_so_name" ]; then
+            ln -sf "/usr/lib/glibc/$_so_name" "$_plugin_dir/$_so_name"
+            _qt5_fix=$((_qt5_fix + 1))
+        fi
+    done
+    # Also link libqeglfs-integration if present
+    for _f in "$SQFS"/usr/lib/glibc/libqeglfs*.so*; do
+        [ -f "$_f" ] || continue
+        _plugin_dir="$SQFS/usr/lib/glibc/qt5/plugins/egldeviceintegrations"
+        mkdir -p "$_plugin_dir"
+        _so_name=$(basename "$_f")
+        if [ ! -e "$_plugin_dir/$_so_name" ]; then
+            ln -sf "/usr/lib/glibc/$_so_name" "$_plugin_dir/$_so_name"
+            _qt5_fix=$((_qt5_fix + 1))
+        fi
+    done
+    log "  Qt5 plugin fixes: $_qt5_fix"
+fi
+
 TERAX_DEB="/tmp/terax.deb"
 log "Installing Terax AI terminal..."
 wget -q -O "$TERAX_DEB" \
@@ -290,7 +360,7 @@ fi
 if [ -d "$SQFS/usr/lib/glibc" ]; then
     _glibc_ld="$SQFS/usr/lib/glibc/ld-linux-x86-64.so.2"
     if [ -f "$_glibc_ld" ]; then
-        # Terax wrapper
+        # Terax wrapper — glibc binary that needs glibc libxslt/libexslt/libstdc++
         _terax_bin="$SQFS/usr/lib/glibc/bin/terax"
         if [ -f "$_terax_bin" ] && [ ! -f "$SQFS/usr/bin/terax" ]; then
             mkdir -p "$SQFS/usr/bin"
@@ -298,12 +368,14 @@ if [ -d "$SQFS/usr/lib/glibc" ]; then
 #!/bin/sh
 [ -z "$WAYLAND_DISPLAY" ] && export WAYLAND_DISPLAY=wayland-0
 [ -z "$XDG_RUNTIME_DIR" ] && export XDG_RUNTIME_DIR=/tmp/0-runtime-dir
-exec /usr/lib/glibc/ld-linux-x86-64.so.2 --library-path /usr/lib/glibc /usr/lib/glibc/bin/terax "$@"
+exec /usr/lib/glibc/ld-linux-x86-64.so.2 --library-path /usr/lib/glibc:/usr/local/lib/glibc-extra /usr/lib/glibc/bin/terax "$@"
 TW
             chmod +x "$SQFS/usr/bin/terax"
             log "  Created terax wrapper"
         fi
-        # Doublecmd wrapper
+        # Doublecmd wrapper — statically linked FreePascal binary that
+        # dlopen()s libQt5Pas.so.1 at runtime. Must NOT use ld-linux;
+        # instead use LD_LIBRARY_PATH so musl's dlopen finds glibc Qt5 libs.
         _dc_bin="$SQFS/lib/doublecmd/doublecmd"
         if [ -f "$_dc_bin" ] && [ ! -f "$SQFS/usr/bin/doublecmd" ]; then
             mkdir -p "$SQFS/usr/bin"
@@ -311,7 +383,10 @@ TW
 #!/bin/sh
 [ -z "$WAYLAND_DISPLAY" ] && export WAYLAND_DISPLAY=wayland-0
 [ -z "$XDG_RUNTIME_DIR" ] && export XDG_RUNTIME_DIR=/tmp/0-runtime-dir
-exec /usr/lib/glibc/ld-linux-x86-64.so.2 --library-path /usr/lib/glibc /lib/doublecmd/doublecmd "$@"
+export LD_LIBRARY_PATH=/usr/lib/glibc
+export QT_PLUGIN_PATH=/usr/lib/glibc/qt5/plugins
+export QT_QPA_PLATFORM=xcb
+exec /lib/doublecmd/doublecmd "$@"
 DW
             chmod +x "$SQFS/usr/bin/doublecmd"
             log "  Created doublecmd wrapper"
