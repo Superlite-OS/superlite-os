@@ -171,16 +171,13 @@ if [ -d "$SQFS/usr/lib/glibc" ]; then
     log "Fixing glibc symlinks..."
     _fix_count=0
 
-    # Phase 1: Collect all real (non-symlink) .so files by basename
-    # Build a lookup: basename -> full path
-    # This handles version mismatches (e.g., libfoo.so.1 -> libfoo.so.1.2.3
-    # but real file is libfoo.so.1.3.0)
+    # Phase 1: Build lookup table of real .so files using a temp file
+    # (eval fails on filenames with dots like ANSI_X3.110.so)
+    _lookup=$(mktemp)
     for f in "$SQFS"/usr/lib/glibc/*.so* "$SQFS"/lib/x86_64-linux-gnu/*.so* "$SQFS"/lib/*.so*; do
-        [ -f "$f" ] || continue  # skip non-existent and symlinks
+        [ -f "$f" ] || continue
         [ -L "$f" ] && continue
-        _bname=$(basename "$f")
-        # Store in associative-like format (file exists = marker)
-        eval "_real_${_bname}=\"$f\""
+        echo "$(basename "$f")	$f" >> "$_lookup"
     done
 
     # Phase 2: Fix broken symlinks in /usr/lib/glibc/
@@ -193,40 +190,30 @@ if [ -d "$SQFS/usr/lib/glibc" ]; then
         real_file=""
 
         # Strategy 1: exact basename match
-        eval "_candidate=\"\${_real_${fname}:-}\""
-        [ -n "$_candidate" ] && [ -f "$_candidate" ] && real_file="$_candidate"
+        real_file=$(awk -F'\t' -v name="$fname" '$1==name{print $2; exit}' "$_lookup")
 
         # Strategy 2: target basename match (for libfoo.so -> libfoo.so.1 cases)
         if [ -z "$real_file" ]; then
             _target_base=$(basename "$target")
-            eval "_candidate=\"\${_real_${_target_base}:-}\""
-            [ -n "$_candidate" ] && [ -f "$_candidate" ] && real_file="$_candidate"
+            real_file=$(awk -F'\t' -v name="$_target_base" '$1==name{print $2; exit}' "$_lookup")
         fi
 
         # Strategy 3: prefix match (libfoo.so.1 -> find libfoo.so.1.*)
         if [ -z "$real_file" ]; then
-            for f in "$SQFS"/usr/lib/glibc/"${fname}".* \
-                     "$SQFS"/lib/x86_64-linux-gnu/"${fname}".*; do
-                [ -f "$f" ] && ! [ -L "$f" ] && { real_file="$f"; break; }
-            done
+            real_file=$(awk -F'\t' -v name="$fname" '$1~"^"name"\\."{print $2; exit}' "$_lookup")
         fi
 
         # Strategy 4: for ld-linux/ld.so variants
         if [ -z "$real_file" ]; then
             case "$fname" in
                 ld-*.so*|ld-linux*.so*)
-                    for dir in "$SQFS/usr/lib/glibc" "$SQFS/lib/x86_64-linux-gnu" "$SQFS/lib"; do
-                        for f in "$dir"/ld-*.so.* "$dir"/ld-linux*.so.*; do
-                            [ -f "$f" ] && ! [ -L "$f" ] && { real_file="$f"; break 2; }
-                        done
-                    done
+                    real_file=$(awk -F'\t' '$1~/^ld-.*\.so/{print $2; exit}' "$_lookup")
                     ;;
             esac
         fi
 
-        if [ -n "$real_file" ]; then
+        if [ -n "$real_file" ] && [ -f "$real_file" ]; then
             rm "$link"
-            # Copy real file (not symlink) to avoid chain-breaking in squashfs
             cp "$real_file" "$link"
             _fix_count=$((_fix_count + 1))
             log "  Fixed: $fname (was -> $target)"
@@ -236,7 +223,6 @@ if [ -d "$SQFS/usr/lib/glibc" ]; then
     done
 
     # Phase 3: Ensure critical symlinks exist
-    # ld-linux ELF loader symlink
     if [ -f "$SQFS/usr/lib/glibc/ld-linux-x86-64.so.2" ]; then
         mkdir -p "$SQFS/lib64"
         ln -sf /usr/lib/glibc/ld-linux-x86-64.so.2 "$SQFS/lib64/ld-linux-x86-64.so.2"
@@ -244,21 +230,25 @@ if [ -d "$SQFS/usr/lib/glibc" ]; then
 
     # Phase 4: Create missing version symlinks
     # If libfoo.so.1.2.3 exists as real file, ensure libfoo.so.1 and libfoo.so exist
-    for f in "$SQFS"/usr/lib/glibc/*.so.*.*.*; do
+    for f in "$SQFS"/usr/lib/glibc/*.so.*; do
         [ -f "$f" ] || continue
         [ -L "$f" ] && continue
         _bname=$(basename "$f")
-        # Extract base name (e.g., libfoo from libfoo.so.1.2.3)
+        # Count dots after .so to determine if it's versioned (at least one .N)
+        case "$_bname" in
+            *.so.*.*) ;; # has version — continue
+            *) continue ;; # no version — skip
+        esac
         _base=$(echo "$_bname" | sed 's/\.so\..*//')
         _ver=$(echo "$_bname" | sed 's/.*\.so\.//')
-        # Create major version symlink (libfoo.so.1)
         _major=$(echo "$_ver" | cut -d. -f1)
+        # Create major version symlink
         _major_link="$SQFS/usr/lib/glibc/${_base}.so.${_major}"
         if [ ! -e "$_major_link" ]; then
             ln -sf "$_bname" "$_major_link"
             _fix_count=$((_fix_count + 1))
         fi
-        # Create base symlink (libfoo.so)
+        # Create base symlink
         _base_link="$SQFS/usr/lib/glibc/${_base}.so"
         if [ ! -e "$_base_link" ]; then
             ln -sf "$_bname" "$_base_link"
@@ -266,13 +256,7 @@ if [ -d "$SQFS/usr/lib/glibc" ]; then
         fi
     done
 
-    # Cleanup eval variables
-    for f in "$SQFS"/usr/lib/glibc/*.so* "$SQFS"/lib/x86_64-linux-gnu/*.so* "$SQFS"/lib/*.so*; do
-        [ -f "$f" ] || continue
-        _bname=$(basename "$f")
-        eval "unset _real_${_bname}" 2>/dev/null || true
-    done
-
+    rm -f "$_lookup"
     log "  glibc symlinks fixed ($_fix_count fixes)"
 fi
 TERAX_DEB="/tmp/terax.deb"
