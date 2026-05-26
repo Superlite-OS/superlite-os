@@ -134,7 +134,8 @@ _download_deb_pkg() {
 }
 
 # Core glibc deps — installed BEFORE Chrome/Terax/Doublecmd
-for _pkg in libsystemd0 liblzma5 liblz4-1 libhwy1 \
+for _pkg in libsystemd0 liblzma5 liblz4-1 libhwy1 libstdc++6 libgcc-s1 \
+    libaom3 libdav1d6 libgav1-1 libsvtav1enc1 \
     libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-cursor0; do
     _download_deb_pkg "$_pkg"
 done
