@@ -108,11 +108,18 @@ func installPackage(target string, visited map[string]bool) error {
 
 // resolvePackageName searches Debian pool for a package name and downloads its .deb file.
 func resolvePackageName(name string) (string, error) {
+	// Check virtual package mapping first
+	if mapped, ok := pkg.VirtualPackages[name]; ok {
+		fmt.Printf("Mapped virtual package %s -> %s\n", name, mapped)
+		name = mapped
+	}
+
 	sources, err := pkg.LoadSources("")
 	if err != nil {
 		return "", err
 	}
 
+	var allPkgs []pkg.Package
 	for _, src := range sources {
 		pkgs, err := pkg.DebianSearch(src, name)
 		if err != nil {
@@ -130,7 +137,32 @@ func resolvePackageName(name string) (string, error) {
 				return localPath, nil
 			}
 		}
+		allPkgs = append(allPkgs, pkgs...)
 	}
+
+	// Fuzzy fallback: find closest match by Levenshtein distance
+	var bestPkg *pkg.Package
+	bestDist := len(name)
+	for _, p := range allPkgs {
+		if p.Filename == "" {
+			continue
+		}
+		dist := levenshtein(name, p.Name)
+		if dist < bestDist {
+			bestDist = dist
+			bestPkg = &p
+		}
+	}
+	if bestPkg != nil && bestDist > 0 && bestDist < len(name)*40/100 {
+		fmt.Printf("Similar package found: %s (for %s, distance=%d)\n", bestPkg.Name, name, bestDist)
+		debURL := fmt.Sprintf("https://deb.debian.org/debian/%s", bestPkg.Filename)
+		localPath, err := pkg.DownloadFile(debURL)
+		if err != nil {
+			return "", fmt.Errorf("download %s: %w", bestPkg.Name, err)
+		}
+		return localPath, nil
+	}
+
 	return "", fmt.Errorf("package '%s' not found in Debian pool", name)
 }
 
@@ -140,9 +172,15 @@ func resolveDep(depName string, visited map[string]bool) error {
 	}
 
 	// Check virtual package mapping
+	origName := depName
 	if mapped, ok := pkg.VirtualPackages[depName]; ok {
 		fmt.Printf("  Mapped virtual package %s -> %s\n", depName, mapped)
 		depName = mapped
+		// Mark original virtual name as visited too (prevent re-entry)
+		visited[origName] = true
+		if visited[depName] {
+			return nil
+		}
 	}
 
 	// Search Debian pool for the dependency
