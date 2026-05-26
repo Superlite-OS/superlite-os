@@ -139,12 +139,19 @@ func resolveDep(depName string, visited map[string]bool) error {
 		return nil
 	}
 
+	// Check virtual package mapping
+	if mapped, ok := pkg.VirtualPackages[depName]; ok {
+		fmt.Printf("  Mapped virtual package %s -> %s\n", depName, mapped)
+		depName = mapped
+	}
+
 	// Search Debian pool for the dependency
 	sources, err := pkg.LoadSources("")
 	if err != nil {
 		return err
 	}
 
+	var allPkgs []pkg.Package
 	for _, src := range sources {
 		pkgs, err := pkg.DebianSearch(src, depName)
 		if err != nil {
@@ -153,7 +160,6 @@ func resolveDep(depName string, visited map[string]bool) error {
 		// Find exact name match
 		for _, p := range pkgs {
 			if p.Name == depName && p.Filename != "" {
-				// Download the .deb
 				debURL := fmt.Sprintf("https://deb.debian.org/debian/%s", p.Filename)
 				fmt.Printf("  Downloading %s from Debian pool...\n", depName)
 				localPath, err := pkg.DownloadFile(debURL)
@@ -161,13 +167,73 @@ func resolveDep(depName string, visited map[string]bool) error {
 					return fmt.Errorf("download %s: %w", depName, err)
 				}
 				defer os.Remove(localPath)
-
-				// Install recursively (this will resolve its own deps)
 				return installPackage(localPath, visited)
 			}
 		}
+		allPkgs = append(allPkgs, pkgs...)
 	}
+
+	// Fuzzy fallback: find closest match by Levenshtein distance
+	var bestPkg *pkg.Package
+	bestDist := len(depName) // max possible distance
+	for _, p := range allPkgs {
+		if p.Filename == "" {
+			continue
+		}
+		dist := levenshtein(depName, p.Name)
+		if dist < bestDist {
+			bestDist = dist
+			bestPkg = &p
+		}
+	}
+	// Only accept if similarity is good enough (distance < 40% of name length)
+	if bestPkg != nil && bestDist > 0 && bestDist < len(depName)*40/100 {
+		fmt.Printf("  Similar package found: %s (for %s, distance=%d)\n", bestPkg.Name, depName, bestDist)
+		debURL := fmt.Sprintf("https://deb.debian.org/debian/%s", bestPkg.Filename)
+		fmt.Printf("  Downloading %s from Debian pool...\n", bestPkg.Name)
+		localPath, err := pkg.DownloadFile(debURL)
+		if err != nil {
+			return fmt.Errorf("download %s: %w", bestPkg.Name, err)
+		}
+		defer os.Remove(localPath)
+		return installPackage(localPath, visited)
+	}
+
 	return fmt.Errorf("package %s not found in Debian pool", depName)
+}
+
+func levenshtein(a, b string) int {
+	la, lb := len(a), len(b)
+	if la == 0 {
+		return lb
+	}
+	if lb == 0 {
+		return la
+	}
+	prev := make([]int, lb+1)
+	for j := 0; j <= lb; j++ {
+		prev[j] = j
+	}
+	for i := 1; i <= la; i++ {
+		cur := make([]int, lb+1)
+		cur[0] = i
+		for j := 1; j <= lb; j++ {
+			cost := 1
+			if a[i-1] == b[j-1] {
+				cost = 0
+			}
+			cur[j] = min(cur[j-1]+1, min(prev[j]+1, prev[j-1]+cost))
+		}
+		prev = cur
+	}
+	return prev[lb]
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // InstallFromFile installs a .deb file from a local path (used by desktop entry handler)

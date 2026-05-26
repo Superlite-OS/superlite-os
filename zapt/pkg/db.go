@@ -109,6 +109,35 @@ func ParseDepends(depends string) []string {
 	return deps
 }
 
+// VirtualPackages maps virtual package names to their real providers.
+// Used when dependency resolution encounters names like "zlib1g" or "perl:any".
+var VirtualPackages = map[string]string{
+	"zlib1g":                   "zlib1g",
+	"default-dbus-session-bus": "dbus",
+	"default-dbus-system-bus":  "dbus",
+	"perl:any":                 "perl-base",
+	"perl":                     "perl-base",
+	"libssl3":                  "libssl3",
+	"libffi8":                  "libffi8",
+	"libglib2.0-0":            "libglib2.0-0",
+	"libpcre2-8-0":            "libpcre2-8-0",
+	"libselinux1":             "libselinux1",
+	"libmount1":               "libmount1",
+	"libblkid1":               "libblkid1",
+	"libuuid1":                "libuuid1",
+	"libffi7":                 "libffi8",       // version upgrade
+	"libpcre3":                "libpcre2-8-0",  // pcre -> pcre2
+	"libcrypt1":               "libcrypt1",
+	"libstdc++6":              "libstdc++6",
+	"libgcc-s1":               "libgcc-s1",
+	"libwayland-server0":      "libwayland-server0",
+	"libwayland-client0":      "libwayland-client0",
+	"shared-mime-info":        "shared-mime-info",
+	"libtiff6":                "libtiff6",
+	"default-libmysqlclient-dev": "default-libmysqlclient-dev",
+	"libcrypt-dev":            "libcrypt-dev",
+}
+
 // IsPackageInstalled checks if a package is installed (in zapt db or as system lib)
 func IsPackageInstalled(name, root string) bool {
 	if root == "" {
