@@ -373,10 +373,21 @@ jobs:
             }}
 
             # Phase 3: Check for missing critical .so libraries
-            # This catches broken symlinks, missing deps, version mismatches
-            send "echo '===MISSING_LIBS_CHECK==='\r"
+            # Write check script to file to avoid Tcl escaping issues with $var
+            send "cat > /tmp/check_libs.sh << 'SCRIPTEOF'
+MISSING=0
+for bin in /opt/google/chrome/chrome /usr/bin/terax /usr/bin/doublecmd /usr/local/lib/curl-impersonate/curl-impersonate-chrome; do
+  echo "=== $bin ==="
+  LD_LIBRARY_PATH=/usr/lib/glibc /usr/lib/glibc/ld-linux-x86-64.so.2 --library-path /usr/lib/glibc --list "$bin" 2>&1 | grep 'not found' && MISSING=1 || echo 'OK'
+done
+if [ "$MISSING" = 1 ]; then
+  echo 'MISSING_LIBS_FAIL'
+else
+  echo 'MISSING_LIBS_PASS'
+fi
+SCRIPTEOF\r"
             expect -re {{{pr}}}
-            send "MISSING=0; for bin in /opt/google/chrome/chrome /usr/bin/terax /usr/bin/doublecmd /usr/local/lib/curl-impersonate/curl-impersonate-chrome; do echo \\"=== \$bin ===\\"; LD_LIBRARY_PATH=/usr/lib/glibc /usr/lib/glibc/ld-linux-x86-64.so.2 --library-path /usr/lib/glibc --list \\"\\$bin\\" 2>&1 | grep 'not found' && MISSING=1 || echo 'OK'; done; if [ \\"\\$MISSING\\" = 1 ]; then echo 'MISSING_LIBS_FAIL'; else echo 'MISSING_LIBS_PASS'; fi\r"
+            send "sh /tmp/check_libs.sh\r"
             set lib_output ""
             expect {{
               -re "(.*){pr}" {{
