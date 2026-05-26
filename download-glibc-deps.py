@@ -97,16 +97,20 @@ def main():
                 and (p.startswith('lib') or p in ['zlib1g'])
                 and not any(s in p for s in SKIP)]
 
-    # Check existing .so files
-    existing = set()
-    for d in [glibc_dir]:
-        if os.path.isdir(d):
-            for f in os.listdir(d):
-                if '.so' in f:
-                    existing.add(f)
+    # Check existing .so files (both real files and their basename for matching)
+    existing_files = {}  # basename -> full path (only real files)
+    existing_basenames = set()  # all basenames (files + symlinks)
+    if os.path.isdir(glibc_dir):
+        for f in os.listdir(glibc_dir):
+            fp = os.path.join(glibc_dir, f)
+            if '.so' in f:
+                existing_basenames.add(f)
+                if os.path.isfile(fp) and not os.path.islink(fp):
+                    existing_files[f] = fp
 
     print(f"  {len(lib_pkgs)} library packages to check")
-    print(f"  {len(existing)} existing .so files")
+    print(f"  {len(existing_basenames)} existing .so entries")
+    print(f"  {len(existing_files)} real .so files")
 
     # Download and extract
     tmpdir = '/tmp/glibc-deps'
@@ -119,9 +123,16 @@ def main():
         if not filename:
             continue
 
-        # Check if we already have the main .so
-        so_guess = pkg.split('0')[0].split('1')[0].split('2')[0].split('3')[0]
-        if any(so_guess in f for f in existing):
+        # Check if we already have ANY .so from this package
+        # Use package name prefix matching (e.g., libsystemd0 -> check for libsystemd)
+        # But be less aggressive: only skip if we have a real file matching the package's soname
+        pkg_base = pkg.rstrip('0123456789')  # libsystemd0 -> libsystemd
+        has_any = False
+        for bn in existing_basenames:
+            if bn.startswith(pkg_base):
+                has_any = True
+                break
+        if has_any:
             skipped += 1
             continue
 
@@ -139,13 +150,24 @@ def main():
         for fname, data, is_link, link_target in files:
             dest = os.path.join(glibc_dir, fname)
             if os.path.exists(dest):
-                continue
+                # File exists — but if it's a broken symlink, replace it
+                if os.path.islink(dest) and not os.path.exists(dest):
+                    os.remove(dest)
+                else:
+                    continue
             if is_link:
+                # For symlinks: if target doesn't exist in glibc_dir,
+                # try to find a real file matching the target basename
+                target_basename = os.path.basename(link_target)
+                if not os.path.exists(os.path.join(glibc_dir, target_basename)):
+                    # Target doesn't exist yet — create as-is (might be fixed later)
+                    pass
                 os.symlink(link_target, dest)
             else:
                 with open(dest, 'wb') as f:
                     f.write(data)
-            existing.add(fname)
+                existing_files[fname] = dest
+            existing_basenames.add(fname)
             count += 1
 
         if count > 0:
@@ -154,20 +176,67 @@ def main():
 
         os.remove(deb_path)
 
-    # Create missing symlinks for major versions
-    for f in list(existing):
-        if '.so.' in f and not os.path.islink(os.path.join(glibc_dir, f)):
-            parts = f.split('.so.')
-            if len(parts) == 2:
-                ver_parts = parts[1].split('.')
-                for i in range(1, len(ver_parts)):
-                    link = parts[0] + '.so.' + '.'.join(ver_parts[:i])
-                    link_path = os.path.join(glibc_dir, link)
-                    if not os.path.exists(link_path):
-                        os.symlink(f, link_path)
+    # Robust symlink creation: for every real .so file, ensure shorter version symlinks exist
+    # Also fix broken symlinks by matching to real files
+    created = 0
+    for fname, fpath in list(existing_files.items()):
+        if '.so.' not in fname:
+            continue
+        parts = fname.split('.so.')
+        if len(parts) != 2:
+            continue
+        base = parts[0]  # e.g., libfoo
+        ver = parts[1]    # e.g., 1.2.3
+        ver_parts = ver.split('.')
+
+        # Create major version symlink: libfoo.so.1 -> libfoo.so.1.2.3
+        for i in range(1, len(ver_parts)):
+            link_name = f'{base}.so.{".".join(ver_parts[:i])}'
+            link_path = os.path.join(glibc_dir, link_name)
+            if not os.path.exists(link_path):
+                os.symlink(fname, link_path)
+                created += 1
+            elif os.path.islink(link_path) and not os.path.exists(link_path):
+                # Broken symlink — fix it
+                os.remove(link_path)
+                os.symlink(fname, link_path)
+                created += 1
+
+        # Create base symlink: libfoo.so -> libfoo.so.1.2.3
+        base_link = os.path.join(glibc_dir, f'{base}.so')
+        if not os.path.exists(base_link):
+            os.symlink(fname, base_link)
+            created += 1
+        elif os.path.islink(base_link) and not os.path.exists(base_link):
+            os.remove(base_link)
+            os.symlink(fname, base_link)
+            created += 1
+
+    # Final pass: fix any remaining broken symlinks
+    fixed = 0
+    if os.path.isdir(glibc_dir):
+        for f in os.listdir(glibc_dir):
+            fp = os.path.join(glibc_dir, f)
+            if os.path.islink(fp) and not os.path.exists(fp):
+                target = os.readlink(fp)
+                target_base = os.path.basename(target)
+                # Try to find the target in existing files
+                if target_base in existing_files:
+                    os.remove(fp)
+                    os.symlink(target_base, fp)
+                    fixed += 1
+                else:
+                    # Try prefix match: libfoo.so.1 -> find libfoo.so.1.*
+                    for real_name in existing_files:
+                        if real_name.startswith(f + '.'):
+                            os.remove(fp)
+                            os.symlink(real_name, fp)
+                            fixed += 1
+                            break
 
     shutil.rmtree(tmpdir, ignore_errors=True)
-    print(f"\nDone: {installed} packages installed, {skipped} skipped (already present)")
+    print(f"\nDone: {installed} packages installed, {skipped} skipped")
+    print(f"  Symlinks created: {created}, broken symlinks fixed: {fixed}")
 
 if __name__ == '__main__':
     main()

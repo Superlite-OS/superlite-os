@@ -100,84 +100,10 @@ CW
     rm -f /tmp/curl-imp.tar.gz
 fi
 
-# ── Google Chrome .deb + glibc deps ────────────────────────────────────────
-log "Installing Chrome..."
-CHROME_DEB="/tmp/google-chrome-stable.deb"
-wget -q -O "$CHROME_DEB" \
-    "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb" 2>&1 || true
-if [ -f "$CHROME_DEB" ] && [ -x "$SQFS/usr/local/bin/zapt" ]; then
-    "$SQFS/usr/local/bin/zapt" install --root "$SQFS" "$CHROME_DEB" 2>&1 || {
-        log "WARNING: Chrome install failed"
-    }
-    chmod 4755 "$SQFS/opt/google/chrome/chrome-sandbox" 2>/dev/null || true
-    mkdir -p "$SQFS/usr/bin"
-    ln -sf /opt/google/chrome/chrome "$SQFS/usr/bin/google-chrome-stable"
-    ln -sf /opt/google/chrome/chrome "$SQFS/usr/bin/google-chrome"
-    rm -f "$CHROME_DEB"
-fi
-
-# Fix glibc symlinks: Debian glibc .deb puts real .so files in
-# /lib/x86_64-linux-gnu/ and /usr/lib/glibc/ has symlinks pointing there.
-# These absolute symlinks break when squashfs is mounted elsewhere.
-# Fix: copy real files into /usr/lib/glibc/ and remove broken symlinks.
-if [ -d "$SQFS/usr/lib/glibc" ]; then
-    log "Fixing glibc symlinks..."
-    # Resolve broken symlinks in /usr/lib/glibc/
-    # zapt redirects ALL .so files to /usr/lib/glibc/ (not /lib/x86_64-linux-gnu/)
-    for link in "$SQFS"/usr/lib/glibc/*; do
-        [ -L "$link" ] || continue
-        [ -f "$link" ] && continue  # symlink target exists, OK
-        # Symlink target is broken — find the real file
-        target=$(readlink "$link")
-        fname=$(basename "$link")
-        real_file=""
-        # Search in /usr/lib/glibc/ itself (zapt redirects all .so here)
-        for dir in "$SQFS/usr/lib/glibc" "$SQFS/lib/x86_64-linux-gnu" "$SQFS/lib"; do
-            [ -f "$dir/$fname" ] && { real_file="$dir/$fname"; break; }
-            [ -L "$dir/$fname" ] && [ -f "$dir/$fname" ] && { real_file="$dir/$fname"; break; }
-            # Also check if symlink target exists in this dir
-            [ -f "$dir/$target" ] && { real_file="$dir/$target"; break; }
-            [ -L "$dir/$target" ] && [ -f "$dir/$target" ] && { real_file="$dir/$target"; break; }
-            # Try to find ld-*.so (versioned name)
-            for f in "$dir"/ld-*.so.* "$dir"/ld-linux*.so.*; do
-                [ -f "$f" ] && { real_file="$f"; break 2; }
-            done
-        done
-        if [ -n "$real_file" ]; then
-            rm "$link"
-            cp "$real_file" "$link"
-            log "  Fixed: $fname (was -> $target)"
-        else
-            log "  WARNING: $fname broken symlink, no real file found"
-        fi
-    done
-    # Ensure ld-linux ELF loader symlink resolves
-    if [ -f "$SQFS/usr/lib/glibc/ld-linux-x86-64.so.2" ]; then
-        mkdir -p "$SQFS/lib64"
-        ln -sf /usr/lib/glibc/ld-linux-x86-64.so.2 "$SQFS/lib64/ld-linux-x86-64.so.2"
-    fi
-    # Also copy libc.so.6 and libm.so.6 for glibc wrapper scripts
-    for so in libc.so.6 libm.so.6 libpthread.so.0 libdl.so.2 librt.so.1; do
-        if [ -L "$SQFS/usr/lib/glibc/$so" ] && [ ! -f "$SQFS/usr/lib/glibc/$so" ]; then
-            target=$(readlink "$SQFS/usr/lib/glibc/$so")
-            for dir in "$SQFS/lib/x86_64-linux-gnu" "$SQFS/lib"; do
-                if [ -f "$dir/$so" ]; then
-                    rm "$SQFS/usr/lib/glibc/$so"
-                    cp "$dir/$so" "$SQFS/usr/lib/glibc/$so"
-                    log "  Fixed: $so"
-                    break
-                fi
-            done
-        fi
-    done
-    log "  glibc symlinks fixed"
-fi
-
-# ── Download missing Debian deps that zapt can't find ──────────────────────
-# These are transitive deps not resolved by zapt from local .deb files.
-# libsystemd0 → liblzma5, liblz4-1; also libhwy1 (Debian ver, not Alpine's GCC13)
-# libxcb-image0, libxcb-keysyms1, libxcb-render-util0, libxcb-cursor0 → Qt xcb plugin
-log "Downloading missing Debian deps..."
+# ── Download glibc deps FIRST (before Chrome/Terax/Doublecmd) ──────────────
+# zapt resolves dependencies from the Debian pool during install.
+# These deps must be available BEFORE the apps that need them.
+log "Downloading glibc deps (must be before app installs)..."
 PACKAGES_GZ="/tmp/superlite-packages.gz"
 wget -q -O "$PACKAGES_GZ" \
     "https://deb.debian.org/debian/dists/bookworm/main/binary-amd64/Packages.gz" 2>/dev/null || true
@@ -203,6 +129,7 @@ _download_deb_pkg() {
     fi
 }
 
+# Core glibc deps — installed BEFORE Chrome/Terax/Doublecmd
 for _pkg in libsystemd0 liblzma5 liblz4-1 libhwy1 \
     libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-cursor0; do
     _download_deb_pkg "$_pkg"
@@ -219,7 +146,135 @@ if [ -f "$_download_glibc_deps_py" ] && command -v python3 >/dev/null 2>&1; then
 fi
 rm -f "$PACKAGES_GZ"
 
-# ── Terax AI terminal (direct .deb via zapt) ───────────────────────────────
+# ── Google Chrome .deb + glibc deps ────────────────────────────────────────
+log "Installing Chrome..."
+CHROME_DEB="/tmp/google-chrome-stable.deb"
+wget -q -O "$CHROME_DEB" \
+    "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb" 2>&1 || true
+if [ -f "$CHROME_DEB" ] && [ -x "$SQFS/usr/local/bin/zapt" ]; then
+    "$SQFS/usr/local/bin/zapt" install --root "$SQFS" "$CHROME_DEB" 2>&1 || {
+        log "WARNING: Chrome install failed"
+    }
+    chmod 4755 "$SQFS/opt/google/chrome/chrome-sandbox" 2>/dev/null || true
+    mkdir -p "$SQFS/usr/bin"
+    ln -sf /opt/google/chrome/chrome "$SQFS/usr/bin/google-chrome-stable"
+    ln -sf /opt/google/chrome/chrome "$SQFS/usr/bin/google-chrome"
+    rm -f "$CHROME_DEB"
+fi
+
+# ── Fix glibc symlinks (robust version-mismatch handling) ──────────────────
+# Debian glibc .deb puts real .so files in /lib/x86_64-linux-gnu/ and
+# /usr/lib/glibc/ has symlinks pointing there. These absolute symlinks
+# break when squashfs is mounted elsewhere.
+# Fix: resolve ALL broken symlinks using basename matching.
+if [ -d "$SQFS/usr/lib/glibc" ]; then
+    log "Fixing glibc symlinks..."
+    _fix_count=0
+
+    # Phase 1: Collect all real (non-symlink) .so files by basename
+    # Build a lookup: basename -> full path
+    # This handles version mismatches (e.g., libfoo.so.1 -> libfoo.so.1.2.3
+    # but real file is libfoo.so.1.3.0)
+    for f in "$SQFS"/usr/lib/glibc/*.so* "$SQFS"/lib/x86_64-linux-gnu/*.so* "$SQFS"/lib/*.so*; do
+        [ -f "$f" ] || continue  # skip non-existent and symlinks
+        [ -L "$f" ] && continue
+        _bname=$(basename "$f")
+        # Store in associative-like format (file exists = marker)
+        eval "_real_${_bname}=\"$f\""
+    done
+
+    # Phase 2: Fix broken symlinks in /usr/lib/glibc/
+    for link in "$SQFS"/usr/lib/glibc/*; do
+        [ -L "$link" ] || continue
+        [ -f "$link" ] && continue  # symlink target exists, OK
+
+        fname=$(basename "$link")
+        target=$(readlink "$link")
+        real_file=""
+
+        # Strategy 1: exact basename match
+        eval "_candidate=\"\${_real_${fname}:-}\""
+        [ -n "$_candidate" ] && [ -f "$_candidate" ] && real_file="$_candidate"
+
+        # Strategy 2: target basename match (for libfoo.so -> libfoo.so.1 cases)
+        if [ -z "$real_file" ]; then
+            _target_base=$(basename "$target")
+            eval "_candidate=\"\${_real_${_target_base}:-}\""
+            [ -n "$_candidate" ] && [ -f "$_candidate" ] && real_file="$_candidate"
+        fi
+
+        # Strategy 3: prefix match (libfoo.so.1 -> find libfoo.so.1.*)
+        if [ -z "$real_file" ]; then
+            for f in "$SQFS"/usr/lib/glibc/"${fname}".* \
+                     "$SQFS"/lib/x86_64-linux-gnu/"${fname}".*; do
+                [ -f "$f" ] && ! [ -L "$f" ] && { real_file="$f"; break; }
+            done
+        fi
+
+        # Strategy 4: for ld-linux/ld.so variants
+        if [ -z "$real_file" ]; then
+            case "$fname" in
+                ld-*.so*|ld-linux*.so*)
+                    for dir in "$SQFS/usr/lib/glibc" "$SQFS/lib/x86_64-linux-gnu" "$SQFS/lib"; do
+                        for f in "$dir"/ld-*.so.* "$dir"/ld-linux*.so.*; do
+                            [ -f "$f" ] && ! [ -L "$f" ] && { real_file="$f"; break 2; }
+                        done
+                    done
+                    ;;
+            esac
+        fi
+
+        if [ -n "$real_file" ]; then
+            rm "$link"
+            # Copy real file (not symlink) to avoid chain-breaking in squashfs
+            cp "$real_file" "$link"
+            _fix_count=$((_fix_count + 1))
+            log "  Fixed: $fname (was -> $target)"
+        else
+            log "  WARNING: $fname broken symlink, no real file found"
+        fi
+    done
+
+    # Phase 3: Ensure critical symlinks exist
+    # ld-linux ELF loader symlink
+    if [ -f "$SQFS/usr/lib/glibc/ld-linux-x86-64.so.2" ]; then
+        mkdir -p "$SQFS/lib64"
+        ln -sf /usr/lib/glibc/ld-linux-x86-64.so.2 "$SQFS/lib64/ld-linux-x86-64.so.2"
+    fi
+
+    # Phase 4: Create missing version symlinks
+    # If libfoo.so.1.2.3 exists as real file, ensure libfoo.so.1 and libfoo.so exist
+    for f in "$SQFS"/usr/lib/glibc/*.so.*.*.*; do
+        [ -f "$f" ] || continue
+        [ -L "$f" ] && continue
+        _bname=$(basename "$f")
+        # Extract base name (e.g., libfoo from libfoo.so.1.2.3)
+        _base=$(echo "$_bname" | sed 's/\.so\..*//')
+        _ver=$(echo "$_bname" | sed 's/.*\.so\.//')
+        # Create major version symlink (libfoo.so.1)
+        _major=$(echo "$_ver" | cut -d. -f1)
+        _major_link="$SQFS/usr/lib/glibc/${_base}.so.${_major}"
+        if [ ! -e "$_major_link" ]; then
+            ln -sf "$_bname" "$_major_link"
+            _fix_count=$((_fix_count + 1))
+        fi
+        # Create base symlink (libfoo.so)
+        _base_link="$SQFS/usr/lib/glibc/${_base}.so"
+        if [ ! -e "$_base_link" ]; then
+            ln -sf "$_bname" "$_base_link"
+            _fix_count=$((_fix_count + 1))
+        fi
+    done
+
+    # Cleanup eval variables
+    for f in "$SQFS"/usr/lib/glibc/*.so* "$SQFS"/lib/x86_64-linux-gnu/*.so* "$SQFS"/lib/*.so*; do
+        [ -f "$f" ] || continue
+        _bname=$(basename "$f")
+        eval "unset _real_${_bname}" 2>/dev/null || true
+    done
+
+    log "  glibc symlinks fixed ($_fix_count fixes)"
+fi
 TERAX_DEB="/tmp/terax.deb"
 log "Installing Terax AI terminal..."
 wget -q -O "$TERAX_DEB" \
