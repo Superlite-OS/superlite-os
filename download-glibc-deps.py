@@ -75,6 +75,77 @@ def extract_so_from_deb(deb_path):
                 f.read(size + (size % 2))
     return files
 
+def find_pkg_for_soname(soname, pkgs):
+    """Find which package provides a given .so soname by searching Filename field."""
+    # Common soname -> package mappings
+    SONAME_MAP = {
+        'libpcre2-8.so': 'libpcre2-8-0',
+        'libffi.so': 'libffi8',
+        'libz.so': 'zlib1g',
+        'libgmp.so': 'libgmp10',
+        'libhogweed.so': 'libhogweed6',
+        'libnettle.so': 'libnettle8',
+        'libgnutls.so': 'libgnutls30',
+        'libtasn1.so': 'libtasn1-6',
+        'libunistring.so': 'libunistring5',
+        'libidn2.so': 'libidn2-0',
+        'libp11-kit.so': 'libp11-kit0',
+        'libpthread.so': 'libc6',
+        'libdl.so': 'libc6',
+        'libm.so': 'libc6',
+        'librt.so': 'libc6',
+        'libresolv.so': 'libc6',
+        'libnss_files.so': 'libc6',
+        'libcrypt.so': 'libcrypt1',
+        'libstdc++.so': 'libstdc++6',
+        'libgcc_s.so': 'libgcc-s1',
+    }
+
+    # Check direct map first
+    base = soname.split('.so')[0]
+    for pattern, pkg in SONAME_MAP.items():
+        if soname.startswith(pattern.rstrip('.so')):
+            if pkg in pkgs:
+                return pkg
+
+    # Search package names by soname prefix
+    for pkg_name in pkgs:
+        pkg_base = pkg_name.rstrip('0123456789')
+        if base.startswith(pkg_base) or pkg_base.startswith(base):
+            return pkg_name
+
+    return None
+
+
+def check_missing_libs(glibc_dir):
+    """Run ldd on all .so files in glibc_dir and return set of missing sonames."""
+    missing = set()
+    if not os.path.isdir(glibc_dir):
+        return missing
+
+    for f in os.listdir(glibc_dir):
+        fp = os.path.join(glibc_dir, f)
+        if not os.path.isfile(fp) or os.path.islink(fp):
+            continue
+        if '.so' not in f:
+            continue
+        try:
+            import subprocess
+            result = subprocess.run(
+                ['ldd', fp],
+                capture_output=True, text=True, timeout=5,
+                env={**os.environ, 'LD_LIBRARY_PATH': glibc_dir}
+            )
+            for line in result.stdout.split('\n'):
+                if 'not found' in line:
+                    soname = line.strip().split()[0]
+                    missing.add(soname)
+        except Exception:
+            pass
+
+    return missing
+
+
 def main():
     glibc_dir = sys.argv[1] if len(sys.argv) > 1 else '/usr/lib/glibc'
     packages_gz = sys.argv[2] if len(sys.argv) > 2 else None
@@ -116,25 +187,11 @@ def main():
     tmpdir = '/tmp/glibc-deps'
     os.makedirs(tmpdir, exist_ok=True)
 
-    installed = 0
-    skipped = 0
-    for i, pkg in enumerate(lib_pkgs):
+    def download_and_extract(pkg):
+        """Download a .deb package and extract .so files. Returns count of new files."""
         filename = pkgs[pkg].get('Filename', '')
         if not filename:
-            continue
-
-        # Check if we already have ANY .so from this package
-        # Use package name prefix matching (e.g., libsystemd0 -> check for libsystemd)
-        # But be less aggressive: only skip if we have a real file matching the package's soname
-        pkg_base = pkg.rstrip('0123456789')  # libsystemd0 -> libsystemd
-        has_any = False
-        for bn in existing_basenames:
-            if bn.startswith(pkg_base):
-                has_any = True
-                break
-        if has_any:
-            skipped += 1
-            continue
+            return 0
 
         deb_path = os.path.join(tmpdir, f'{pkg}.deb')
         url = f'https://deb.debian.org/debian/{filename}'
@@ -142,25 +199,21 @@ def main():
         try:
             urllib.request.urlretrieve(url, deb_path)
         except Exception as e:
-            print(f"  [{i+1}/{len(lib_pkgs)}] FAIL {pkg}: {e}")
-            continue
+            print(f"    FAIL {pkg}: {e}")
+            return 0
 
         files = extract_so_from_deb(deb_path)
         count = 0
         for fname, data, is_link, link_target in files:
             dest = os.path.join(glibc_dir, fname)
             if os.path.exists(dest):
-                # File exists — but if it's a broken symlink, replace it
                 if os.path.islink(dest) and not os.path.exists(dest):
                     os.remove(dest)
                 else:
                     continue
             if is_link:
-                # For symlinks: if target doesn't exist in glibc_dir,
-                # try to find a real file matching the target basename
                 target_basename = os.path.basename(link_target)
                 if not os.path.exists(os.path.join(glibc_dir, target_basename)):
-                    # Target doesn't exist yet — create as-is (might be fixed later)
                     pass
                 os.symlink(link_target, dest)
             else:
@@ -170,14 +223,64 @@ def main():
             existing_basenames.add(fname)
             count += 1
 
+        os.remove(deb_path)
+        return count
+
+    # Phase 1: Download packages from resolved dependency tree
+    installed = 0
+    skipped = 0
+    for i, pkg in enumerate(lib_pkgs):
+        pkg_base = pkg.rstrip('0123456789')
+        has_any = False
+        for bn in existing_basenames:
+            if bn.startswith(pkg_base):
+                has_any = True
+                break
+        if has_any:
+            skipped += 1
+            continue
+
+        count = download_and_extract(pkg)
         if count > 0:
             print(f"  [{i+1}/{len(lib_pkgs)}] {pkg}: {count} files")
             installed += 1
 
-        os.remove(deb_path)
+    # Phase 2: ldd-based resolution — check all .so files for missing deps
+    # This catches transitive runtime deps not in package Depends field
+    print("\nPhase 2: ldd-based missing lib resolution...")
+    MAX_ROUNDS = 10
+    for round_num in range(MAX_ROUNDS):
+        missing = check_missing_libs(glibc_dir)
+        if not missing:
+            print(f"  Round {round_num+1}: all libs satisfied!")
+            break
 
-    # Robust symlink creation: for every real .so file, ensure shorter version symlinks exist
-    # Also fix broken symlinks by matching to real files
+        print(f"  Round {round_num+1}: {len(missing)} missing libs: {', '.join(sorted(missing))}")
+
+        resolved_this_round = 0
+        for soname in sorted(missing):
+            pkg = find_pkg_for_soname(soname, pkgs)
+            if not pkg:
+                print(f"    {soname}: no package found")
+                continue
+
+            # Check if already downloaded
+            pkg_base = pkg.rstrip('0123456789')
+            already_have = any(bn.startswith(pkg_base) for bn in existing_basenames)
+            if already_have:
+                continue
+
+            print(f"    {soname} -> {pkg}")
+            count = download_and_extract(pkg)
+            if count > 0:
+                installed += 1
+                resolved_this_round += 1
+
+        if resolved_this_round == 0:
+            print(f"  No more packages to resolve")
+            break
+
+    # Robust symlink creation
     created = 0
     for fname, fpath in list(existing_files.items()):
         if '.so.' not in fname:
@@ -185,11 +288,10 @@ def main():
         parts = fname.split('.so.')
         if len(parts) != 2:
             continue
-        base = parts[0]  # e.g., libfoo
-        ver = parts[1]    # e.g., 1.2.3
+        base = parts[0]
+        ver = parts[1]
         ver_parts = ver.split('.')
 
-        # Create major version symlink: libfoo.so.1 -> libfoo.so.1.2.3
         for i in range(1, len(ver_parts)):
             link_name = f'{base}.so.{".".join(ver_parts[:i])}'
             link_path = os.path.join(glibc_dir, link_name)
@@ -197,12 +299,10 @@ def main():
                 os.symlink(fname, link_path)
                 created += 1
             elif os.path.islink(link_path) and not os.path.exists(link_path):
-                # Broken symlink — fix it
                 os.remove(link_path)
                 os.symlink(fname, link_path)
                 created += 1
 
-        # Create base symlink: libfoo.so -> libfoo.so.1.2.3
         base_link = os.path.join(glibc_dir, f'{base}.so')
         if not os.path.exists(base_link):
             os.symlink(fname, base_link)
@@ -212,7 +312,7 @@ def main():
             os.symlink(fname, base_link)
             created += 1
 
-    # Final pass: fix any remaining broken symlinks
+    # Final pass: fix broken symlinks
     fixed = 0
     if os.path.isdir(glibc_dir):
         for f in os.listdir(glibc_dir):
@@ -220,13 +320,11 @@ def main():
             if os.path.islink(fp) and not os.path.exists(fp):
                 target = os.readlink(fp)
                 target_base = os.path.basename(target)
-                # Try to find the target in existing files
                 if target_base in existing_files:
                     os.remove(fp)
                     os.symlink(target_base, fp)
                     fixed += 1
                 else:
-                    # Try prefix match: libfoo.so.1 -> find libfoo.so.1.*
                     for real_name in existing_files:
                         if real_name.startswith(f + '.'):
                             os.remove(fp)
