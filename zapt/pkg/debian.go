@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os/exec"
 	"strings"
 )
 
@@ -42,10 +43,22 @@ func DebianSearch(src Source, query string) ([]Package, error) {
 }
 
 // searchDebianURL searches a specific Debian Packages.gz URL
+// Falls back to .xz if .gz returns 404 (bookworm-security, bookworm-updates)
 func searchDebianURL(url, query, arch string) ([]Package, error) {
+	// Try .gz first
 	resp, err := HTTPClient.Get(url)
 	if err != nil {
 		return nil, err
+	}
+
+	if resp.StatusCode == http.StatusNotFound {
+		resp.Body.Close()
+		// Fallback to .xz
+		xzURL := strings.TrimSuffix(url, ".gz") + ".xz"
+		resp, err = HTTPClient.Get(xzURL)
+		if err != nil {
+			return nil, err
+		}
 	}
 	defer resp.Body.Close()
 
@@ -53,13 +66,31 @@ func searchDebianURL(url, query, arch string) ([]Package, error) {
 		return nil, fmt.Errorf("http status: %d", resp.StatusCode)
 	}
 
-	gz, err := gzip.NewReader(resp.Body)
-	if err != nil {
-		return nil, err
+	// Determine format from URL suffix
+	var reader io.Reader
+	if strings.HasSuffix(resp.Request.URL.Path, ".xz") {
+		// Decompress xz using external command (no Go xz library needed)
+		cmd := exec.Command("xz", "-d", "-c")
+		cmd.Stdin = resp.Body
+		out, err := cmd.StdoutPipe()
+		if err != nil {
+			return nil, fmt.Errorf("xz pipe: %w", err)
+		}
+		if err := cmd.Start(); err != nil {
+			return nil, fmt.Errorf("xz start: %w", err)
+		}
+		defer cmd.Wait()
+		reader = out
+	} else {
+		gz, err := gzip.NewReader(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		defer gz.Close()
+		reader = gz
 	}
-	defer gz.Close()
 
-	return parsePackagesIndex(gz, query, "debian")
+	return parsePackagesIndex(reader, query, "debian")
 }
 
 // parsePackagesIndex parses a Debian Packages index

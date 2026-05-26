@@ -56,10 +56,22 @@ func LoadSources(path string) ([]Source, error) {
 }
 
 // DefaultSources returns Debian Bookworm sources
+// Includes bookworm, bookworm-security, bookworm-updates
+// Each with main, contrib, non-free, non-free-firmware components
 func DefaultSources() []Source {
 	return []Source{
 		{URL: "deb.debian.org", Dist: "bookworm", Comp: "main"},
 		{URL: "deb.debian.org", Dist: "bookworm", Comp: "contrib"},
+		{URL: "deb.debian.org", Dist: "bookworm", Comp: "non-free"},
+		{URL: "deb.debian.org", Dist: "bookworm", Comp: "non-free-firmware"},
+		{URL: "security.debian.org/debian-security", Dist: "bookworm-security", Comp: "main"},
+		{URL: "security.debian.org/debian-security", Dist: "bookworm-security", Comp: "contrib"},
+		{URL: "security.debian.org/debian-security", Dist: "bookworm-security", Comp: "non-free"},
+		{URL: "security.debian.org/debian-security", Dist: "bookworm-security", Comp: "non-free-firmware"},
+		{URL: "deb.debian.org", Dist: "bookworm-updates", Comp: "main"},
+		{URL: "deb.debian.org", Dist: "bookworm-updates", Comp: "contrib"},
+		{URL: "deb.debian.org", Dist: "bookworm-updates", Comp: "non-free"},
+		{URL: "deb.debian.org", Dist: "bookworm-updates", Comp: "non-free-firmware"},
 	}
 }
 

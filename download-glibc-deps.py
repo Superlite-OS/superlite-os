@@ -6,17 +6,65 @@ Usage: python3 download-glibc-deps.py <glibc_dir> [packages.gz_path]
 """
 import gzip, os, sys, urllib.request, tarfile, io, lzma, shutil
 
+REPOS = [
+    # base_url, dist, comp
+    ("https://deb.debian.org/debian", "bookworm", "main"),
+    ("https://deb.debian.org/debian", "bookworm", "contrib"),
+    ("https://deb.debian.org/debian", "bookworm", "non-free"),
+    ("https://deb.debian.org/debian", "bookworm", "non-free-firmware"),
+    ("https://security.debian.org/debian-security", "bookworm-security", "main"),
+    ("https://security.debian.org/debian-security", "bookworm-security", "contrib"),
+    ("https://security.debian.org/debian-security", "bookworm-security", "non-free"),
+    ("https://security.debian.org/debian-security", "bookworm-security", "non-free-firmware"),
+    ("https://deb.debian.org/debian", "bookworm-updates", "main"),
+    ("https://deb.debian.org/debian", "bookworm-updates", "contrib"),
+    ("https://deb.debian.org/debian", "bookworm-updates", "non-free"),
+    ("https://deb.debian.org/debian", "bookworm-updates", "non-free-firmware"),
+]
+
+def fetch_url(url):
+    """Fetch URL, try .gz first then .xz fallback."""
+    try:
+        resp = urllib.request.urlopen(url)
+        return resp.read()
+    except urllib.error.HTTPError:
+        if url.endswith('.gz'):
+            xz_url = url[:-3] + '.xz'
+            try:
+                resp = urllib.request.urlopen(xz_url)
+                return lzma.decompress(resp.read())
+            except Exception:
+                pass
+    return None
+
 def parse_packages(packages_gz_path=None):
     if packages_gz_path and os.path.exists(packages_gz_path):
         with open(packages_gz_path, 'rb') as f:
             data = f.read()
-    else:
-        url = "https://deb.debian.org/debian/dists/bookworm/main/binary-amd64/Packages.gz"
-        data = urllib.request.urlopen(url).read()
+        try:
+            return _parse_packages_data(gzip.decompress(data))
+        except Exception:
+            try:
+                return _parse_packages_data(lzma.decompress(data))
+            except Exception:
+                return _parse_packages_data(data)
 
+    # Download from all repos and merge
+    pkgs = {}
+    for base_url, dist, comp in REPOS:
+        url = f"{base_url}/dists/{dist}/{comp}/binary-amd64/Packages.gz"
+        data = fetch_url(url)
+        if data:
+            repo_pkgs = _parse_packages_data(gzip.decompress(data) if data[:2] == b'\x1f\x8b' else data)
+            for name, info in repo_pkgs.items():
+                if name not in pkgs:
+                    pkgs[name] = info
+    return pkgs
+
+def _parse_packages_data(data):
     pkgs = {}
     current = {}
-    for line in gzip.decompress(data).decode().split('\n'):
+    for line in data.decode('utf-8', errors='replace').split('\n'):
         line = line.strip()
         if line == '':
             if current.get('Package'):
