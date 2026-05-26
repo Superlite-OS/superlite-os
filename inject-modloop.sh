@@ -114,7 +114,7 @@ _download_deb_pkg() {
         log "  WARNING: Packages.gz not available, skipping $_pkg"
         return 1
     fi
-    _pkgfile=$(zcat "$PACKAGES_GZ" 2>/dev/null | grep -A1 "^Package: ${_pkg}$" \
+    _pkgfile=$(zcat "$PACKAGES_GZ" 2>/dev/null | grep -A20 "^Package: ${_pkg}$" \
         | grep "^Filename:" | head -1 | sed 's/Filename: //')
     if [ -n "$_pkgfile" ]; then
         log "  Downloading $_pkg from $_pkgfile"
