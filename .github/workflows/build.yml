@@ -325,18 +325,24 @@ jobs:
             sleep 1
             expect -re {{{pr}}}
 
-            # Phase 2: Run checks
+            # Phase 2: Run binary checks (not just existence, actually execute)
             set checks [list \\
               {{"Kernel version" "uname -r" "lts"}} \\
               {{"Root user" "whoami" "root"}} \\
-              {{"Chrome binary" "test -f /opt/google/chrome/chrome && echo CHROME_OK" "CHROME_OK"}} \\
-              {{"glibc libs" "test -f /usr/lib/glibc/ld-linux-x86-64.so.2 && echo GLIBC_OK" "GLIBC_OK"}} \\
-              {{"zapt binary" "test -f /usr/local/bin/zapt && echo ZAPT_OK" "ZAPT_OK"}} \\
-              {{"Terax binary" "find /usr -name terax -type f 2>/dev/null | head -1" "terax"}} \\
+              {{"glibc loader run" "/usr/lib/glibc/ld-linux-x86-64.so.2 --version 2>&1 | head -1" "GNU"}} \\
+              {{"Chrome --version" "LD_LIBRARY_PATH=/usr/lib/glibc /opt/google/chrome/chrome --version 2>&1 | head -1" "Chrome"}} \\
+              {{"curl --version" "LD_LIBRARY_PATH=/usr/lib/glibc:/usr/local/lib/curl-impersonate /usr/local/bin/curl --version 2>&1 | head -1" "curl"}} \\
+              {{"Terax --version" "LD_LIBRARY_PATH=/usr/lib/glibc /usr/bin/terax --version 2>&1 | head -1" "terax"}} \\
+              {{"Doublecmd --version" "LD_LIBRARY_PATH=/usr/lib/glibc /usr/bin/doublecmd --version 2>&1 | head -1" "doublecmd"}} \\
+              {{"zapt --version" "/usr/local/bin/zapt --version 2>&1 | head -1" "zapt"}} \\
               {{"labwc binary" "command -v labwc || find /usr -name labwc -type f 2>/dev/null | head -1" "labwc"}} \\
               {{"Waybar binary" "command -v waybar" "/usr/bin/waybar"}} \\
               {{"Seatd binary" "command -v seatd" "/usr/bin/seatd"}} \\
               {{"PipeWire binary" "command -v pipewire" "/usr/bin/pipewire"}} \\
+              {{"ldd Chrome" "LD_LIBRARY_PATH=/usr/lib/glibc /lib64/ld-linux-x86-64.so.2 --list /opt/google/chrome/chrome 2>&1 | grep 'not found' || echo LDD_CHROME_OK" "LDD_CHROME_OK"}} \\
+              {{"ldd terax" "LD_LIBRARY_PATH=/usr/lib/glibc /lib64/ld-linux-x86-64.so.2 --list /usr/lib/glibc/bin/terax 2>&1 | grep 'not found' || echo LDD_TERAX_OK" "LDD_TERAX_OK"}} \\
+              {{"ldd doublecmd" "LD_LIBRARY_PATH=/usr/lib/glibc /lib64/ld-linux-x86-64.so.2 --list /lib/doublecmd/doublecmd 2>&1 | grep 'not found' || echo LDD_DCMD_OK" "LDD_DCMD_OK"}} \\
+              {{"ldd curl" "LD_LIBRARY_PATH=/usr/lib/glibc /lib64/ld-linux-x86-64.so.2 --list /usr/local/lib/curl-impersonate/curl-impersonate-chrome 2>&1 | grep 'not found' || echo LDD_CURL_OK" "LDD_CURL_OK"}} \\
             ]
 
             set fail_count 0
@@ -361,9 +367,34 @@ jobs:
               if {{[string match "*$pattern*" $output]}} {{
                 puts "\\n>>> CHECK_OK: $label"
               }} else {{
-                puts "\\n>>> CHECK_FAIL: $label (output: [string range $output 0 80])"
+                puts "\\n>>> CHECK_FAIL: $label (output: [string range $output 0 120])"
                 incr fail_count
               }}
+            }}
+
+            # Phase 3: Check for missing critical .so libraries
+            # This catches broken symlinks, missing deps, version mismatches
+            send "echo '===MISSING_LIBS_CHECK==='\r"
+            expect -re {{{pr}}}
+            send "MISSING=0; for bin in /opt/google/chrome/chrome /usr/bin/terax /usr/bin/doublecmd /usr/local/lib/curl-impersonate/curl-impersonate-chrome; do echo \\"=== \$bin ===\\"; LD_LIBRARY_PATH=/usr/lib/glibc /usr/lib/glibc/ld-linux-x86-64.so.2 --library-path /usr/lib/glibc --list \\"\\$bin\\" 2>&1 | grep 'not found' && MISSING=1 || echo 'OK'; done; if [ \\"\\$MISSING\\" = 1 ]; then echo 'MISSING_LIBS_FAIL'; else echo 'MISSING_LIBS_PASS'; fi\r"
+            set lib_output ""
+            expect {{
+              -re "(.*){pr}" {{
+                set lib_output $expect_out(1,string)
+              }}
+              timeout {{
+                puts "\\n>>> MISSING_LIBS: timeout"
+                incr fail_count
+              }}
+            }}
+            if {{[string match "*MISSING_LIBS_FAIL*" $lib_output]}} {{
+              puts "\\n>>> CHECK_FAIL: Missing critical .so libraries detected"
+              incr fail_count
+            }} elseif {{[string match "*MISSING_LIBS_PASS*" $lib_output]}} {{
+              puts "\\n>>> CHECK_OK: All critical .so libraries present"
+            }} else {{
+              puts "\\n>>> CHECK_FAIL: Missing libs check inconclusive"
+              incr fail_count
             }}
 
             send "poweroff\\r"
