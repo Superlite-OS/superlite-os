@@ -6,33 +6,40 @@
 # Requirements: Alpine 3.23 with qt5-qtbase-dev, qt5-qtx11extras-dev installed.
 # FPC is installed here from edge/testing. Lazarus and libQt5Pas built from source.
 
-set -e
-
-LAZARUS_VER="4.2"
-LAZARUS_MAJOR="4"
-LAZARUS_MINOR="2"
-DC_SRC="/tmp/_dc_build"
+LAZARUS_MAJOR="3"
+LAZARUS_MINOR="0"
+LAZARUS_TAG="lazarus_${LAZARUS_MAJOR}_${LAZARUS_MINOR}"
 LAZARUS_SRC="/tmp/_lazarus_build"
 OUTPUT="/tmp/doublecmd-musl"
+BUILDLOG="/tmp/doublecmd-build.log"
 
-log() { echo "[doublecmd-build] $*"; }
+log() { echo "[doublecmd-build] $*" | tee -a "$BUILDLOG"; }
+
+# Don't use set -e — we need to handle errors manually for better diagnostics
+# set -e
 
 # ── Stage 1: Install FPC from edge/testing ────────────────────────────────
-log "Installing FPC compiler..."
+log "=== Stage 1: Install FPC ==="
 apk add --no-cache --repository=https://dl-cdn.alpinelinux.org/alpine/edge/testing fpc || {
     log "ERROR: Failed to install fpc"
     exit 1
 }
-fpc -iV || { log "ERROR: fpc not working"; exit 1; }
-log "FPC installed: $(fpc -iV)"
+FPC_VER=$(fpc -iV 2>&1)
+log "FPC installed: $FPC_VER"
 
-# ── Stage 2: Download + Build Lazarus ─────────────────────────────────────
-log "Building Lazarus ${LAZARUS_VER}..."
+# ── Stage 2: Install Lazarus build deps ───────────────────────────────────
+log "=== Stage 2: Install Lazarus build deps ==="
+apk add --no-cache \
+    gtk+2.0-dev glib-dev gdk-pixbuf-dev pango-dev cairo-dev \
+    xorgproto libx11-dev libxext-dev \
+    2>&1 | tail -3
+
+# ── Stage 3: Download + Build Lazarus ─────────────────────────────────────
+log "=== Stage 3: Build Lazarus ${LAZARUS_MAJOR}.${LAZARUS_MINOR} ==="
+rm -rf "$LAZARUS_SRC"
 mkdir -p "$LAZARUS_SRC"
 cd "$LAZARUS_SRC"
 
-# Download from GitLab (official Lazarus source)
-LAZARUS_TAG="lazarus_${LAZARUS_MAJOR}_${LAZARUS_MINOR}"
 wget -q "https://gitlab.com/freepascal.org/lazarus/lazarus/-/archive/${LAZARUS_TAG}/lazarus-${LAZARUS_TAG}.tar.gz" \
     -O lazarus.tar.gz || {
     log "ERROR: Failed to download Lazarus from GitLab"
@@ -42,39 +49,67 @@ tar xzf lazarus.tar.gz --strip-components=1
 rm -f lazarus.tar.gz
 log "Lazarus source extracted"
 
-# Build lazbuild (the Lazarus command-line build tool)
-make -j"$(nproc)" lazbuild 2>&1 | tail -5
+# Build lazbuild — Lazarus command-line build tool
+# The Makefile lazbuild target: builds LCL then compiles tools/lazbuild/lazbuild.lpr
+log "Building lazbuild (full output to $BUILDLOG)..."
+make lazbuild 2>&1 | tee -a "$BUILDLOG" | tail -30
+MAKE_RC=${PIPESTATUS[0]}
+
+if [ ! -f lazbuild ] || [ ! -x lazbuild ]; then
+    log "ERROR: lazbuild not built (make exit=$MAKE_RC)"
+    log "=== Last 50 lines of build log ==="
+    tail -50 "$BUILDLOG"
+    # Try alternative: compile lazbuild directly with FPC
+    log "Trying direct FPC compilation of lazbuild..."
+    _LCL_UNITS="lcl/units/$(fpc -iTP)-$(fpc -iTO)"
+    _LAZUTILS="components/lazutils/lib/$(fpc -iTP)-$(fpc -iTO)"
+    if [ -d "$_LCL_UNITS" ] && [ -d "$_LAZUTILS" ]; then
+        fpc -dRELEASE \
+            -FiLCL -FiLCL/forms \
+            -Fu"$_LCL_UNITS" \
+            -Fu"$_LAZUTILS" \
+            -Fu"$_LCL_UNITS/$(fpc -iSP)" \
+            -FE. \
+            tools/lazbuild/lazbuild.lpr 2>&1 | tee -a "$BUILDLOG" | tail -20
+    fi
+fi
+
 LAZBUILD="$(pwd)/lazbuild"
 if [ ! -x "$LAZBUILD" ]; then
-    log "ERROR: lazbuild not built"
+    log "FATAL: lazbuild could not be built. Full log at $BUILDLOG"
     exit 1
 fi
 log "lazbuild built: $LAZBUILD"
 
-# ── Stage 3: Build libQt5Pas from Lazarus source ──────────────────────────
-log "Building libQt5Pas..."
+# ── Stage 4: Build libQt5Pas ──────────────────────────────────────────────
+log "=== Stage 4: Build libQt5Pas ==="
 cd "$LAZARUS_SRC/lcl/interfaces/qt5/cbindings"
 if [ -f build.sh ]; then
-    sh build.sh 2>&1 | tail -5
+    sh build.sh 2>&1 | tee -a "$BUILDLOG" | tail -10
 fi
 
-# Install libQt5Pas system-wide for doublecmd build
 if [ -f libQt5Pas.so ]; then
     cp -v libQt5Pas.so /usr/lib/
     ldconfig /usr/lib 2>/dev/null || true
-    log "libQt5Pas installed"
+    log "libQt5Pas installed to /usr/lib/"
 else
-    log "WARNING: libQt5Pas not built, trying to find it..."
-    find . -name 'libQt5Pas*' -type f 2>/dev/null
-    # Try building manually
-    gcc -shared -fPIC -o /usr/lib/libQt5Pas.so \
-        -I/usr/include/qt5 -I/usr/include/qt5/QtCore -I/usr/include/qt5/QtGui \
-        -I/usr/include/qt5/QtWidgets -I/usr/include/qt5/QtX11Extras \
-        *.c -lQt5Core -lQt5Gui -lQt5Widgets -lQt5X11Extras 2>&1 | tail -5
+    log "WARNING: libQt5Pas not built from cbindings, trying manual compile..."
+    # Find all .c files and compile
+    gcc -shared -fPIC -O2 -o /usr/lib/libQt5Pas.so \
+        $(find . -name '*.c') \
+        -I. -I../../.. \
+        $(pkg-config --cflags --libs Qt5Core Qt5Gui Qt5Widgets Qt5X11Extras 2>/dev/null) \
+        2>&1 | tee -a "$BUILDLOG" | tail -10
+    if [ -f /usr/lib/libQt5Pas.so ]; then
+        log "libQt5Pas built manually"
+    else
+        log "ERROR: libQt5Pas could not be built"
+        exit 1
+    fi
 fi
 
-# ── Stage 4: Build Double Commander ───────────────────────────────────────
-log "Building Double Commander..."
+# ── Stage 5: Build Double Commander ───────────────────────────────────────
+log "=== Stage 5: Build Double Commander ==="
 
 # Use vendored source if available (pinned version), otherwise clone
 if [ -d "/build/vendor/doublecmd" ] && [ -f "/build/vendor/doublecmd/build.sh" ]; then
@@ -92,32 +127,38 @@ export lcl=qt5
 export CPU_TARGET=x86_64
 export lazbuild="$LAZBUILD"
 
-# Build doublecmd
-./build.sh release qt5 2>&1 | tail -10
+# Apply musl compatibility patches
+if [ -f "/build/patch-doublecmd-musl.sh" ]; then
+    sh /build/patch-doublecmd-musl.sh "$DC_SRC"
+fi
 
-# Verify binary
-if [ ! -f doublecmd ]; then
-    # Binary may be in a subdirectory
-    _dc_bin=$(find . -name doublecmd -type f -executable | head -1)
-    if [ -n "$_dc_bin" ]; then
-        cp "$_dc_bin" ./doublecmd
-    else
-        log "ERROR: doublecmd binary not built"
-        exit 1
-    fi
+log "Building doublecmd with widgetset=$lcl..."
+./build.sh release qt5 2>&1 | tee -a "$BUILDLOG" | tail -20
+
+# Find the binary
+DC_BIN=""
+if [ -f doublecmd ]; then
+    DC_BIN="./doublecmd"
+else
+    DC_BIN=$(find . -maxdepth 3 -name doublecmd -type f ! -name '*.lpi' ! -name '*.lpr' ! -name '*.pas' | head -1)
+fi
+
+if [ -z "$DC_BIN" ] || [ ! -f "$DC_BIN" ]; then
+    log "ERROR: doublecmd binary not found. Build log at $BUILDLOG"
+    exit 1
 fi
 
 log "Doublecmd built successfully"
-file doublecmd
-ldd doublecmd 2>&1 | head -10 || true
+file "$DC_BIN"
+ldd "$DC_BIN" 2>&1 | head -10 | tee -a "$BUILDLOG" || true
 
-# ── Stage 5: Package artifacts ────────────────────────────────────────────
-log "Packaging artifacts to $OUTPUT..."
+# ── Stage 6: Package artifacts ────────────────────────────────────────────
+log "=== Stage 6: Package artifacts ==="
 rm -rf "$OUTPUT"
 mkdir -p "$OUTPUT/usr/bin" "$OUTPUT/lib/doublecmd"
 
 # Main binary
-cp -v doublecmd "$OUTPUT/usr/bin/doublecmd"
+cp -v "$DC_BIN" "$OUTPUT/usr/bin/doublecmd"
 chmod +x "$OUTPUT/usr/bin/doublecmd"
 
 # Shared libraries
@@ -127,11 +168,9 @@ for f in *.so *.so.*; do
 done
 
 # Plugins directory
-if [ -d plugins ]; then
-    cp -a plugins "$OUTPUT/lib/doublecmd/"
-fi
+[ -d plugins ] && cp -a plugins "$OUTPUT/lib/doublecmd/"
 
-# Config files / translation files
+# Translation files and pixmaps
 for d in language pixmaps; do
     [ -d "$d" ] && cp -a "$d" "$OUTPUT/lib/doublecmd/"
 done
@@ -142,12 +181,10 @@ cp -v /usr/lib/libQt5Pas.so "$OUTPUT/lib/doublecmd/" 2>/dev/null || true
 log "=== Artifacts ==="
 ls -la "$OUTPUT/usr/bin/doublecmd"
 ls -la "$OUTPUT/lib/doublecmd/"
-echo ""
 
 # ── Cleanup ───────────────────────────────────────────────────────────────
-log "Cleaning up build deps..."
+log "=== Cleanup ==="
 rm -rf "$LAZARUS_SRC"
-# Only clean DC_SRC if it was a temp clone (not vendored)
 [ "$DC_SRC" = "/tmp/_dc_build" ] && rm -rf "$DC_SRC"
 apk del fpc 2>/dev/null || true
 
