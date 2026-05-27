@@ -70,7 +70,18 @@ cd "$TERAX_SRC"
 
 # Install frontend dependencies
 log "Installing frontend dependencies..."
-pnpm install --frozen-lockfile 2>&1 | tail -5 || {
+# Allow all build scripts (esbuild, msw, etc.) — pnpm 9+ blocks them by default
+# Inject pnpm.onlyBuiltDependencies into package.json before install
+python3 -c "
+import json
+with open('package.json', 'r') as f:
+    pkg = json.load(f)
+pkg.setdefault('pnpm', {})['onlyBuiltDependencies'] = ['*']
+with open('package.json', 'w') as f:
+    json.dump(pkg, f, indent=2)
+    f.write('\n')
+"
+pnpm install 2>&1 | tail -5 || {
     log "ERROR: pnpm install failed"
     exit 1
 }
