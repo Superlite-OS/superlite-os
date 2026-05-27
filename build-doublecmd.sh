@@ -8,7 +8,9 @@
 
 set -e
 
-LAZARUS_VER="4.6"
+LAZARUS_VER="4.2"
+LAZARUS_MAJOR="4"
+LAZARUS_MINOR="2"
 DC_SRC="/tmp/_dc_build"
 LAZARUS_SRC="/tmp/_lazarus_build"
 OUTPUT="/tmp/doublecmd-musl"
@@ -29,22 +31,19 @@ log "Building Lazarus ${LAZARUS_VER}..."
 mkdir -p "$LAZARUS_SRC"
 cd "$LAZARUS_SRC"
 
-# Download Lazarus source (not the binary — we build from source for musl)
-wget -q "https://sourceforge.net/projects/lazarus/files/Lazarus%20Source/lazarus-${LAZARUS_VER}.tar.gz/download" \
+# Download from GitLab (official Lazarus source)
+LAZARUS_TAG="lazarus_${LAZARUS_MAJOR}_${LAZARUS_MINOR}"
+wget -q "https://gitlab.com/freepascal.org/lazarus/lazarus/-/archive/${LAZARUS_TAG}/lazarus-${LAZARUS_TAG}.tar.gz" \
     -O lazarus.tar.gz || {
-    # Fallback: try GitHub mirror
-    wget -q "https://github.com/nickg/lazarus/archive/refs/tags/v${LAZARUS_VER}.tar.gz" \
-        -O lazarus.tar.gz 2>/dev/null || {
-        log "ERROR: Failed to download Lazarus"
-        exit 1
-    }
+    log "ERROR: Failed to download Lazarus from GitLab"
+    exit 1
 }
 tar xzf lazarus.tar.gz --strip-components=1
 rm -f lazarus.tar.gz
+log "Lazarus source extracted"
 
 # Build lazbuild (the Lazarus command-line build tool)
-# We only need lazbuild, not the full IDE
-make -j"$(nproc)" lazbuild 2>&1 | tail -3
+make -j"$(nproc)" lazbuild 2>&1 | tail -5
 LAZBUILD="$(pwd)/lazbuild"
 if [ ! -x "$LAZBUILD" ]; then
     log "ERROR: lazbuild not built"
@@ -56,15 +55,7 @@ log "lazbuild built: $LAZBUILD"
 log "Building libQt5Pas..."
 cd "$LAZARUS_SRC/lcl/interfaces/qt5/cbindings"
 if [ -f build.sh ]; then
-    sh build.sh 2>&1 | tail -3
-elif [ -f Makefile ]; then
-    make -j"$(nproc)" 2>&1 | tail -3
-else
-    log "WARNING: No build script for Qt5 cbindings, trying manual compile"
-    # Manual compile as fallback
-    gcc -shared -fPIC -o libQt5Pas.so \
-        -I/usr/include/qt5 -I/usr/include/qt5/QtCore -I/usr/include/qt5/QtGui -I/usr/include/qt5/QtWidgets \
-        *.c -lQt5Core -lQt5Gui -lQt5Widgets -lQt5X11Extras 2>&1 | tail -5
+    sh build.sh 2>&1 | tail -5
 fi
 
 # Install libQt5Pas system-wide for doublecmd build
@@ -73,16 +64,20 @@ if [ -f libQt5Pas.so ]; then
     ldconfig /usr/lib 2>/dev/null || true
     log "libQt5Pas installed"
 else
-    log "ERROR: libQt5Pas not built"
-    # List what's available for debugging
-    ls -la
-    exit 1
+    log "WARNING: libQt5Pas not built, trying to find it..."
+    find . -name 'libQt5Pas*' -type f 2>/dev/null
+    # Try building manually
+    gcc -shared -fPIC -o /usr/lib/libQt5Pas.so \
+        -I/usr/include/qt5 -I/usr/include/qt5/QtCore -I/usr/include/qt5/QtGui \
+        -I/usr/include/qt5/QtWidgets -I/usr/include/qt5/QtX11Extras \
+        *.c -lQt5Core -lQt5Gui -lQt5Widgets -lQt5X11Extras 2>&1 | tail -5
 fi
 
 # ── Stage 4: Build Double Commander ───────────────────────────────────────
 log "Building Double Commander..."
+
 # Use vendored source if available (pinned version), otherwise clone
-if [ -d "/build/vendor/doublecmd" ]; then
+if [ -d "/build/vendor/doublecmd" ] && [ -f "/build/vendor/doublecmd/build.sh" ]; then
     log "Using vendored source from /build/vendor/doublecmd"
     DC_SRC="/build/vendor/doublecmd"
 else
@@ -97,21 +92,19 @@ export lcl=qt5
 export CPU_TARGET=x86_64
 export lazbuild="$LAZBUILD"
 
-# Add -fPIC flag for musl
-if [ -f /etc/fpc.cfg ]; then
-    cp /etc/fpc.cfg .
-    echo "-fPIC" >> fpc.cfg
-    export PPC_CONFIG_PATH="$(pwd)"
-fi
-
-# Build components + doublecmd
-"$LAZBUILD" --version 2>&1 | head -1 || true
+# Build doublecmd
 ./build.sh release qt5 2>&1 | tail -10
 
 # Verify binary
 if [ ! -f doublecmd ]; then
-    log "ERROR: doublecmd binary not built"
-    exit 1
+    # Binary may be in a subdirectory
+    _dc_bin=$(find . -name doublecmd -type f -executable | head -1)
+    if [ -n "$_dc_bin" ]; then
+        cp "$_dc_bin" ./doublecmd
+    else
+        log "ERROR: doublecmd binary not built"
+        exit 1
+    fi
 fi
 
 log "Doublecmd built successfully"
@@ -143,7 +136,7 @@ for d in language pixmaps; do
     [ -d "$d" ] && cp -a "$d" "$OUTPUT/lib/doublecmd/"
 done
 
-# libQt5Pas.so (installed at /usr/lib but doublecmd needs it at its lib dir)
+# libQt5Pas.so (doublecmd needs it at runtime)
 cp -v /usr/lib/libQt5Pas.so "$OUTPUT/lib/doublecmd/" 2>/dev/null || true
 
 log "=== Artifacts ==="
@@ -157,6 +150,5 @@ rm -rf "$LAZARUS_SRC"
 # Only clean DC_SRC if it was a temp clone (not vendored)
 [ "$DC_SRC" = "/tmp/_dc_build" ] && rm -rf "$DC_SRC"
 apk del fpc 2>/dev/null || true
-# Keep qt5 packages — they're needed by other things
 
 log "Doublecmd build complete!"
