@@ -1,0 +1,6 @@
+[submodule "vendor/terax-ai"]
+	path = vendor/terax-ai
+	url = https://github.com/crynta/terax-ai.git
+[submodule "vendor/doublecmd"]
+	path = vendor/doublecmd
+	url = https://github.com/doublecmd/doublecmd.git

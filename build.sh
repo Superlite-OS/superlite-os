@@ -84,8 +84,7 @@ _docker_build() {
             apk add --no-cache alpine-sdk build-base apk-tools alpine-conf \
                 busybox fakeroot syslinux xorriso squashfs-tools mtools dosfstools upx \
                 grub-efi grub-bios git go librsvg \
-                --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community \
-                    qt5-qtbase-dev qt5-qtx11extras-dev
+                qt5-qtbase-dev qt5-qtx11extras-dev
 
             adduser -D build
             addgroup build abuild 2>/dev/null || true

@@ -81,10 +81,17 @@ fi
 
 # ── Stage 4: Build Double Commander ───────────────────────────────────────
 log "Building Double Commander..."
-mkdir -p "$DC_SRC"
+# Use vendored source if available (pinned version), otherwise clone
+if [ -d "/build/vendor/doublecmd" ]; then
+    log "Using vendored source from /build/vendor/doublecmd"
+    DC_SRC="/build/vendor/doublecmd"
+else
+    log "Cloning doublecmd source..."
+    DC_SRC="/tmp/_dc_build"
+    mkdir -p "$DC_SRC"
+    git clone --depth=1 https://github.com/doublecmd/doublecmd.git "$DC_SRC" 2>&1 | tail -3
+fi
 cd "$DC_SRC"
-git clone --depth=1 --recurse-submodules --shallow-submodules \
-    https://github.com/doublecmd/doublecmd.git . 2>&1 | tail -3
 
 export lcl=qt5
 export CPU_TARGET=x86_64
@@ -146,7 +153,9 @@ echo ""
 
 # ── Cleanup ───────────────────────────────────────────────────────────────
 log "Cleaning up build deps..."
-rm -rf "$LAZARUS_SRC" "$DC_SRC"
+rm -rf "$LAZARUS_SRC"
+# Only clean DC_SRC if it was a temp clone (not vendored)
+[ "$DC_SRC" = "/tmp/_dc_build" ] && rm -rf "$DC_SRC"
 apk del fpc 2>/dev/null || true
 # Keep qt5 packages — they're needed by other things
 
