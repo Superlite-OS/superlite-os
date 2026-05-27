@@ -89,6 +89,10 @@ log "Building Tauri app (release)..."
 # Ensure cargo is in PATH for all subsequent commands
 export PATH="$CARGO_HOME/bin:$PATH"
 
+# Tauri links against system GTK/GLib/WebKit dynamically (no static libs on Alpine)
+# Tell the linker to use dynamic linking for system libraries
+export RUSTFLAGS="-C link-arg=-Wl,-Bdynamic"
+
 # Use tauri CLI via pnpm
 pnpm tauri build 2>&1 | tee "$BUILDLOG"
 TAURI_RC=$?
