@@ -70,7 +70,12 @@ cd "$TERAX_SRC"
 
 # Install frontend dependencies
 log "Installing frontend dependencies..."
-pnpm install --frozen-lockfile 2>&1 | tail -10 || {
+# Fix pnpm-workspace.yaml for pnpm 9 (needs packages field)
+cat > pnpm-workspace.yaml <<'WSYAML'
+packages:
+  - '.'
+WSYAML
+pnpm install 2>&1 | tail -10 || {
     log "ERROR: pnpm install failed"
     exit 1
 }
