@@ -163,8 +163,20 @@ if [ -f "$CHROME_DEB" ] && [ -x "$SQFS/usr/local/bin/zapt" ]; then
     }
     chmod 4755 "$SQFS/opt/google/chrome/chrome-sandbox" 2>/dev/null || true
     mkdir -p "$SQFS/usr/bin"
-    ln -sf /opt/google/chrome/chrome "$SQFS/usr/bin/google-chrome-stable"
-    ln -sf /opt/google/chrome/chrome "$SQFS/usr/bin/google-chrome"
+    # Chrome wrapper — glibc binary with GSETTINGS_BACKEND=memory to prevent
+    # GLib fatal assertion crash (glibc GLib tries DBUS for GSettings, fails
+    # on musl dbus-daemon address format)
+    cat > "$SQFS/usr/bin/google-chrome-stable" << 'CW'
+#!/bin/sh
+[ -z "$WAYLAND_DISPLAY" ] && export WAYLAND_DISPLAY=wayland-0
+[ -z "$XDG_RUNTIME_DIR" ] && export XDG_RUNTIME_DIR=/tmp/0-runtime-dir
+export CHROME_VERSION_EXTRA=stable
+export LD_LIBRARY_PATH=/usr/lib/glibc
+export GSETTINGS_BACKEND=memory
+exec /usr/lib/glibc/ld-linux-x86-64.so.2 --library-path /usr/lib/glibc /usr/lib/glibc/bin/chrome --no-sandbox --disable-gpu "$@"
+CW
+    chmod +x "$SQFS/usr/bin/google-chrome-stable"
+    ln -sf google-chrome-stable "$SQFS/usr/bin/google-chrome"
     rm -f "$CHROME_DEB"
 fi
 
@@ -189,6 +201,23 @@ if [ -d "$SQFS/opt/google/chrome" ] && [ -d "$SQFS/usr/lib/glibc/bin" ]; then
         fi
         ln -sf "/opt/google/chrome/$_bn" "$SQFS/usr/lib/glibc/bin/$_bn"
         _chrome_count=$((_chrome_count + 1))
+    done
+    # V8 snapshot: Chrome looks for v8_context_snapshot.x86_64.bin but package
+    # only has v8_context_snapshot.bin — create platform-specific symlink
+    if [ -e "$SQFS/opt/google/chrome/v8_context_snapshot.bin" ] && \
+       [ ! -e "$SQFS/usr/lib/glibc/bin/v8_context_snapshot.x86_64.bin" ]; then
+        ln -sf "/opt/google/chrome/v8_context_snapshot.bin" \
+            "$SQFS/usr/lib/glibc/bin/v8_context_snapshot.x86_64.bin"
+        _chrome_count=$((_chrome_count + 1))
+    fi
+    # ANGLE GL libraries: Chrome needs libGLESv2.so, libEGL.so from its own dir
+    for _f in "$SQFS"/opt/google/chrome/lib*.so*; do
+        [ -f "$_f" ] || continue
+        _bn=$(basename "$_f")
+        [ -e "$SQFS/usr/lib/glibc/bin/$_bn" ] || {
+            ln -sf "/opt/google/chrome/$_bn" "$SQFS/usr/lib/glibc/bin/$_bn"
+            _chrome_count=$((_chrome_count + 1))
+        }
     done
     log "  Chrome data symlinks: $_chrome_count"
 

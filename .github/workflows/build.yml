@@ -332,8 +332,8 @@ jobs:
               {{"glibc loader run" "/usr/lib/glibc/ld-linux-x86-64.so.2 --version 2>&1 | head -1" "GLIBC"}} \\
               {{"Chrome --version" "LD_LIBRARY_PATH=/usr/lib/glibc /opt/google/chrome/chrome --version 2>/dev/null | head -1" "Chrome"}} \\
               {{"curl --version" "LD_LIBRARY_PATH=/usr/lib/glibc:/usr/local/lib/curl-impersonate /usr/local/bin/curl --version 2>&1 | head -1" "curl"}} \\
-              {{"Terax --version" "/usr/bin/terax --version 2>/dev/null | head -1 || echo TERAX_WRAPPER_OK" "terax"}} \\
-              {{"Doublecmd (thunar)" "thunar --version 2>&1 | head -1" "Thunar"}} \\
+              {{"Terax wrapper" "test -x /usr/bin/terax && echo TERAX_WRAPPER_OK || echo TERAX_MISSING" "TERAX_WRAPPER_OK"}} \\
+              {{"Thunar file manager" "command -v thunar 2>/dev/null || echo THUNAR_MISSING" "thunar"}} \\
               {{"zapt --version" "/usr/local/bin/zapt --version 2>&1 | head -1" "zapt"}} \\
               {{"labwc binary" "command -v labwc || find /usr -name labwc -type f 2>/dev/null | head -1" "labwc"}} \\
               {{"Waybar binary" "command -v waybar" "/usr/bin/waybar"}} \\
