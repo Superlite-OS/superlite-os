@@ -31,13 +31,12 @@ if [ -f "$PFILE" ] && grep -q "TryLoadLib('libc.so.6'" "$PFILE"; then
     echo "[patch] dc_iconvenc_dyn.pas: musl libc fallback for iconv"
 fi
 
-# Patch 4: ufindex.pas — readdir64 may not exist on musl
+# Patch 4: ufindex.pas — readdir64 doesn't exist on musl
 # musl uses 64-bit readdir natively, readdir64 is not a separate symbol
-# FPC's baseunix usually handles this, but if not, we need to alias
 PFILE="$DC_SRC/src/platform/ufindex.pas"
 if [ -f "$PFILE" ] && grep -q "readdir64" "$PFILE"; then
-    # Don't sed this one — FPC runtime may handle it. Log only.
-    echo "[patch] ufindex.pas: readdir64 found (FPC baseunix should handle)"
+    sed -i "s/external clib name 'readdir64'/external clib name 'readdir'/" "$PFILE"
+    echo "[patch] ufindex.pas: readdir64 → readdir"
 fi
 
 echo "[patch] Done."
