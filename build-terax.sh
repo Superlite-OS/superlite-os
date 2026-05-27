@@ -49,8 +49,7 @@ apk add --no-cache \
     libxcomposite-dev \
     libxdamage-dev \
     libxfixes-dev \
-    libatk-dev \
-    at-spi2-atk-dev \
+    at-spi2-core-dev \
     gcc \
     musl-dev \
     openssl-dev \
