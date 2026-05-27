@@ -6,7 +6,7 @@
 # Requirements: Alpine 3.23 with qt5-qtbase-dev, qt5-qtx11extras-dev installed.
 # FPC is installed here from edge/testing. Lazarus and libQt5Pas built from source.
 
-LAZARUS_MAJOR="3"
+LAZARUS_MAJOR="4"
 LAZARUS_MINOR="0"
 LAZARUS_TAG="lazarus_${LAZARUS_MAJOR}_${LAZARUS_MINOR}"
 LAZARUS_SRC="/tmp/_lazarus_build"
@@ -31,6 +31,7 @@ log "=== Stage 2: Install Lazarus build deps ==="
 apk add --no-cache \
     gtk+2.0-dev glib-dev gdk-pixbuf-dev pango-dev cairo-dev \
     xorgproto libx11-dev libxext-dev \
+    gcc musl-dev \
     2>&1 | tail -3
 
 # ── Stage 3: Download + Build Lazarus ─────────────────────────────────────
@@ -152,6 +153,11 @@ if [ -f "/build/patch-doublecmd-musl.sh" ]; then
 fi
 
 log "Building doublecmd with widgetset=$lcl..."
+# Ensure calling.inc is findable by DSXLocate plugin
+if [ -f "$DC_SRC/sdk/calling.inc" ] && [ ! -f "$DC_SRC/plugins/dsx/DSXLocate/src/calling.inc" ]; then
+    cp "$DC_SRC/sdk/calling.inc" "$DC_SRC/plugins/dsx/DSXLocate/src/"
+    log "Copied calling.inc to DSXLocate plugin directory"
+fi
 ./build.sh release qt5 > "$BUILDLOG" 2>&1
 DC_RC=$?
 
