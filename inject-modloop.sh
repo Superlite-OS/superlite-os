@@ -388,8 +388,9 @@ if [ -d "$SQFS/usr/lib/glibc" ]; then
 #!/bin/sh
 [ -z "$WAYLAND_DISPLAY" ] && export WAYLAND_DISPLAY=wayland-0
 [ -z "$XDG_RUNTIME_DIR" ] && export XDG_RUNTIME_DIR=/tmp/0-runtime-dir
-export LD_PRELOAD="/usr/local/lib/glibc-extra/libxslt.so.1 /usr/local/lib/glibc-extra/libexslt.so.0"
-exec /usr/lib/glibc/ld-linux-x86-64.so.2 --library-path /usr/lib/glibc:/usr/local/lib/glibc-extra /usr/lib/glibc/bin/terax "$@"
+# Preload glibc libxslt/libexslt to prevent Alpine musl versions from loading
+export LD_PRELOAD="/usr/lib/glibc/libxslt.so.1 /usr/lib/glibc/libexslt.so.0"
+exec /usr/lib/glibc/ld-linux-x86-64.so.2 --library-path /usr/lib/glibc /usr/lib/glibc/bin/terax "$@"
 TW
             chmod +x "$SQFS/usr/bin/terax"
             log "  Created terax wrapper"
@@ -406,11 +407,10 @@ TW
 #!/bin/sh
 [ -z "$WAYLAND_DISPLAY" ] && export WAYLAND_DISPLAY=wayland-0
 [ -z "$XDG_RUNTIME_DIR" ] && export XDG_RUNTIME_DIR=/tmp/0-runtime-dir
-# Try native doublecmd first (may work if musl Qt5 is available)
-if /lib/doublecmd/doublecmd "$@" 2>/dev/null; then
-    exit $?
-fi
-# Fallback: Thunar file manager
+# Double Commander is a static musl binary that dlopen()s glibc Qt5Pas.
+# This fails with "Error relocating ... __fprintf_chk: symbol not found"
+# because musl can't resolve glibc ABI symbols.
+# Fallback: Thunar file manager (native musl, works out of box)
 exec thunar "$@"
 DW
             chmod +x "$SQFS/usr/bin/doublecmd"
