@@ -382,19 +382,31 @@ if [ -d "$SQFS/usr/lib/glibc" ]; then
 fi
 
 log "Installing Terax AI terminal..."
-# Use vendored build if available, otherwise fall back to prebuilt .deb
-if [ -d "/tmp/terax-musl" ] && [ -f "/tmp/terax-musl/usr/bin/terax" ]; then
+# Priority: prebuilt/ (CI) > /tmp/terax-musl (local) > prebuilt .deb
+TERAX_INSTALLED=0
+if [ -f "$REPO_DIR/prebuilt/terax/usr/bin/terax" ]; then
+    log "  Using prebuilt binary from prebuilt/terax/"
+    cp -a "$REPO_DIR/prebuilt/terax/usr/bin/terax" "$SQFS/usr/bin/terax" 2>/dev/null || true
+    chmod +x "$SQFS/usr/bin/terax" 2>/dev/null || true
+    if [ -d "$REPO_DIR/prebuilt/terax/usr/lib/terax" ]; then
+        mkdir -p "$SQFS/usr/lib/terax"
+        cp -a "$REPO_DIR/prebuilt/terax/usr/lib/terax/"* "$SQFS/usr/lib/terax/" 2>/dev/null || true
+    fi
+    TERAX_INSTALLED=1
+    log "  Installed terax from prebuilt"
+elif [ -d "/tmp/terax-musl" ] && [ -f "/tmp/terax-musl/usr/bin/terax" ]; then
     log "  Using vendored build from /tmp/terax-musl"
     cp -a /tmp/terax-musl/usr/bin/terax "$SQFS/usr/bin/terax" 2>/dev/null || true
     chmod +x "$SQFS/usr/bin/terax" 2>/dev/null || true
-    # Copy shared libraries if any
     if [ -d "/tmp/terax-musl/usr/lib/terax" ]; then
         mkdir -p "$SQFS/usr/lib/terax"
         cp -a /tmp/terax-musl/usr/lib/terax/* "$SQFS/usr/lib/terax/" 2>/dev/null || true
     fi
+    TERAX_INSTALLED=1
     log "  Installed terax from vendored build"
-else
-    log "  Vendored build not found, falling back to prebuilt .deb"
+fi
+if [ "$TERAX_INSTALLED" = "0" ]; then
+    log "  No prebuilt terax found, falling back to prebuilt .deb"
     TERAX_DEB="/tmp/terax.deb"
     wget -q -O "$TERAX_DEB" \
         "https://github.com/crynta/terax-ai/releases/download/v0.7.3/Terax_0.7.3_amd64.deb" 2>&1 || true
@@ -406,18 +418,31 @@ else
     fi
 fi
 
-# ── Double Commander (native musl build or Debian fallback) ────────────────
-if [ -d "/tmp/doublecmd-musl" ]; then
+# ── Double Commander (prebuilt > native musl build > Debian fallback) ──────
+DC_INSTALLED=0
+if [ -d "$REPO_DIR/prebuilt/doublecmd/lib/doublecmd" ]; then
+    log "Installing Double Commander (prebuilt)..."
+    cp -a "$REPO_DIR/prebuilt/doublecmd/lib/doublecmd" "$SQFS/lib/doublecmd" 2>/dev/null || true
+    cp -a "$REPO_DIR/prebuilt/doublecmd/usr/bin/doublecmd" "$SQFS/usr/bin/doublecmd" 2>/dev/null || true
+    chmod +x "$SQFS/usr/bin/doublecmd" 2>/dev/null || true
+    [ -f "$REPO_DIR/prebuilt/doublecmd/lib/doublecmd/libQt5Pas.so" ] && {
+        mkdir -p "$SQFS/usr/lib"
+        cp -a "$REPO_DIR/prebuilt/doublecmd/lib/doublecmd/libQt5Pas.so" "$SQFS/usr/lib/"
+    }
+    DC_INSTALLED=1
+    log "  Installed Double Commander from prebuilt"
+elif [ -d "/tmp/doublecmd-musl" ]; then
     log "Installing Double Commander (native musl)..."
     cp -a /tmp/doublecmd-musl/lib/doublecmd "$SQFS/lib/doublecmd" 2>/dev/null || true
     cp -a /tmp/doublecmd-musl/usr/bin/doublecmd "$SQFS/usr/bin/doublecmd" 2>/dev/null || true
     chmod +x "$SQFS/usr/bin/doublecmd" 2>/dev/null || true
-    # Install libQt5Pas.so system-wide if needed
     [ -f "/tmp/doublecmd-musl/lib/doublecmd/libQt5Pas.so" ] && {
         mkdir -p "$SQFS/usr/lib"
         cp -a "/tmp/doublecmd-musl/lib/doublecmd/libQt5Pas.so" "$SQFS/usr/lib/"
     }
-elif [ -x "$SQFS/usr/local/bin/zapt" ]; then
+    DC_INSTALLED=1
+fi
+if [ "$DC_INSTALLED" = "0" ] && [ -x "$SQFS/usr/local/bin/zapt" ]; then
     log "Installing Double Commander (Debian fallback)..."
     "$SQFS/usr/local/bin/zapt" install --root "$SQFS" doublecmd-qt 2>&1 || {
         log "WARNING: Double Commander install failed"

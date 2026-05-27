@@ -124,19 +124,9 @@ _docker_build() {
                     --tag ${TAG}
             "
 
-            # Build Terax AI terminal from source (musl native)
-            if [ -f /build/build-terax.sh ]; then
-                echo "[build] Building Terax from source..."
-                sh /build/build-terax.sh
-            fi
-
-            # Build Double Commander from source (musl + Qt5)
-            if [ -f /build/build-doublecmd.sh ]; then
-                echo "[build] Building Double Commander from source..."
-                sh /build/build-doublecmd.sh
-            fi
-
             # Inject heavy binaries into modloop (Chrome, glibc, zapt, etc.)
+            # Terax and Double Commander are pre-built via separate workflows
+            # and stored in prebuilt/ directory
             if [ -f /build/inject-modloop.sh ]; then
                 echo "[build] Injecting extras into modloop..."
                 sh /build/inject-modloop.sh "/build/output/${VARIANT}" /build

@@ -1,0 +1,68 @@
+name: Build Terax (musl)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'vendor/terax-ai/**'
+      - 'build-terax.sh'
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build Terax in Docker
+        run: |
+          mkdir -p prebuilt/terax
+          docker run --rm \
+            -v "${{ github.workspace }}:/build" \
+            -v "${{ github.workspace }}/prebuilt/terax:/output" \
+            -w /build \
+            alpine:3.23 \
+            sh -c '
+              sh /build/build-terax.sh
+              if [ -d /tmp/terax-musl ]; then
+                cp -a /tmp/terax-musl/* /output/
+                echo "Copied terax-musl to /output/"
+              else
+                echo "ERROR: /tmp/terax-musl not found"
+                exit 1
+              fi
+            '
+
+      - name: Verify binary
+        run: |
+          file prebuilt/terax/usr/bin/terax || echo "WARNING: terax binary not found"
+          ls -la prebuilt/terax/ 2>/dev/null || echo "WARNING: prebuilt/terax/ empty"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: terax-musl
+          path: prebuilt/terax/
+          retention-days: 30
+
+      - name: Commit prebuilt to repo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add prebuilt/terax/
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update prebuilt Terax binary [skip ci]
+
+          Built from vendor/terax-ai at $(git -C vendor/terax-ai rev-parse --short HEAD 2>/dev/null || echo 'unknown')
+          Workflow run: ${{ github.run_id }}"
+            git push
+          fi

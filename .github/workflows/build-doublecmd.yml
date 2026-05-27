@@ -1,0 +1,69 @@
+name: Build Double Commander (musl)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'vendor/doublecmd/**'
+      - 'build-doublecmd.sh'
+      - 'patch-doublecmd-musl.sh'
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build Double Commander in Docker
+        run: |
+          mkdir -p prebuilt/doublecmd
+          docker run --rm \
+            -v "${{ github.workspace }}:/build" \
+            -v "${{ github.workspace }}/prebuilt/doublecmd:/output" \
+            -w /build \
+            alpine:3.23 \
+            sh -c '
+              sh /build/build-doublecmd.sh
+              if [ -d /tmp/doublecmd-musl ]; then
+                cp -a /tmp/doublecmd-musl/* /output/
+                echo "Copied doublecmd-musl to /output/"
+              else
+                echo "ERROR: /tmp/doublecmd-musl not found"
+                exit 1
+              fi
+            '
+
+      - name: Verify binary
+        run: |
+          file prebuilt/doublecmd/lib/doublecmd/doublecmd || echo "WARNING: doublecmd binary not found"
+          ls -la prebuilt/doublecmd/ 2>/dev/null || echo "WARNING: prebuilt/doublecmd/ empty"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: doublecmd-musl
+          path: prebuilt/doublecmd/
+          retention-days: 30
+
+      - name: Commit prebuilt to repo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add prebuilt/doublecmd/
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update prebuilt Double Commander binary [skip ci]
+
+          Built from vendor/doublecmd at $(git -C vendor/doublecmd rev-parse --short HEAD 2>/dev/null || echo 'unknown')
+          Workflow run: ${{ github.run_id }}"
+            git push
+          fi
