@@ -392,9 +392,19 @@ if [ -f "$TERAX_DEB" ] && [ -x "$SQFS/usr/local/bin/zapt" ]; then
     rm -f "$TERAX_DEB"
 fi
 
-# ── Double Commander (Debian pool via zapt) ────────────────────────────────
-if [ -x "$SQFS/usr/local/bin/zapt" ]; then
-    log "Installing Double Commander..."
+# ── Double Commander (native musl build or Debian fallback) ────────────────
+if [ -d "/tmp/doublecmd-musl" ]; then
+    log "Installing Double Commander (native musl)..."
+    cp -a /tmp/doublecmd-musl/lib/doublecmd "$SQFS/lib/doublecmd" 2>/dev/null || true
+    cp -a /tmp/doublecmd-musl/usr/bin/doublecmd "$SQFS/usr/bin/doublecmd" 2>/dev/null || true
+    chmod +x "$SQFS/usr/bin/doublecmd" 2>/dev/null || true
+    # Install libQt5Pas.so system-wide if needed
+    [ -f "/tmp/doublecmd-musl/lib/doublecmd/libQt5Pas.so" ] && {
+        mkdir -p "$SQFS/usr/lib"
+        cp -a "/tmp/doublecmd-musl/lib/doublecmd/libQt5Pas.so" "$SQFS/usr/lib/"
+    }
+elif [ -x "$SQFS/usr/local/bin/zapt" ]; then
+    log "Installing Double Commander (Debian fallback)..."
     "$SQFS/usr/local/bin/zapt" install --root "$SQFS" doublecmd-qt 2>&1 || {
         log "WARNING: Double Commander install failed"
     }
@@ -424,26 +434,32 @@ TW
             chmod +x "$SQFS/usr/bin/terax"
             log "  Created terax wrapper"
         fi
-        # Doublecmd wrapper — statically linked FreePascal binary that
-        # dlopen()s libQt5Pas.so.1 at runtime. The binary is musl-linked but
-        # Qt5Pas+Qt5Core+Qt5Gui are glibc binaries — musl dlopen() can't
-        # resolve glibc symbols (__memcpy_chk etc.). This is unfixable at
-        # runtime. Fallback to Thunar if available.
+        # Doublecmd wrapper — if native musl build, set QT_QPA_PLATFORM only.
+        # If glibc deb (zapt), fallback to Thunar (musl can't load glibc Qt5).
         _dc_bin="$SQFS/lib/doublecmd/doublecmd"
         if [ -f "$_dc_bin" ] && [ ! -f "$SQFS/usr/bin/doublecmd" ]; then
             mkdir -p "$SQFS/usr/bin"
-            cat > "$SQFS/usr/bin/doublecmd" << 'DW'
+            # Check if binary is native musl (has musl interpreter)
+            if head -c 4096 "$_dc_bin" 2>/dev/null | strings | grep -q 'ld-musl'; then
+                cat > "$SQFS/usr/bin/doublecmd" << 'DW'
 #!/bin/sh
 [ -z "$WAYLAND_DISPLAY" ] && export WAYLAND_DISPLAY=wayland-0
 [ -z "$XDG_RUNTIME_DIR" ] && export XDG_RUNTIME_DIR=/tmp/0-runtime-dir
-# Double Commander is a static musl binary that dlopen()s glibc Qt5Pas.
-# This fails with "Error relocating ... __fprintf_chk: symbol not found"
-# because musl can't resolve glibc ABI symbols.
-# Fallback: Thunar file manager (native musl, works out of box)
+export QT_QPA_PLATFORM=${QT_QPA_PLATFORM:-wayland}
+exec /lib/doublecmd/doublecmd "$@"
+DW
+                log "  Created doublecmd wrapper (native musl)"
+            else
+                cat > "$SQFS/usr/bin/doublecmd" << 'DW'
+#!/bin/sh
+[ -z "$WAYLAND_DISPLAY" ] && export WAYLAND_DISPLAY=wayland-0
+[ -z "$XDG_RUNTIME_DIR" ] && export XDG_RUNTIME_DIR=/tmp/0-runtime-dir
+# Glibc binary: musl can't load glibc Qt5Pas. Fallback to Thunar.
 exec thunar "$@"
 DW
+                log "  Created doublecmd wrapper (glibc fallback → thunar)"
+            fi
             chmod +x "$SQFS/usr/bin/doublecmd"
-            log "  Created doublecmd wrapper (with thunar fallback)"
         fi
         # Create /lib64/ld-linux-x86-64.so.2 symlink for glibc binaries
         # that have hardcoded ELF interpreter path

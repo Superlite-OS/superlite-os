@@ -83,7 +83,9 @@ _docker_build() {
             set -e
             apk add --no-cache alpine-sdk build-base apk-tools alpine-conf \
                 busybox fakeroot syslinux xorriso squashfs-tools mtools dosfstools upx \
-                grub-efi grub-bios git go librsvg
+                grub-efi grub-bios git go librsvg \
+                --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community \
+                    qt5-qtbase-dev qt5-qtx11extras-dev
 
             adduser -D build
             addgroup build abuild 2>/dev/null || true
@@ -122,6 +124,12 @@ _docker_build() {
                     --outdir /build/output/${VARIANT}/ \\
                     --tag ${TAG}
             "
+
+            # Build Double Commander from source (musl + Qt5)
+            if [ -f /build/build-doublecmd.sh ]; then
+                echo "[build] Building Double Commander from source..."
+                sh /build/build-doublecmd.sh
+            fi
 
             # Inject heavy binaries into modloop (Chrome, glibc, zapt, etc.)
             if [ -f /build/inject-modloop.sh ]; then
