@@ -131,8 +131,20 @@ export lazbuild="$LAZBUILD"
 # doublecmd's build.sh does `export lazbuild=$(which lazbuild)` which overrides
 # our variable. Put lazbuild in PATH so `which` finds it.
 export PATH="$(dirname "$LAZBUILD"):$PATH"
-# lazbuild needs to know where Lazarus is (LCL directory)
-export LAZARUS_DIR="$LAZARUS_SRC"
+# lazbuild needs environmentoptions.xml to find Lazarus directory
+mkdir -p "$HOME/.lazarus"
+cat > "$HOME/.lazarus/environmentoptions.xml" <<XMLEOF
+<?xml version="1.0"?>
+<CONFIG>
+  <EnvironmentOptions>
+    <Version Value="110"/>
+    <LazarusDirectory Value="$LAZARUS_SRC"/>
+    <CompilerFilename Value="$(which fpc)"/>
+    <TestBuildDirectory Value="/tmp/"/>
+  </EnvironmentOptions>
+</CONFIG>
+XMLEOF
+log "Created ~/.lazarus/environmentoptions.xml pointing to $LAZARUS_SRC"
 
 # Apply musl compatibility patches
 if [ -f "/build/patch-doublecmd-musl.sh" ]; then
