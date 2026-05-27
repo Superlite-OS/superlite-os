@@ -13,10 +13,9 @@ LAZARUS_SRC="/tmp/_lazarus_build"
 OUTPUT="/tmp/doublecmd-musl"
 BUILDLOG="/tmp/doublecmd-build.log"
 
-log() { echo "[doublecmd-build] $*" | tee -a "$BUILDLOG"; }
+log() { echo "[doublecmd-build] $*"; }
 
 # Don't use set -e — we need to handle errors manually for better diagnostics
-# set -e
 
 # ── Stage 1: Install FPC from edge/testing ────────────────────────────────
 log "=== Stage 1: Install FPC ==="
@@ -50,17 +49,20 @@ rm -f lazarus.tar.gz
 log "Lazarus source extracted"
 
 # Build lazbuild — Lazarus command-line build tool
-# The Makefile lazbuild target: builds LCL then compiles tools/lazbuild/lazbuild.lpr
-log "Building lazbuild (full output to $BUILDLOG)..."
-make lazbuild 2>&1 | tee -a "$BUILDLOG" | tail -30
-MAKE_RC=${PIPESTATUS[0]}
+# Redirect to log to keep CI output clean (upstream Lazarus has many harmless warnings)
+log "Building lazbuild..."
+make lazbuild > "$BUILDLOG" 2>&1
+MAKE_RC=$?
+
+if [ $MAKE_RC -ne 0 ]; then
+    log "ERROR: lazbuild make failed (exit=$MAKE_RC)"
+    log "=== Last 30 lines of build log ==="
+    tail -30 "$BUILDLOG"
+fi
 
 if [ ! -f lazbuild ] || [ ! -x lazbuild ]; then
-    log "ERROR: lazbuild not built (make exit=$MAKE_RC)"
-    log "=== Last 50 lines of build log ==="
-    tail -50 "$BUILDLOG"
+    log "ERROR: lazbuild binary not found, trying alternative compile..."
     # Try alternative: compile lazbuild directly with FPC
-    log "Trying direct FPC compilation of lazbuild..."
     _LCL_UNITS="lcl/units/$(fpc -iTP)-$(fpc -iTO)"
     _LAZUTILS="components/lazutils/lib/$(fpc -iTP)-$(fpc -iTO)"
     if [ -d "$_LCL_UNITS" ] && [ -d "$_LAZUTILS" ]; then
@@ -70,7 +72,7 @@ if [ ! -f lazbuild ] || [ ! -x lazbuild ]; then
             -Fu"$_LAZUTILS" \
             -Fu"$_LCL_UNITS/$(fpc -iSP)" \
             -FE. \
-            tools/lazbuild/lazbuild.lpr 2>&1 | tee -a "$BUILDLOG" | tail -20
+            tools/lazbuild/lazbuild.lpr > "$BUILDLOG" 2>&1
     fi
 fi
 
@@ -85,7 +87,7 @@ log "lazbuild built: $LAZBUILD"
 log "=== Stage 4: Build libQt5Pas ==="
 cd "$LAZARUS_SRC/lcl/interfaces/qt5/cbindings"
 if [ -f build.sh ]; then
-    sh build.sh 2>&1 | tee -a "$BUILDLOG" | tail -10
+    sh build.sh > "$BUILDLOG" 2>&1
 fi
 
 if [ -f libQt5Pas.so ]; then
@@ -99,7 +101,7 @@ else
         $(find . -name '*.c') \
         -I. -I../../.. \
         $(pkg-config --cflags --libs Qt5Core Qt5Gui Qt5Widgets Qt5X11Extras 2>/dev/null) \
-        2>&1 | tee -a "$BUILDLOG" | tail -10
+        > "$BUILDLOG" 2>&1
     if [ -f /usr/lib/libQt5Pas.so ]; then
         log "libQt5Pas built manually"
     else
@@ -133,7 +135,15 @@ if [ -f "/build/patch-doublecmd-musl.sh" ]; then
 fi
 
 log "Building doublecmd with widgetset=$lcl..."
-./build.sh release qt5 2>&1 | tee -a "$BUILDLOG" | tail -20
+./build.sh release qt5 > "$BUILDLOG" 2>&1
+DC_RC=$?
+
+if [ $DC_RC -ne 0 ]; then
+    log "ERROR: doublecmd build failed (exit=$DC_RC)"
+    log "=== Last 30 lines of build log ==="
+    tail -30 "$BUILDLOG"
+    exit 1
+fi
 
 # Find the binary
 DC_BIN=""
@@ -150,7 +160,7 @@ fi
 
 log "Doublecmd built successfully"
 file "$DC_BIN"
-ldd "$DC_BIN" 2>&1 | head -10 | tee -a "$BUILDLOG" || true
+ldd "$DC_BIN" 2>&1 | head -10 || true
 
 # ── Stage 6: Package artifacts ────────────────────────────────────────────
 log "=== Stage 6: Package artifacts ==="
