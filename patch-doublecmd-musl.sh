@@ -18,9 +18,9 @@ fi
 # musl libc is at libc.musl-x86_64.so.1 but also accessible via ld-musl-x86_64.so.1
 PFILE="$DC_SRC/src/platform/urandom.pas"
 if [ -f "$PFILE" ] && grep -q "dlopen('libc.so.6'" "$PFILE"; then
-    sed -i "s|dlopen('libc.so.6', RTLD_NOW)|dlopen('libc.so.6', RTLD_NOW) \/\/ patched: fallback in code|" "$PFILE"
-    # Add a musl fallback right after
-    sed -i "/dlopen('libc.so.6', RTLD_NOW)/a\\    if result = nil then result := dlopen('libc.musl-x86_64.so.1', RTLD_NOW);" "$PFILE" 2>/dev/null
+    # Replace the single dlopen with a fallback approach:
+    # Try libc.so.6 first, then musl libc if that fails
+    sed -i "s|dlopen('libc.so.6', RTLD_NOW), 'getrandom')|dlopen('libc.so.6', RTLD_NOW), 'getrandom'); if not Assigned(getrandom) then @getrandom := dlsym(dlopen('libc.musl-x86_64.so.1', RTLD_NOW), 'getrandom')|" "$PFILE"
     echo "[patch] urandom.pas: libc.so.6 → musl fallback"
 fi
 
