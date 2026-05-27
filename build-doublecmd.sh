@@ -149,11 +149,11 @@ ldd "$DC_BIN" 2>&1 | head -10 || true
 # ── Stage 6: Package artifacts ────────────────────────────────────────────
 log "=== Stage 6: Package artifacts ==="
 rm -rf "$OUTPUT"
-mkdir -p "$OUTPUT/usr/bin" "$OUTPUT/lib/doublecmd"
+mkdir -p "$OUTPUT/lib/doublecmd"
 
-# Main binary
-cp -v "$DC_BIN" "$OUTPUT/usr/bin/doublecmd"
-chmod +x "$OUTPUT/usr/bin/doublecmd"
+# Main binary — put in /lib/doublecmd/ (inject-modloop expects this path)
+cp -v "$DC_BIN" "$OUTPUT/lib/doublecmd/doublecmd"
+chmod +x "$OUTPUT/lib/doublecmd/doublecmd"
 
 # Shared libraries
 for f in *.so *.so.*; do
@@ -173,7 +173,7 @@ done
 cp -v /usr/local/lib/libQt5Pas.so "$OUTPUT/lib/doublecmd/" 2>/dev/null || true
 
 log "=== Artifacts ==="
-ls -la "$OUTPUT/usr/bin/doublecmd"
+ls -la "$OUTPUT/lib/doublecmd/doublecmd"
 ls -la "$OUTPUT/lib/doublecmd/"
 
 # ── Cleanup ───────────────────────────────────────────────────────────────
