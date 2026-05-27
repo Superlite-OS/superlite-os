@@ -21,7 +21,7 @@ apk add --no-cache --repository=https://dl-cdn.alpinelinux.org/alpine/edge/testi
     log "ERROR: Failed to install fpc"
     exit 1
 }
-fpc -v || { log "ERROR: fpc not working"; exit 1; }
+fpc -iV || { log "ERROR: fpc not working"; exit 1; }
 log "FPC installed: $(fpc -iV)"
 
 # ── Stage 2: Download + Build Lazarus ─────────────────────────────────────
