@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <Compiler Value="/usr/bin/fpc" Date="1718845406"/>
+  <Params Value="-Px86_64 -MDelphi -Sghi -CX -Cg -O3 -XX -k-z -krelro -k--as-needed -l -vewibq -vn-h- -Fi/build/vendor/doublecmd/plugins/wdx/deb_wdx/lib -Fi/build/vendor/doublecmd/sdk -Fu/build/vendor/doublecmd/plugins/wdx/deb_wdx/src/ -Fu/build/vendor/doublecmd/sdk -Fu/build/vendor/doublecmd/plugins/wcx/zip/src/fparchive -FU/build/vendor/doublecmd/plugins/wdx/deb_wdx/lib/ -FE/build/vendor/doublecmd/plugins/wdx/deb_wdx/ -o/build/vendor/doublecmd/plugins/wdx/deb_wdx/deb_wdx.wdx -fPIC deb_wdx.dpr"/>
+</CONFIG>
