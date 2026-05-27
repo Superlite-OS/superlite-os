@@ -381,15 +381,29 @@ if [ -d "$SQFS/usr/lib/glibc" ]; then
     log "  Qt5 plugin fixes: $_qt5_fix"
 fi
 
-TERAX_DEB="/tmp/terax.deb"
 log "Installing Terax AI terminal..."
-wget -q -O "$TERAX_DEB" \
-    "https://github.com/crynta/terax-ai/releases/download/v0.7.3/Terax_0.7.3_amd64.deb" 2>&1 || true
-if [ -f "$TERAX_DEB" ] && [ -x "$SQFS/usr/local/bin/zapt" ]; then
-    "$SQFS/usr/local/bin/zapt" install --root "$SQFS" "$TERAX_DEB" 2>&1 || {
-        log "WARNING: Terax install failed"
-    }
-    rm -f "$TERAX_DEB"
+# Use vendored build if available, otherwise fall back to prebuilt .deb
+if [ -d "/tmp/terax-musl" ] && [ -f "/tmp/terax-musl/usr/bin/terax" ]; then
+    log "  Using vendored build from /tmp/terax-musl"
+    cp -a /tmp/terax-musl/usr/bin/terax "$SQFS/usr/bin/terax" 2>/dev/null || true
+    chmod +x "$SQFS/usr/bin/terax" 2>/dev/null || true
+    # Copy shared libraries if any
+    if [ -d "/tmp/terax-musl/usr/lib/terax" ]; then
+        mkdir -p "$SQFS/usr/lib/terax"
+        cp -a /tmp/terax-musl/usr/lib/terax/* "$SQFS/usr/lib/terax/" 2>/dev/null || true
+    fi
+    log "  Installed terax from vendored build"
+else
+    log "  Vendored build not found, falling back to prebuilt .deb"
+    TERAX_DEB="/tmp/terax.deb"
+    wget -q -O "$TERAX_DEB" \
+        "https://github.com/crynta/terax-ai/releases/download/v0.7.3/Terax_0.7.3_amd64.deb" 2>&1 || true
+    if [ -f "$TERAX_DEB" ] && [ -x "$SQFS/usr/local/bin/zapt" ]; then
+        "$SQFS/usr/local/bin/zapt" install --root "$SQFS" "$TERAX_DEB" 2>&1 || {
+            log "WARNING: Terax install failed"
+        }
+        rm -f "$TERAX_DEB"
+    fi
 fi
 
 # ── Double Commander (native musl build or Debian fallback) ────────────────
