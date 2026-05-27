@@ -1,10 +1,10 @@
 #!/bin/sh
-# build-doublecmd.sh — Build Double Commander from source for musl + Qt5
+# build-doublecmd.sh — Build Double Commander from source for musl + GTK2
 # Sourced from build.sh inside the Docker container.
 # Outputs: /tmp/doublecmd-musl/{usr/bin/doublecmd,lib/doublecmd/...}
 #
-# Requirements: Alpine 3.23 with qt5-qtbase-dev, qt5-qtx11extras-dev installed.
-# FPC is installed here from edge/testing. Lazarus and libQt5Pas built from source.
+# Requirements: Alpine 3.23 with gtk+2.0-dev installed.
+# FPC is installed here from edge/testing. Lazarus built from source.
 
 LAZARUS_MAJOR="4"
 LAZARUS_MINOR="0"
@@ -49,67 +49,36 @@ tar xzf lazarus.tar.gz --strip-components=1
 rm -f lazarus.tar.gz
 log "Lazarus source extracted"
 
-# Build lazbuild — Lazarus command-line build tool
-# Redirect to log to keep CI output clean (upstream Lazarus has many harmless warnings)
-log "Building lazbuild..."
-make lazbuild > "$BUILDLOG" 2>&1
+# Build and install Lazarus (make all builds lazbuild + LCL + Qt5 bindings)
+# This matches doublecmd's official CI approach
+log "Building Lazarus (make all)..."
+make all > "$BUILDLOG" 2>&1
 MAKE_RC=$?
 
 if [ $MAKE_RC -ne 0 ]; then
-    log "ERROR: lazbuild make failed (exit=$MAKE_RC)"
+    log "ERROR: Lazarus make all failed (exit=$MAKE_RC)"
     log "=== Last 30 lines of build log ==="
     tail -30 "$BUILDLOG"
-fi
-
-if [ ! -f lazbuild ] || [ ! -x lazbuild ]; then
-    log "ERROR: lazbuild binary not found, trying alternative compile..."
-    # Try alternative: compile lazbuild directly with FPC
-    _LCL_UNITS="lcl/units/$(fpc -iTP)-$(fpc -iTO)"
-    _LAZUTILS="components/lazutils/lib/$(fpc -iTP)-$(fpc -iTO)"
-    if [ -d "$_LCL_UNITS" ] && [ -d "$_LAZUTILS" ]; then
-        fpc -dRELEASE \
-            -FiLCL -FiLCL/forms \
-            -Fu"$_LCL_UNITS" \
-            -Fu"$_LAZUTILS" \
-            -Fu"$_LCL_UNITS/$(fpc -iSP)" \
-            -FE. \
-            tools/lazbuild/lazbuild.lpr > "$BUILDLOG" 2>&1
-    fi
-fi
-
-LAZBUILD="$(pwd)/lazbuild"
-if [ ! -x "$LAZBUILD" ]; then
-    log "FATAL: lazbuild could not be built. Full log at $BUILDLOG"
     exit 1
 fi
-log "lazbuild built: $LAZBUILD"
 
-# ── Stage 4: Build libQt5Pas ──────────────────────────────────────────────
-log "=== Stage 4: Build libQt5Pas ==="
-cd "$LAZARUS_SRC/lcl/interfaces/qt5/cbindings"
-if [ -f build.sh ]; then
-    sh build.sh > "$BUILDLOG" 2>&1
+log "Installing Lazarus to /usr/local/share/lazarus..."
+make install > "$BUILDLOG" 2>&1
+MAKE_RC=$?
+
+if [ $MAKE_RC -ne 0 ]; then
+    log "ERROR: Lazarus make install failed (exit=$MAKE_RC)"
+    log "=== Last 30 lines of build log ==="
+    tail -30 "$BUILDLOG"
+    exit 1
 fi
 
-if [ -f libQt5Pas.so ]; then
-    cp -v libQt5Pas.so /usr/lib/
-    ldconfig /usr/lib 2>/dev/null || true
-    log "libQt5Pas installed to /usr/lib/"
-else
-    log "WARNING: libQt5Pas not built from cbindings, trying manual compile..."
-    # Find all .c files and compile
-    gcc -shared -fPIC -O2 -o /usr/lib/libQt5Pas.so \
-        $(find . -name '*.c') \
-        -I. -I../../.. \
-        $(pkg-config --cflags --libs Qt5Core Qt5Gui Qt5Widgets Qt5X11Extras 2>/dev/null) \
-        > "$BUILDLOG" 2>&1
-    if [ -f /usr/lib/libQt5Pas.so ]; then
-        log "libQt5Pas built manually"
-    else
-        log "ERROR: libQt5Pas could not be built"
-        exit 1
-    fi
+LAZBUILD="/usr/local/bin/lazbuild"
+if [ ! -x "$LAZBUILD" ]; then
+    log "FATAL: lazbuild not found at $LAZBUILD after make install"
+    exit 1
 fi
+log "Lazarus installed: lazbuild at $LAZBUILD"
 
 # ── Stage 5: Build Double Commander ───────────────────────────────────────
 log "=== Stage 5: Build Double Commander ==="
@@ -126,26 +95,18 @@ else
 fi
 cd "$DC_SRC"
 
-export lcl=qt5
+export lcl=gtk2
 export CPU_TARGET=x86_64
 export lazbuild="$LAZBUILD"
 # doublecmd's build.sh does `export lazbuild=$(which lazbuild)` which overrides
 # our variable. Put lazbuild in PATH so `which` finds it.
 export PATH="$(dirname "$LAZBUILD"):$PATH"
 # lazbuild needs environmentoptions.xml to find Lazarus directory
+# Copy from Lazarus install and fix paths (matches doublecmd CI approach)
 mkdir -p "$HOME/.lazarus"
-cat > "$HOME/.lazarus/environmentoptions.xml" <<XMLEOF
-<?xml version="1.0"?>
-<CONFIG>
-  <EnvironmentOptions>
-    <Version Value="110"/>
-    <LazarusDirectory Value="$LAZARUS_SRC"/>
-    <CompilerFilename Value="$(which fpc)"/>
-    <TestBuildDirectory Value="/tmp/"/>
-  </EnvironmentOptions>
-</CONFIG>
-XMLEOF
-log "Created ~/.lazarus/environmentoptions.xml pointing to $LAZARUS_SRC"
+cp "$LAZARUS_SRC/tools/install/linux/environmentoptions.xml" "$HOME/.lazarus/"
+sed -i "s|__LAZARUSDIR__|/usr/local/share/lazarus|g" "$HOME/.lazarus/environmentoptions.xml"
+log "Created ~/.lazarus/environmentoptions.xml pointing to /usr/local/share/lazarus"
 
 # Apply musl compatibility patches
 if [ -f "/build/patch-doublecmd-musl.sh" ]; then
@@ -158,7 +119,7 @@ if [ -f "$DC_SRC/sdk/calling.inc" ] && [ ! -f "$DC_SRC/plugins/dsx/DSXLocate/src
     cp "$DC_SRC/sdk/calling.inc" "$DC_SRC/plugins/dsx/DSXLocate/src/"
     log "Copied calling.inc to DSXLocate plugin directory"
 fi
-./build.sh release qt5 > "$BUILDLOG" 2>&1
+./build.sh release gtk2 > "$BUILDLOG" 2>&1
 DC_RC=$?
 
 if [ $DC_RC -ne 0 ]; then
@@ -208,8 +169,8 @@ for d in language pixmaps; do
     [ -d "$d" ] && cp -a "$d" "$OUTPUT/lib/doublecmd/"
 done
 
-# libQt5Pas.so (doublecmd needs it at runtime)
-cp -v /usr/lib/libQt5Pas.so "$OUTPUT/lib/doublecmd/" 2>/dev/null || true
+# libQt5Pas.so (not needed for gtk2, but copy if exists for other tools)
+cp -v /usr/local/lib/libQt5Pas.so "$OUTPUT/lib/doublecmd/" 2>/dev/null || true
 
 log "=== Artifacts ==="
 ls -la "$OUTPUT/usr/bin/doublecmd"
