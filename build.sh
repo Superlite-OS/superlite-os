@@ -72,7 +72,7 @@ _docker_build() {
     log "Building ${variant} inside Docker..."
     mkdir -p "$output_dir"
 
-    docker run --rm \
+    timeout 2400 docker run --rm \
         --cap-add SYS_ADMIN \
         -e VARIANT="$variant" \
         -e TAG="$tag" \
