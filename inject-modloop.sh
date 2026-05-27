@@ -171,17 +171,24 @@ fi
 # ── Chrome data file symlinks for glibc ELF binary ─────────────────────────
 # Chrome ELF binary lives at /usr/lib/glibc/bin/chrome. It resolves data files
 # (icudtl.dat, resources.pak, etc.) relative to /proc/self/exe → that directory.
-# The actual data is at /opt/google/chrome/ so we symlink everything into
-# /usr/lib/glibc/bin/ so Chrome can find them at runtime.
+# The actual data is at /opt/google/chrome/ so we symlink DATA files only into
+# /usr/lib/glibc/bin/. CRITICAL: do NOT symlink shell wrappers (chrome,
+# chrome_crashpad_handler are shell scripts in /opt/ that would overwrite the
+# real ELF binaries already in /usr/lib/glibc/bin/).
 if [ -d "$SQFS/opt/google/chrome" ] && [ -d "$SQFS/usr/lib/glibc/bin" ]; then
     log "Symlinking Chrome data files into glibc/bin..."
     _chrome_count=0
+    # Only symlink known data files and directories — NOT binaries
     for _f in "$SQFS"/opt/google/chrome/*; do
         _bn=$(basename "$_f")
-        [ -e "$SQFS/usr/lib/glibc/bin/$_bn" ] || {
-            ln -sf "/opt/google/chrome/$_bn" "$SQFS/usr/lib/glibc/bin/$_bn"
-            _chrome_count=$((_chrome_count + 1))
-        }
+        # Skip files that are already ELF binaries in glibc/bin
+        [ -e "$SQFS/usr/lib/glibc/bin/$_bn" ] && continue
+        # Skip shell wrappers (they would overwrite ELF binaries)
+        if [ -f "$_f" ] && head -c 2 "$_f" 2>/dev/null | grep -q '^#!'; then
+            continue
+        fi
+        ln -sf "/opt/google/chrome/$_bn" "$SQFS/usr/lib/glibc/bin/$_bn"
+        _chrome_count=$((_chrome_count + 1))
     done
     log "  Chrome data symlinks: $_chrome_count"
 
@@ -198,6 +205,17 @@ if [ -d "$SQFS/opt/google/chrome" ] && [ -d "$SQFS/usr/lib/glibc/bin" ]; then
             }
         done
         log "  DRI driver symlinks: $_dri_count"
+    fi
+
+    # Create libdl.so.2 linker script (merged into libc in glibc 2.34+,
+    # but Chrome crashpad handler was compiled against older glibc)
+    if [ ! -e "$SQFS/usr/lib/glibc/libdl.so.2" ]; then
+        cat > "$SQFS/usr/lib/glibc/libdl.so.2" << 'LIBDLSCRIPT'
+/* GNU ld script — libdl merged into libc in glibc 2.34+ */
+OUTPUT_FORMAT(elf64-x86-64)
+GROUP ( /usr/lib/glibc/libc.so.6 )
+LIBDLSCRIPT
+        log "  Created libdl.so.2 linker script"
     fi
 fi
 
@@ -360,7 +378,9 @@ fi
 if [ -d "$SQFS/usr/lib/glibc" ]; then
     _glibc_ld="$SQFS/usr/lib/glibc/ld-linux-x86-64.so.2"
     if [ -f "$_glibc_ld" ]; then
-        # Terax wrapper — glibc binary that needs glibc libxslt/libexslt/libstdc++
+        # Terax wrapper — glibc binary that needs glibc libxslt/libexslt
+        # LD_PRELOAD forces glibc libxslt to load instead of Alpine musl libxslt
+        # (--library-path prepends but doesn't exclude /usr/lib default path)
         _terax_bin="$SQFS/usr/lib/glibc/bin/terax"
         if [ -f "$_terax_bin" ] && [ ! -f "$SQFS/usr/bin/terax" ]; then
             mkdir -p "$SQFS/usr/bin"
@@ -368,14 +388,17 @@ if [ -d "$SQFS/usr/lib/glibc" ]; then
 #!/bin/sh
 [ -z "$WAYLAND_DISPLAY" ] && export WAYLAND_DISPLAY=wayland-0
 [ -z "$XDG_RUNTIME_DIR" ] && export XDG_RUNTIME_DIR=/tmp/0-runtime-dir
+export LD_PRELOAD="/usr/local/lib/glibc-extra/libxslt.so.1 /usr/local/lib/glibc-extra/libexslt.so.0"
 exec /usr/lib/glibc/ld-linux-x86-64.so.2 --library-path /usr/lib/glibc:/usr/local/lib/glibc-extra /usr/lib/glibc/bin/terax "$@"
 TW
             chmod +x "$SQFS/usr/bin/terax"
             log "  Created terax wrapper"
         fi
         # Doublecmd wrapper — statically linked FreePascal binary that
-        # dlopen()s libQt5Pas.so.1 at runtime. Must NOT use ld-linux;
-        # instead use LD_LIBRARY_PATH so musl's dlopen finds glibc Qt5 libs.
+        # dlopen()s libQt5Pas.so.1 at runtime. The binary is musl-linked but
+        # Qt5Pas+Qt5Core+Qt5Gui are glibc binaries — musl dlopen() can't
+        # resolve glibc symbols (__memcpy_chk etc.). This is unfixable at
+        # runtime. Fallback to Thunar if available.
         _dc_bin="$SQFS/lib/doublecmd/doublecmd"
         if [ -f "$_dc_bin" ] && [ ! -f "$SQFS/usr/bin/doublecmd" ]; then
             mkdir -p "$SQFS/usr/bin"
@@ -383,13 +406,15 @@ TW
 #!/bin/sh
 [ -z "$WAYLAND_DISPLAY" ] && export WAYLAND_DISPLAY=wayland-0
 [ -z "$XDG_RUNTIME_DIR" ] && export XDG_RUNTIME_DIR=/tmp/0-runtime-dir
-export LD_LIBRARY_PATH=/usr/lib/glibc
-export QT_PLUGIN_PATH=/usr/lib/glibc/qt5/plugins
-export QT_QPA_PLATFORM=xcb
-exec /lib/doublecmd/doublecmd "$@"
+# Try native doublecmd first (may work if musl Qt5 is available)
+if /lib/doublecmd/doublecmd "$@" 2>/dev/null; then
+    exit $?
+fi
+# Fallback: Thunar file manager
+exec thunar "$@"
 DW
             chmod +x "$SQFS/usr/bin/doublecmd"
-            log "  Created doublecmd wrapper"
+            log "  Created doublecmd wrapper (with thunar fallback)"
         fi
         # Create /lib64/ld-linux-x86-64.so.2 symlink for glibc binaries
         # that have hardcoded ELF interpreter path
