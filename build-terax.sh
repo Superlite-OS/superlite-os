@@ -11,11 +11,15 @@ TERAX_SRC="/build/vendor/terax-ai"
 
 log() { echo "[terax-build] $*"; }
 
-# ── Stage 1: Install Rust toolchain ──────────────────────────────────────
+# ── Stage 1: Install Rust toolchain (via rustup, not Alpine rust pkg) ────
 log "=== Stage 1: Install Rust ==="
-if ! command -v cargo >/dev/null 2>&1; then
-    apk add --no-cache rust cargo 2>&1 | tail -3
-fi
+# Alpine's rust package doesn't support proc-macro (dylib) crate types
+# Must use rustup for proper proc-macro support (needed by Tauri/async-recursion)
+apk add --no-cache curl gcc musl-dev 2>&1 | tail -3
+export RUSTUP_HOME=/root/.rustup
+export CARGO_HOME=/root/.cargo
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable 2>&1 | tail -5
+export PATH="$CARGO_HOME/bin:$PATH"
 RUST_VER=$(rustc --version 2>&1)
 log "Rust installed: $RUST_VER"
 
@@ -82,9 +86,8 @@ pnpm install 2>&1 | tail -10 || {
 
 # Build Tauri app (release mode)
 log "Building Tauri app (release)..."
-# Set environment for musl build
-export PKG_CONFIG_ALL_STATIC=1
-export RUSTFLAGS="-C target-feature=+crt-static"
+# Ensure cargo is in PATH for all subsequent commands
+export PATH="$CARGO_HOME/bin:$PATH"
 
 # Use tauri CLI via pnpm
 pnpm tauri build 2>&1 | tee "$BUILDLOG"
