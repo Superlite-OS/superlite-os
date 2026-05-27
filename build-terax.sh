@@ -22,7 +22,7 @@ log "Rust installed: $RUST_VER"
 # ── Stage 2: Install Node.js + pnpm ──────────────────────────────────────
 log "=== Stage 2: Install Node.js + pnpm ==="
 apk add --no-cache nodejs npm 2>&1 | tail -3
-npm install -g pnpm 2>&1 | tail -3
+npm install -g pnpm@9 2>&1 | tail -3
 NODE_VER=$(node --version 2>&1)
 PNPM_VER=$(pnpm --version 2>&1)
 log "Node.js: $NODE_VER, pnpm: $PNPM_VER"
@@ -70,10 +70,7 @@ cd "$TERAX_SRC"
 
 # Install frontend dependencies
 log "Installing frontend dependencies..."
-# Allow all build scripts (esbuild, msw, etc.) — pnpm 11+ blocks them by default
-# Settings moved from package.json to .npmrc in pnpm 11+
-echo "onlyBuiltDependencies=*" > .npmrc
-pnpm install 2>&1 | tail -10 || {
+pnpm install --frozen-lockfile 2>&1 | tail -10 || {
     log "ERROR: pnpm install failed"
     exit 1
 }
