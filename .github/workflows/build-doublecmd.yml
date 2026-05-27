@@ -31,6 +31,7 @@ jobs:
             -w /build \
             alpine:3.23 \
             sh -c '
+              apk add --no-cache make build-base
               sh /build/build-doublecmd.sh
               if [ -d /tmp/doublecmd-musl ]; then
                 cp -a /tmp/doublecmd-musl/* /output/
