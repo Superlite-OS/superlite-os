@@ -72,14 +72,14 @@ fi
 cd "$TERAX_SRC"
 
 # Create .cargo/config.toml to force dynamic linking on musl
-# The default musl target tries static linking, but Alpine only has .so files
-# Use system gcc as linker (not musl wrapper) + dynamic linking flags
+# rustup's musl target defaults to -static-pie, which overrides -Bdynamic
+# -crt-static disables the static PIE mode, enabling dynamic linking
 mkdir -p .cargo
 cat > .cargo/config.toml <<'CARGO'
-# Use system gcc as linker for musl target — avoids musl static-linking defaults
 [target.x86_64-unknown-linux-musl]
 linker = "cc"
 rustflags = [
+    "-C", "target-feature=-crt-static",
     "-C", "link-arg=-Wl,-Bdynamic",
     "-C", "link-arg=-L/usr/lib",
     "-C", "link-arg=-Wl,--enable-new-dtags",
