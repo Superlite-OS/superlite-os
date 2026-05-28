@@ -429,14 +429,6 @@ if [ -d "$REPO_DIR/prebuilt/doublecmd/lib/doublecmd" ]; then
         mkdir -p "$SQFS/usr/lib"
         cp -a "$REPO_DIR/prebuilt/doublecmd/lib/doublecmd/libQt5Pas.so" "$SQFS/usr/lib/"
     }
-    # Copy bundled musl GTK2 runtime libs to /usr/lib/ for musl linker
-    # musl linker searches /lib:/usr/lib by default
-    # glibc libs are in /usr/lib/glibc/ (subdirectory) so no conflict
-    if [ -d "$REPO_DIR/prebuilt/doublecmd/lib/doublecmd/lib" ]; then
-        mkdir -p "$SQFS/usr/lib"
-        cp -a "$REPO_DIR/prebuilt/doublecmd/lib/doublecmd/lib/"* "$SQFS/usr/lib/" 2>/dev/null || true
-        log "  Copied bundled GTK2 libs to /usr/lib/"
-    fi
     DC_INSTALLED=1
     log "  Installed Double Commander from prebuilt"
 elif [ -d "/tmp/doublecmd-musl" ]; then

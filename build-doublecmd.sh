@@ -172,66 +172,6 @@ done
 # libQt5Pas.so (not needed for gtk2, but copy if exists for other tools)
 cp -v /usr/local/lib/libQt5Pas.so "$OUTPUT/lib/doublecmd/" 2>/dev/null || true
 
-# Bundle musl GTK2 runtime .so files — DC links against them dynamically
-# The live system doesn't have GTK2 in packages.list, so we bundle them here
-log "Bundling musl GTK2 runtime libraries..."
-mkdir -p "$OUTPUT/lib/doublecmd/lib"
-for lib in \
-    libgtk-x11-2.0.so \
-    libgdk-x11-2.0.so \
-    libgdk_pixbuf-2.0.so \
-    libpango-1.0.so \
-    libpangocairo-1.0.so \
-    libpangoft2-1.0.so \
-    libcairo.so \
-    libcairo-gobject.so \
-    libgobject-2.0.so \
-    libglib-2.0.so \
-    libgio-2.0.so \
-    libgmodule-2.0.so \
-    libatk-1.0.so \
-    libfreetype.so \
-    libfontconfig.so \
-    libharfbuzz.so \
-    libpixman-1.so \
-    libpng16.so \
-    libjpeg.so \
-    libxcb-shm.so \
-    libxcb-render.so \
-    libxcb.so \
-    libX11.so \
-    libXext.so \
-    libXrandr.so \
-    libXinerama.so \
-    libXcursor.so \
-    libXcomposite.so \
-    libXdamage.so \
-    libXfixes.so \
-    libXi.so \
-    libpcre2-8.so \
-    libffi.so \
-    libexpat.so \
-    libz.so \
-    libbz2.so \
-    libbrotlidec.so \
-    libbrotlicommon.so \
-    libgraphite2.so \
-    ; do
-    src="/usr/lib/$lib"
-    [ -f "$src" ] || src="/lib/$lib"
-    if [ -f "$src" ]; then
-        # Copy .so and any versioned symlinks
-        cp -av "$src" "$OUTPUT/lib/doublecmd/lib/" 2>/dev/null
-        # Also copy versioned variants (libfoo.so.1, libfoo.so.1.2.3)
-        for versioned in "${src}"*; do
-            [ -f "$versioned" ] && cp -av "$versioned" "$OUTPUT/lib/doublecmd/lib/" 2>/dev/null
-        done
-    else
-        log "  WARNING: $lib not found"
-    fi
-done
-log "GTK2 libs bundled: $(ls "$OUTPUT/lib/doublecmd/lib/" 2>/dev/null | wc -l) files"
-
 log "=== Artifacts ==="
 ls -la "$OUTPUT/lib/doublecmd/doublecmd"
 ls -la "$OUTPUT/lib/doublecmd/"

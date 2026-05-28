@@ -64,6 +64,7 @@ mako
 tofi
 brightnessctl
 gsettings-desktop-schemas
+gtk+2.0
 
 # --- Audio ---
 pipewire
