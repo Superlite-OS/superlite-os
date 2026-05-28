@@ -418,6 +418,16 @@ if [ "$TERAX_INSTALLED" = "0" ]; then
     fi
 fi
 
+# ── SuperLite Files (Tauri file manager) ──────────────────────────────────
+if [ -f "$REPO_DIR/prebuilt/superlite-files/usr/bin/superlite-files" ]; then
+    log "Installing SuperLite Files..."
+    cp -v "$REPO_DIR/prebuilt/superlite-files/usr/bin/superlite-files" "$SQFS/usr/bin/superlite-files"
+    chmod +x "$SQFS/usr/bin/superlite-files"
+    log "  Installed SuperLite Files"
+else
+    log "WARNING: SuperLite Files prebuilt not found"
+fi
+
 # ── Double Commander (prebuilt > native musl build > Debian fallback) ──────
 DC_INSTALLED=0
 if [ -d "$REPO_DIR/prebuilt/doublecmd/lib/doublecmd" ]; then

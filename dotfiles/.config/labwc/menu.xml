@@ -16,7 +16,7 @@
 	<separator/>
 	<menu id="Power" label="Tool">
 		<item label="File">
-			<action name="Execute"><command>doublecmd</command></action>
+			<action name="Execute"><command>superlite-files</command></action>
 		</item>
 		<item label="E-Mail">
 			<action name="Execute"><command>thunderbird</command></action>

@@ -436,6 +436,7 @@ mkdir -p "$tmp"/usr/bin
 mkdir -p "$tmp"/usr/local/bin
 ln -sf /.modloop/usr/bin/terax "$tmp"/usr/bin/terax
 ln -sf /.modloop/usr/bin/doublecmd "$tmp"/usr/bin/doublecmd
+ln -sf /.modloop/usr/bin/superlite-files "$tmp"/usr/bin/superlite-files
 # Create DC wrapper that ensures config dirs exist
 cat > "$tmp"/usr/bin/doublecmd <<'DCEOF'
 #!/bin/sh
