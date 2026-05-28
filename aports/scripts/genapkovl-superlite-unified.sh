@@ -108,7 +108,7 @@ start() {
 
     # Bind mount modloop contents into root filesystem
     # Alpine's modloop service only symlinks /lib/modules from /.modloop/
-    # Injected binaries (Chrome, glibc, zapt, terax, curl-imp, doublecmd)
+    # Injected binaries (Chrome, glibc, zapt, terax, curl-imp)
     # live in /.modloop/ but need to be accessible at standard paths
     if [ -d /.modloop ]; then
         # /opt is entirely from modloop (Chrome + dependencies)
@@ -128,11 +128,6 @@ start() {
         [ -d /.modloop/usr/local/lib/curl-impersonate ] && {
             mkdir -p /usr/local/lib/curl-impersonate
             mount --bind /.modloop/usr/local/lib/curl-impersonate /usr/local/lib/curl-impersonate 2>/dev/null || true
-        }
-        # /lib/doublecmd — Double Commander libs
-        [ -d /.modloop/lib/doublecmd ] && {
-            mkdir -p /lib/doublecmd
-            mount --bind /.modloop/lib/doublecmd /lib/doublecmd 2>/dev/null || true
         }
         # Symlink individual binaries (dirs mixed with apkovl files)
         for _bin in zapt; do
@@ -435,15 +430,7 @@ fi
 mkdir -p "$tmp"/usr/bin
 mkdir -p "$tmp"/usr/local/bin
 ln -sf /.modloop/usr/bin/terax "$tmp"/usr/bin/terax
-ln -sf /.modloop/usr/bin/doublecmd "$tmp"/usr/bin/doublecmd
 ln -sf /.modloop/usr/bin/superlite-files "$tmp"/usr/bin/superlite-files
-# Create DC wrapper that ensures config dirs exist
-cat > "$tmp"/usr/bin/doublecmd <<'DCEOF'
-#!/bin/sh
-mkdir -p /root/.config/doublecmd /tmp/doublecmd-cache
-exec /lib/doublecmd/doublecmd "$@"
-DCEOF
-chmod +x "$tmp"/usr/bin/doublecmd
 ln -sf /.modloop/usr/local/bin/curl "$tmp"/usr/local/bin/curl
 ln -sf /.modloop/usr/local/bin/curl-impersonate-chrome "$tmp"/usr/local/bin/curl-impersonate-chrome
 

@@ -428,47 +428,14 @@ else
     log "WARNING: SuperLite Files prebuilt not found"
 fi
 
-# ── Double Commander (prebuilt > native musl build > Debian fallback) ──────
-DC_INSTALLED=0
-if [ -d "$REPO_DIR/prebuilt/doublecmd/lib/doublecmd" ]; then
-    log "Installing Double Commander (prebuilt)..."
-    cp -a "$REPO_DIR/prebuilt/doublecmd/lib/doublecmd" "$SQFS/lib/doublecmd" 2>/dev/null || true
-    cp -a "$REPO_DIR/prebuilt/doublecmd/usr/bin/doublecmd" "$SQFS/usr/bin/doublecmd" 2>/dev/null || true
-    chmod +x "$SQFS/usr/bin/doublecmd" 2>/dev/null || true
-    [ -f "$REPO_DIR/prebuilt/doublecmd/lib/doublecmd/libQt5Pas.so" ] && {
-        mkdir -p "$SQFS/usr/lib"
-        cp -a "$REPO_DIR/prebuilt/doublecmd/lib/doublecmd/libQt5Pas.so" "$SQFS/usr/lib/"
-    }
-    DC_INSTALLED=1
-    log "  Installed Double Commander from prebuilt"
-elif [ -d "/tmp/doublecmd-musl" ]; then
-    log "Installing Double Commander (native musl)..."
-    cp -a /tmp/doublecmd-musl/lib/doublecmd "$SQFS/lib/doublecmd" 2>/dev/null || true
-    cp -a /tmp/doublecmd-musl/usr/bin/doublecmd "$SQFS/usr/bin/doublecmd" 2>/dev/null || true
-    chmod +x "$SQFS/usr/bin/doublecmd" 2>/dev/null || true
-    [ -f "/tmp/doublecmd-musl/lib/doublecmd/libQt5Pas.so" ] && {
-        mkdir -p "$SQFS/usr/lib"
-        cp -a "/tmp/doublecmd-musl/lib/doublecmd/libQt5Pas.so" "$SQFS/usr/lib/"
-    }
-    DC_INSTALLED=1
-fi
-if [ "$DC_INSTALLED" = "0" ] && [ -x "$SQFS/usr/local/bin/zapt" ]; then
-    log "Installing Double Commander (Debian fallback)..."
-    "$SQFS/usr/local/bin/zapt" install --root "$SQFS" doublecmd-qt 2>&1 || {
-        log "WARNING: Double Commander install failed"
-    }
-fi
-
-# ── Create glibc wrappers for terax and doublecmd ──────────────────────────
-# These are glibc ELF binaries that need the glibc ELF loader (ld-linux-x86-64.so.2)
-# to run on musl Alpine. zapt's createGlibcWrapper handles Chrome, but terax and
-# doublecmd are installed from .deb files where the wrapper might not be created.
+# ── Create glibc wrapper for terax ────────────────────────────────────────
+# Terax is a glibc binary that needs the glibc ELF loader (ld-linux-x86-64.so.2)
+# to run on musl Alpine. zapt's createGlibcWrapper handles Chrome.
 if [ -d "$SQFS/usr/lib/glibc" ]; then
     _glibc_ld="$SQFS/usr/lib/glibc/ld-linux-x86-64.so.2"
     if [ -f "$_glibc_ld" ]; then
         # Terax wrapper — glibc binary that needs glibc libxslt/libexslt
         # LD_PRELOAD forces glibc libxslt to load instead of Alpine musl libxslt
-        # (--library-path prepends but doesn't exclude /usr/lib default path)
         _terax_bin="$SQFS/usr/lib/glibc/bin/terax"
         if [ -f "$_terax_bin" ] && [ ! -f "$SQFS/usr/bin/terax" ]; then
             mkdir -p "$SQFS/usr/bin"
@@ -482,33 +449,6 @@ exec /usr/lib/glibc/ld-linux-x86-64.so.2 --library-path /usr/lib/glibc /usr/lib/
 TW
             chmod +x "$SQFS/usr/bin/terax"
             log "  Created terax wrapper"
-        fi
-        # Doublecmd wrapper — if native musl build, set QT_QPA_PLATFORM only.
-        # If glibc deb (zapt), fallback to Thunar (musl can't load glibc Qt5).
-        _dc_bin="$SQFS/lib/doublecmd/doublecmd"
-        if [ -f "$_dc_bin" ] && [ ! -f "$SQFS/usr/bin/doublecmd" ]; then
-            mkdir -p "$SQFS/usr/bin"
-            # Check if binary is native musl (has musl interpreter)
-            if head -c 4096 "$_dc_bin" 2>/dev/null | strings | grep -q 'ld-musl'; then
-                cat > "$SQFS/usr/bin/doublecmd" << 'DW'
-#!/bin/sh
-[ -z "$WAYLAND_DISPLAY" ] && export WAYLAND_DISPLAY=wayland-0
-[ -z "$XDG_RUNTIME_DIR" ] && export XDG_RUNTIME_DIR=/tmp/0-runtime-dir
-export QT_QPA_PLATFORM=${QT_QPA_PLATFORM:-wayland}
-exec /lib/doublecmd/doublecmd "$@"
-DW
-                log "  Created doublecmd wrapper (native musl)"
-            else
-                cat > "$SQFS/usr/bin/doublecmd" << 'DW'
-#!/bin/sh
-[ -z "$WAYLAND_DISPLAY" ] && export WAYLAND_DISPLAY=wayland-0
-[ -z "$XDG_RUNTIME_DIR" ] && export XDG_RUNTIME_DIR=/tmp/0-runtime-dir
-# Glibc binary: musl can't load glibc Qt5Pas. Fallback to Thunar.
-exec thunar "$@"
-DW
-                log "  Created doublecmd wrapper (glibc fallback → thunar)"
-            fi
-            chmod +x "$SQFS/usr/bin/doublecmd"
         fi
         # Create /lib64/ld-linux-x86-64.so.2 symlink for glibc binaries
         # that have hardcoded ELF interpreter path
