@@ -1,0 +1,3 @@
+[Configuration]
+ConfigDir=/root/.config/doublecmd
+CacheDir=/tmp/doublecmd-cache
