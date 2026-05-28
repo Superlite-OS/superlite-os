@@ -170,23 +170,25 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), String> {
 
 #[tauri::command]
 pub fn fs_move(src: String, dst: String, _overwrite: bool) -> Result<(), String> {
-    fs::rename(&src, &dst).map_err(|e| {
-        // Cross-filesystem move: copy + delete
-        if e.raw_os_error() == Some(18) {
-            // EXDEV
-            let src_path = Path::new(&src);
-            if src_path.is_dir() {
-                copy_dir_recursive(src_path, Path::new(&dst))?;
-                fs::remove_dir_all(src_path).map_err(|e| format!("rm: {}", e))?;
+    match fs::rename(&src, &dst) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            // Cross-filesystem move: copy + delete
+            if e.raw_os_error() == Some(18) {
+                let src_path = Path::new(&src);
+                if src_path.is_dir() {
+                    copy_dir_recursive(src_path, Path::new(&dst))?;
+                    fs::remove_dir_all(src_path).map_err(|e| format!("rm: {}", e))?;
+                } else {
+                    fs::copy(&src, &dst).map_err(|e| format!("copy: {}", e))?;
+                    fs::remove_file(src_path).map_err(|e| format!("rm: {}", e))?;
+                }
+                Ok(())
             } else {
-                fs::copy(&src, &dst).map_err(|e| format!("copy: {}", e))?;
-                fs::remove_file(src_path).map_err(|e| format!("rm: {}", e))?;
+                Err(format!("move: {}", e))
             }
-            Ok(())
-        } else {
-            Err(format!("move: {}", e))
         }
-    })
+    }
 }
 
 #[tauri::command]
