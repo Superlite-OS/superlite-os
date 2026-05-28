@@ -429,23 +429,13 @@ if [ -d "$REPO_DIR/prebuilt/doublecmd/lib/doublecmd" ]; then
         mkdir -p "$SQFS/usr/lib"
         cp -a "$REPO_DIR/prebuilt/doublecmd/lib/doublecmd/libQt5Pas.so" "$SQFS/usr/lib/"
     }
-    # Copy bundled musl GTK2 runtime libs to /lib/doublecmd/lib/ (separate from glibc)
+    # Copy bundled musl GTK2 runtime libs to /usr/lib/ for musl linker
+    # musl linker searches /lib:/usr/lib by default
+    # glibc libs are in /usr/lib/glibc/ (subdirectory) so no conflict
     if [ -d "$REPO_DIR/prebuilt/doublecmd/lib/doublecmd/lib" ]; then
-        mkdir -p "$SQFS/lib/doublecmd/lib"
-        cp -a "$REPO_DIR/prebuilt/doublecmd/lib/doublecmd/lib/"* "$SQFS/lib/doublecmd/lib/" 2>/dev/null || true
-        log "  Copied bundled GTK2 libs to /lib/doublecmd/lib/"
-    fi
-    # Create wrapper script to set LD_LIBRARY_PATH for musl GTK2 libs
-    # (separate from /usr/lib which has glibc libs for Chrome)
-    if [ -f "$SQFS/usr/bin/doublecmd" ]; then
-        mv "$SQFS/usr/bin/doublecmd" "$SQFS/usr/bin/doublecmd.bin"
-        cat > "$SQFS/usr/bin/doublecmd" <<'DCEOF'
-#!/bin/sh
-export LD_LIBRARY_PATH="/lib/doublecmd/lib:${LD_LIBRARY_PATH:-}"
-exec /usr/bin/doublecmd.bin "$@"
-DCEOF
-        chmod +x "$SQFS/usr/bin/doublecmd"
-        log "  Created DC wrapper with LD_LIBRARY_PATH"
+        mkdir -p "$SQFS/usr/lib"
+        cp -a "$REPO_DIR/prebuilt/doublecmd/lib/doublecmd/lib/"* "$SQFS/usr/lib/" 2>/dev/null || true
+        log "  Copied bundled GTK2 libs to /usr/lib/"
     fi
     DC_INSTALLED=1
     log "  Installed Double Commander from prebuilt"
