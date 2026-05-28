@@ -72,7 +72,7 @@ _docker_build() {
     log "Building ${variant} inside Docker..."
     mkdir -p "$output_dir"
 
-    timeout 2400 docker run --rm \
+    docker run --rm \
         --cap-add SYS_ADMIN \
         -e VARIANT="$variant" \
         -e TAG="$tag" \
@@ -80,6 +80,11 @@ _docker_build() {
         -w /build \
         alpine:3.23 \
         sh -c '
+            # Kill container after 40 min if stuck
+            ( sleep 2400 && kill -9 1 ) &
+            TIMEOUT_PID=$!
+            trap "kill $TIMEOUT_PID 2>/dev/null" EXIT
+            set -e
             set -e
             apk add --no-cache alpine-sdk build-base apk-tools alpine-conf \
                 busybox fakeroot syslinux xorriso squashfs-tools mtools dosfstools upx \
