@@ -1,0 +1,70 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --radius: 0.625rem;
+}
+
+.dark {
+  /* Catppuccin Mocha */
+  --background: oklch(0.19 0.01 260);
+  --foreground: oklch(0.93 0.01 260);
+  --card: oklch(0.24 0.01 260);
+  --card-foreground: oklch(0.93 0.01 260);
+  --primary: oklch(0.74 0.12 250);
+  --primary-foreground: oklch(0.19 0.01 260);
+  --secondary: oklch(0.31 0.01 260);
+  --secondary-foreground: oklch(0.93 0.01 260);
+  --muted: oklch(0.28 0.01 260);
+  --muted-foreground: oklch(0.65 0.01 260);
+  --accent: oklch(0.35 0.02 260);
+  --accent-foreground: oklch(0.93 0.01 260);
+  --destructive: oklch(0.63 0.2 25);
+  --destructive-foreground: oklch(0.93 0.01 260);
+  --border: oklch(0.35 0.01 260);
+  --input: oklch(0.35 0.01 260);
+  --ring: oklch(0.74 0.12 250);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  border-color: var(--border);
+}
+
+body {
+  background: transparent;
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  color: var(--foreground);
+  overflow: hidden;
+  user-select: none;
+}
+
+#root {
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--background);
+  overflow: hidden;
+  height: 100vh;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--muted);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
+}
