@@ -155,6 +155,13 @@ mkdir -p "$OUTPUT/lib/doublecmd"
 cp -v "$DC_BIN" "$OUTPUT/lib/doublecmd/doublecmd"
 chmod +x "$OUTPUT/lib/doublecmd/doublecmd"
 
+# Create doublecmd.inf — tells DC where to find config and resources
+cat > "$OUTPUT/lib/doublecmd/doublecmd.inf" <<'INF'
+[Configuration]
+ConfigDir=/root/.config/doublecmd
+CacheDir=/tmp/doublecmd-cache
+INF
+
 # Shared libraries
 for f in *.so *.so.*; do
     [ -f "$f" ] || continue
