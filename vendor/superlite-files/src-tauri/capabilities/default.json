@@ -25,7 +25,7 @@
     "fs:allow-stat",
     "process:default",
     "process:allow-exit",
-    "process:allow-kill",
+    "process:allow-restart",
     "window-state:default"
   ]
 }
