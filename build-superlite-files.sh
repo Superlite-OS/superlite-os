@@ -12,14 +12,12 @@ export CARGO_HOME=/root/.cargo
 
 log() { echo "[slf-build] $*"; }
 
-# ── Stage 1: Install Rust via rustup ─────────────────────────────────────
+# ── Stage 1: Install Rust via Alpine packages ─────────────────────────────
 log "=== Stage 1: Install Rust ==="
-apk add --no-cache curl gcc musl-dev 2>&1 | tail -3
-# Add musl target for static builds
-rustup toolchain install stable 2>&1 | tail -3
-rustup target add x86_64-unknown-linux-musl 2>&1 | tail -3
-export PATH="$CARGO_HOME/bin:$PATH"
+apk add --no-cache curl gcc musl-dev rust cargo 2>&1 | tail -5
+export PATH="/usr/bin:$PATH"
 log "Rust: $(rustc --version 2>&1)"
+log "Cargo: $(cargo --version 2>&1)"
 
 # ── Stage 2: Install Node.js + pnpm ──────────────────────────────────────
 log "=== Stage 2: Install Node.js + pnpm ==="
@@ -101,15 +99,12 @@ pnpm install 2>&1 | tail -10 || {
 
 # ── Stage 6: Build Tauri app (static) ───────────────────────────────────
 log "=== Stage 6: Build SuperLite Files (static) ==="
-export PATH="$CARGO_HOME/bin:$PATH"
+export PATH="/usr/bin:$PATH"
 export RUSTFLAGS="-C target-feature=-crt-static -C link-arg=-static -C link-arg=-Wl,-Bstatic"
-
-# Make cargo available to all subprocesses
-echo "export PATH=\"$CARGO_HOME/bin:\$PATH\"" > /etc/profile.d/cargo.sh
-chmod +x /etc/profile.d/cargo.sh
 
 # Verify cargo is available
 cargo --version || { log "ERROR: cargo not found"; exit 1; }
+rustc --version || { log "ERROR: rustc not found"; exit 1; }
 
 # Build frontend first (without cargo)
 log "Building frontend..."
