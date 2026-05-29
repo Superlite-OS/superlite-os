@@ -1,4 +1,4 @@
-name: Build SuperLite Files (musl)
+name: Build SuperLite Files (glibc)
 
 on:
   workflow_dispatch:
@@ -41,7 +41,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: superlite-files-musl
+          name: superlite-files-glibc
           path: prebuilt/superlite-files/
           retention-days: 30
 
