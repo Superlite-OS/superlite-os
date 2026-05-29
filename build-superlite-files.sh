@@ -91,7 +91,7 @@ pnpm install 2>&1 | tail -10 || {
 # ── Stage 6: Build Tauri app (static) ───────────────────────────────────
 log "=== Stage 6: Build SuperLite Files (static) ==="
 export PATH="/usr/bin:$PATH"
-export RUSTFLAGS="-C target-feature=-crt-static -C link-arg=-static -C link-arg=-Wl,-Bstatic"
+export RUSTFLAGS="-C link-arg=-static -C link-arg=-Wl,-Bstatic"
 
 # Verify cargo is available
 cargo --version || { log "ERROR: cargo not found"; exit 1; }
