@@ -334,6 +334,7 @@ jobs:
               {{"Root user" "whoami" "root"}} \\
               {{"glibc loader run" "/usr/lib/glibc/ld-linux-x86-64.so.2 --version 2>&1 | head -1" "GLIBC"}} \\
               {{"Chrome --version" "LD_LIBRARY_PATH=/usr/lib/glibc /opt/google/chrome/chrome --version 2>/dev/null | head -1" "Chrome"}} \\
+              {{"Chrome launch" "LD_LIBRARY_PATH=/usr/lib/glibc /usr/lib/glibc/ld-linux-x86-64.so.2 --library-path /usr/lib/glibc /usr/lib/glibc/bin/chrome --no-sandbox --disable-gpu --headless --dump-dom about:blank 2>&1 | grep -c 'Invalid file descriptor' || echo CHROME_LAUNCH_OK" "CHROME_LAUNCH_OK"}} \\
               {{"curl --version" "LD_LIBRARY_PATH=/usr/lib/glibc:/usr/local/lib/curl-impersonate /usr/local/bin/curl --version 2>&1 | head -1" "curl"}} \\
               {{"Terax wrapper" "test -x /usr/bin/terax && echo TERAX_WRAPPER_OK || echo TERAX_MISSING" "TERAX_WRAPPER_OK"}} \\
               {{"SuperLite Files" "test -x /usr/bin/superlite-files && echo SLF_OK || echo SLF_MISSING" "SLF_OK"}} \\
