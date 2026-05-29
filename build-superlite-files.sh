@@ -74,8 +74,9 @@ fi
 
 cd "$SRC"
 
-# Use default target (Alpine is already musl)
-# Apply static linking flags globally via RUSTFLAGS
+# No static linking flags — build normally (dynamic binary)
+# Fully static linking causes SIGSEGV in build scripts on Alpine
+# Binary will have musl dependencies, same as Terax
 
 # ── Stage 5: Install frontend dependencies ───────────────────────────────
 log "=== Stage 5: pnpm install ==="
@@ -91,7 +92,8 @@ pnpm install 2>&1 | tail -10 || {
 # ── Stage 6: Build Tauri app (static) ───────────────────────────────────
 log "=== Stage 6: Build SuperLite Files (static) ==="
 export PATH="/usr/bin:$PATH"
-export RUSTFLAGS="-C link-arg=-static -C link-arg=-Wl,-Bstatic"
+# Do NOT set RUSTFLAGS here — it applies to build scripts and causes SIGSEGV
+# Static linking flags are set in .cargo/config.toml only for the final binary
 
 # Verify cargo is available
 cargo --version || { log "ERROR: cargo not found"; exit 1; }
