@@ -1,47 +1,43 @@
-#!/bin/bash
-# build-superlite-files.sh — Build SuperLite Files on Ubuntu (glibc)
-# Produces a glibc binary that works with glibc webkit2gtk on Alpine
+#!/bin/sh
+# build-superlite-files.sh — Build SuperLite Files from vendored source (Alpine musl)
+# Runs inside Alpine 3.23 Docker container (same as build-terax.sh)
 
-OUTPUT="/tmp/superlite-files-glibc"
+OUTPUT="/tmp/superlite-files-musl"
 BUILDLOG="/tmp/superlite-files-build.log"
-SRC="${1:-/build/vendor/superlite-files}"
+SRC="/build/vendor/superlite-files"
 
-export RUSTUP_HOME=${RUSTUP_HOME:-$HOME/.rustup}
-export CARGO_HOME=${CARGO_HOME:-$HOME/.cargo}
+export RUSTUP_HOME=/root/.rustup
+export CARGO_HOME=/root/.cargo
 
 log() { echo "[slf-build] $*"; }
 
 # ── Stage 1: Install Rust via rustup ─────────────────────────────────────
 log "=== Stage 1: Install Rust ==="
-if ! command -v cargo &>/dev/null; then
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable 2>&1 | tail -5
-fi
+apk add --no-cache curl gcc musl-dev 2>&1 | tail -3
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable 2>&1 | tail -5
 export PATH="$CARGO_HOME/bin:$PATH"
 log "Rust: $(rustc --version 2>&1)"
 
 # ── Stage 2: Install Node.js + pnpm ──────────────────────────────────────
 log "=== Stage 2: Install Node.js + pnpm ==="
-if ! command -v node &>/dev/null; then
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - 2>&1 | tail -3
-    apt-get install -y nodejs 2>&1 | tail -3
-fi
+apk add --no-cache nodejs npm 2>&1 | tail -3
 npm install -g pnpm@9 2>&1 | tail -3
 log "Node: $(node --version 2>&1), pnpm: $(pnpm --version 2>&1)"
 
 # ── Stage 3: Install Tauri system dependencies ──────────────────────────
 log "=== Stage 3: Install Tauri deps ==="
-apt-get update -qq 2>&1 | tail -3
-apt-get install -y \
-    libwebkit2gtk-4.1-dev \
-    libgtk-3-dev \
-    libglib2.0-dev \
-    libgdk-pixbuf-2.0-dev \
-    libpango1.0-dev \
-    libcairo2-dev \
-    libharfbuzz-dev \
-    libfontconfig-dev \
-    libsoup-3.0-dev \
+apk add --no-cache \
+    webkit2gtk-4.1-dev \
+    gtk+3.0-dev \
+    glib-dev \
+    gdk-pixbuf-dev \
+    pango-dev \
+    cairo-dev \
+    harfbuzz-dev \
+    fontconfig-dev \
+    libsoup3-dev \
     libxml2-dev \
+    xorgproto \
     libx11-dev \
     libxext-dev \
     libxrandr-dev \
@@ -50,11 +46,11 @@ apt-get install -y \
     libxcomposite-dev \
     libxdamage-dev \
     libxfixes-dev \
-    libatk1.0-dev \
-    libatspi2.0-dev \
-    libssl-dev \
-    build-essential \
-    pkg-config \
+    at-spi2-core-dev \
+    gcc \
+    musl-dev \
+    openssl-dev \
+    pkgconf \
     file \
     patchelf \
     2>&1 | tail -5
@@ -69,7 +65,18 @@ fi
 
 cd "$SRC"
 
-# No custom cargo config needed — building with system default (glibc)
+mkdir -p .cargo
+cat > .cargo/config.toml <<'CARGO'
+[target.x86_64-unknown-linux-musl]
+linker = "cc"
+rustflags = [
+    "-C", "target-feature=-crt-static",
+    "-C", "link-arg=-Wl,-Bdynamic",
+    "-C", "link-arg=-L/usr/lib",
+    "-C", "link-arg=-Wl,--enable-new-dtags",
+    "-C", "link-arg=-Wl,-rpath,/usr/lib",
+]
+CARGO
 
 # ── Stage 5: Install frontend dependencies ───────────────────────────────
 log "=== Stage 5: pnpm install ==="
