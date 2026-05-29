@@ -147,6 +147,12 @@ start() {
         [ -d /lib64 ] || mkdir -p /lib64
         [ -f /lib64/ld-linux-x86-64.so.2 ] || \
             ln -sf /usr/lib/glibc/ld-linux-x86-64.so.2 /lib64/ld-linux-x86-64.so.2
+        # Chrome ICU data: Chrome uses DIR_MODULE (/proc/self/exe dir) to find icudtl.dat
+        # /proc/self/exe resolves to glibc loader dir, so symlink data files there too
+        for _f in icudtl.dat v8_context_snapshot.bin v8_context_snapshot.x86_64.bin; do
+            [ -e "/opt/google/chrome/$_f" ] && [ ! -e "/usr/lib/glibc/$_f" ] && \
+                ln -sf "/opt/google/chrome/$_f" "/usr/lib/glibc/$_f"
+        done
     fi
 
     # Symlink /media/cdrom if not already set by initramfs
