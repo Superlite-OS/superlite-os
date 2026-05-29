@@ -188,7 +188,7 @@ fi
 # chrome_crashpad_handler are shell scripts in /opt/ that would overwrite the
 # real ELF binaries already in /usr/lib/glibc/bin/).
 if [ -d "$SQFS/opt/google/chrome" ] && [ -d "$SQFS/usr/lib/glibc/bin" ]; then
-    log "Symlinking Chrome data files into glibc/bin..."
+    log "Symlinking Chrome data files into glibc/bin and glibc/..."
     _chrome_count=0
     # Only symlink known data files and directories — NOT binaries
     for _f in "$SQFS"/opt/google/chrome/*; do
@@ -200,6 +200,9 @@ if [ -d "$SQFS/opt/google/chrome" ] && [ -d "$SQFS/usr/lib/glibc/bin" ]; then
             continue
         fi
         ln -sf "/opt/google/chrome/$_bn" "$SQFS/usr/lib/glibc/bin/$_bn"
+        # Also symlink into /usr/lib/glibc/ (Chrome DIR_MODULE resolves here)
+        [ ! -e "$SQFS/usr/lib/glibc/$_bn" ] && \
+            ln -sf "/opt/google/chrome/$_bn" "$SQFS/usr/lib/glibc/$_bn"
         _chrome_count=$((_chrome_count + 1))
     done
     # V8 snapshot: Chrome looks for v8_context_snapshot.x86_64.bin but package
@@ -208,6 +211,9 @@ if [ -d "$SQFS/opt/google/chrome" ] && [ -d "$SQFS/usr/lib/glibc/bin" ]; then
        [ ! -e "$SQFS/usr/lib/glibc/bin/v8_context_snapshot.x86_64.bin" ]; then
         ln -sf "/opt/google/chrome/v8_context_snapshot.bin" \
             "$SQFS/usr/lib/glibc/bin/v8_context_snapshot.x86_64.bin"
+        [ ! -e "$SQFS/usr/lib/glibc/v8_context_snapshot.x86_64.bin" ] && \
+            ln -sf "/opt/google/chrome/v8_context_snapshot.bin" \
+                "$SQFS/usr/lib/glibc/v8_context_snapshot.x86_64.bin"
         _chrome_count=$((_chrome_count + 1))
     fi
     # ANGLE GL libraries: Chrome needs libGLESv2.so, libEGL.so from its own dir
