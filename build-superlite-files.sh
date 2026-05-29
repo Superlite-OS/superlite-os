@@ -104,11 +104,26 @@ log "=== Stage 6: Build SuperLite Files (static) ==="
 export PATH="$CARGO_HOME/bin:$PATH"
 export RUSTFLAGS="-C target-feature=-crt-static -C link-arg=-static -C link-arg=-Wl,-Bstatic"
 
-pnpm tauri build 2>&1 | tee "$BUILDLOG"
+# Make cargo available to all subprocesses
+echo "export PATH=\"$CARGO_HOME/bin:\$PATH\"" > /etc/profile.d/cargo.sh
+chmod +x /etc/profile.d/cargo.sh
+
+# Verify cargo is available
+cargo --version || { log "ERROR: cargo not found"; exit 1; }
+
+# Build frontend first (without cargo)
+log "Building frontend..."
+pnpm build 2>&1 | tail -5
+
+# Build Rust backend (Tauri) directly with cargo
+log "Building Rust backend..."
+cd src-tauri
+cargo build --release --target x86_64-unknown-linux-musl 2>&1 | tee "../$BUILDLOG"
 BUILD_RC=$?
+cd ..
 
 if [ $BUILD_RC -ne 0 ]; then
-    log "ERROR: tauri build failed (exit=$BUILD_RC)"
+    log "ERROR: cargo build failed (exit=$BUILD_RC)"
     tail -50 "$BUILDLOG"
     exit 1
 fi
@@ -116,7 +131,10 @@ fi
 # ── Stage 7: Package artifacts ───────────────────────────────────────────
 log "=== Stage 7: Package ==="
 
-BIN="src-tauri/target/release/superlite-files"
+BIN="src-tauri/target/x86_64-unknown-linux-musl/release/superlite-files"
+if [ ! -f "$BIN" ]; then
+    BIN="src-tauri/target/release/superlite-files"
+fi
 if [ ! -f "$BIN" ]; then
     BIN=$(find src-tauri/target -name "superlite-files" -type f -executable 2>/dev/null | head -1)
 fi
