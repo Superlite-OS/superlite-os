@@ -4,7 +4,7 @@
 
 OUTPUT="/tmp/superlite-files-glibc"
 BUILDLOG="/tmp/superlite-files-build.log"
-SRC="${1:-/build/vendor/superlite-files}"
+SRC="${1:-${GITHUB_WORKSPACE:-$(pwd)}/vendor/superlite-files}"
 
 export RUSTUP_HOME=${RUSTUP_HOME:-$HOME/.rustup}
 export CARGO_HOME=${CARGO_HOME:-$HOME/.cargo}
