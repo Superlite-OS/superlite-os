@@ -106,7 +106,7 @@ pnpm build 2>&1 | tail -5
 # Build Rust backend (Tauri) directly with cargo
 log "Building Rust backend..."
 cd src-tauri
-cargo build --release 2>&1 | tee "../$BUILDLOG"
+cargo build --release 2>&1 | tee "$BUILDLOG"
 BUILD_RC=$?
 cd ..
 
