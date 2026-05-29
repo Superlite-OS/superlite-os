@@ -135,8 +135,8 @@ start() {
                 ln -sf "/.modloop/usr/local/bin/$_bin" "/usr/local/bin/$_bin"
         done
         for _bin in terax superlite-files google-chrome-stable google-chrome; do
-            [ -f "/.modloop/bin/$_bin" ] && [ ! -f "/bin/$_bin" ] && \
-                ln -sf "/.modloop/bin/$_bin" "/bin/$_bin"
+            [ -f "/.modloop/usr/bin/$_bin" ] && [ ! -f "/usr/bin/$_bin" ] && \
+                ln -sf "/.modloop/usr/bin/$_bin" "/usr/bin/$_bin"
         done
         # Symlink curl-impersonate wrappers to PATH
         for _bin in curl-impersonate-chrome curl-impersonate-ff; do
