@@ -1,45 +1,48 @@
-#!/bin/sh
-# build-superlite-files.sh — Build SuperLite Files fully static on Alpine
-# All libraries (webkit2gtk, GTK3, etc.) are linked statically into the binary
-# Output: single static binary with zero runtime dependencies
+#!/bin/bash
+# build-superlite-files.sh — Build SuperLite Files on Ubuntu (glibc binary)
+# Produces a glibc binary that works with glibc webkit2gtk on Alpine
 
-OUTPUT="/tmp/superlite-files-static"
+OUTPUT="/tmp/superlite-files-glibc"
 BUILDLOG="/tmp/superlite-files-build.log"
-SRC="${1:-/build/vendor/superlite-files}"
+SRC="${1:-${GITHUB_WORKSPACE:-$(pwd)}/vendor/superlite-files}"
 
-export RUSTUP_HOME=/root/.rustup
-export CARGO_HOME=/root/.cargo
+export RUSTUP_HOME=${RUSTUP_HOME:-$HOME/.rustup}
+export CARGO_HOME=${CARGO_HOME:-$HOME/.cargo}
 
 log() { echo "[slf-build] $*"; }
 
-# ── Stage 1: Install Rust via Alpine packages ─────────────────────────────
+# ── Stage 1: Install Rust via rustup ─────────────────────────────────────
 log "=== Stage 1: Install Rust ==="
-apk add --no-cache curl gcc musl-dev rust cargo 2>&1 | tail -5
-export PATH="/usr/bin:$PATH"
+if ! command -v cargo &>/dev/null; then
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable 2>&1 | tail -5
+fi
+export PATH="$CARGO_HOME/bin:$PATH"
 log "Rust: $(rustc --version 2>&1)"
 log "Cargo: $(cargo --version 2>&1)"
 
 # ── Stage 2: Install Node.js + pnpm ──────────────────────────────────────
 log "=== Stage 2: Install Node.js + pnpm ==="
-apk add --no-cache nodejs npm 2>&1 | tail -3
+if ! command -v node &>/dev/null; then
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - 2>&1 | tail -3
+    apt-get install -y nodejs 2>&1 | tail -3
+fi
 npm install -g pnpm@9 2>&1 | tail -3
 log "Node: $(node --version 2>&1), pnpm: $(pnpm --version 2>&1)"
 
-# ── Stage 3: Install Tauri system dependencies (static libs) ─────────────
-log "=== Stage 3: Install Tauri deps (static) ==="
-# Install -dev packages (include both .so and .a static libs)
-apk add --no-cache \
-    webkit2gtk-4.1-dev \
-    gtk+3.0-dev \
-    glib-dev \
-    gdk-pixbuf-dev \
-    pango-dev \
-    cairo-dev \
-    harfbuzz-dev \
-    fontconfig-dev \
-    libsoup3-dev \
+# ── Stage 3: Install Tauri system dependencies ──────────────────────────
+log "=== Stage 3: Install Tauri deps ==="
+apt-get update -qq 2>&1 | tail -3
+apt-get install -y \
+    libwebkit2gtk-4.1-dev \
+    libgtk-3-dev \
+    libglib2.0-dev \
+    libgdk-pixbuf-2.0-dev \
+    libpango1.0-dev \
+    libcairo2-dev \
+    libharfbuzz-dev \
+    libfontconfig-dev \
+    libsoup-3.0-dev \
     libxml2-dev \
-    xorgproto \
     libx11-dev \
     libxext-dev \
     libxrandr-dev \
@@ -48,35 +51,22 @@ apk add --no-cache \
     libxcomposite-dev \
     libxdamage-dev \
     libxfixes-dev \
-    at-spi2-core-dev \
-    gcc \
-    musl-dev \
-    openssl-dev \
-    pkgconf \
+    libatk1.0-dev \
+    libatspi2.0-dev \
+    libssl-dev \
+    build-essential \
+    pkg-config \
     file \
     patchelf \
     2>&1 | tail -5
 
-# Verify static libraries exist
-log "Checking static libs..."
-ls /usr/lib/libwebkit2gtk*.a 2>/dev/null && log "  webkit2gtk: OK" || log "  WARNING: no webkit2gtk .a files"
-ls /usr/lib/libgtk-3.a 2>/dev/null && log "  gtk3: OK" || log "  WARNING: no gtk3 .a files"
-ls /usr/lib/libglib-2.0.a 2>/dev/null && log "  glib: OK" || log "  WARNING: no glib .a files"
-ls /usr/lib/libcairo.a 2>/dev/null && log "  cairo: OK" || log "  WARNING: no cairo .a files"
-
-# ── Stage 4: Configure cargo for FULLY STATIC linking ─────────────────────
-log "=== Stage 4: Configure cargo (static) ==="
-
+# ── Stage 4: Find source ─────────────────────────────────────────────────
+log "=== Stage 4: Find source ==="
 if [ ! -d "$SRC" ]; then
     log "ERROR: Source not found at $SRC"
     exit 1
 fi
-
 cd "$SRC"
-
-# No static linking flags — build normally (dynamic binary)
-# Fully static linking causes SIGSEGV in build scripts on Alpine
-# Binary will have musl dependencies, same as Terax
 
 # ── Stage 5: Install frontend dependencies ───────────────────────────────
 log "=== Stage 5: pnpm install ==="
@@ -89,29 +79,15 @@ pnpm install 2>&1 | tail -10 || {
     exit 1
 }
 
-# ── Stage 6: Build Tauri app (static) ───────────────────────────────────
-log "=== Stage 6: Build SuperLite Files (static) ==="
-export PATH="/usr/bin:$PATH"
-# Do NOT set RUSTFLAGS here — it applies to build scripts and causes SIGSEGV
-# Static linking flags are set in .cargo/config.toml only for the final binary
+# ── Stage 6: Build Tauri app ─────────────────────────────────────────────
+log "=== Stage 6: Build SuperLite Files (release) ==="
+export PATH="$CARGO_HOME/bin:$PATH"
 
-# Verify cargo is available
-cargo --version || { log "ERROR: cargo not found"; exit 1; }
-rustc --version || { log "ERROR: rustc not found"; exit 1; }
-
-# Build frontend first (without cargo)
-log "Building frontend..."
-pnpm build 2>&1 | tail -5
-
-# Build Rust backend (Tauri) directly with cargo
-log "Building Rust backend..."
-cd src-tauri
-cargo build --release 2>&1 | tee "$BUILDLOG"
+pnpm tauri build 2>&1 | tee "$BUILDLOG"
 BUILD_RC=$?
-cd ..
 
 if [ $BUILD_RC -ne 0 ]; then
-    log "ERROR: cargo build failed (exit=$BUILD_RC)"
+    log "ERROR: tauri build failed (exit=$BUILD_RC)"
     tail -50 "$BUILDLOG"
     exit 1
 fi
@@ -133,18 +109,6 @@ fi
 log "Found: $BIN"
 file "$BIN"
 
-# Check dynamic dependencies
-DEPS=$(ldd "$BIN" 2>&1)
-if echo "$DEPS" | grep -q "not a dynamic executable\|statically linked"; then
-    log "Binary is FULLY STATIC — no runtime dependencies!"
-elif echo "$DEPS" | grep -q "linux-vdso\|ld-musl"; then
-    log "WARNING: Binary still has dynamic deps:"
-    echo "$DEPS" | grep -v "linux-vdso\|ld-musl" | head -10
-else
-    log "Binary has dynamic deps:"
-    echo "$DEPS" | head -10
-fi
-
 rm -rf "$OUTPUT"
 mkdir -p "$OUTPUT/usr/bin"
 cp -v "$BIN" "$OUTPUT/usr/bin/superlite-files"
@@ -152,7 +116,6 @@ chmod +x "$OUTPUT/usr/bin/superlite-files"
 
 log "=== Done ==="
 ls -la "$OUTPUT/usr/bin/superlite-files"
-du -h "$OUTPUT/usr/bin/superlite-files"
 
 # Cleanup
 rm -rf src-tauri/target/release/build src-tauri/target/release/deps
