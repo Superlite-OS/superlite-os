@@ -227,6 +227,13 @@ if [ -d "$SQFS/opt/google/chrome" ] && [ -d "$SQFS/usr/lib/glibc/bin" ]; then
     done
     log "  Chrome data symlinks: $_chrome_count"
 
+    # Chrome crashpad handler: Chrome looks for it at /usr/lib/glibc/chrome_crashpad_handler
+    if [ -e "$SQFS/opt/google/chrome/chrome_crashpad_handler" ] && \
+       [ ! -e "$SQFS/usr/lib/glibc/chrome_crashpad_handler" ]; then
+        ln -sf "/opt/google/chrome/chrome_crashpad_handler" \
+            "$SQFS/usr/lib/glibc/chrome_crashpad_handler"
+    fi
+
     # Symlink Mesa DRI drivers into glibc path so Chrome's glibc mesa can find them
     if [ -d "$SQFS/usr/lib/dri" ]; then
         mkdir -p "$SQFS/usr/lib/glibc/dri"
