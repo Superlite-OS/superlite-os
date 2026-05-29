@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<CONFIG>
-  <Compiler Value="/usr/bin/fpc" Date="1718845406"/>
-  <Params Value="-Px86_64 -MObjFPC -Scghi -CX -Cg -O3 -XX -k-z -krelro -k--as-needed -l -vewnhibq -Fi/build/vendor/doublecmd/plugins/wfx/samba/lib -Fu/build/vendor/doublecmd/plugins/wfx/samba/src/ -Fu/build/vendor/doublecmd/sdk -FU/build/vendor/doublecmd/plugins/wfx/samba/lib/ -FE/build/vendor/doublecmd/plugins/wfx/samba/ -o/build/vendor/doublecmd/plugins/wfx/samba/samba.wfx -fPIC samba.lpr"/>
-</CONFIG>

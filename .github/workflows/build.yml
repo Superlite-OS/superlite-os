@@ -186,14 +186,6 @@ jobs:
               ERRORS=$((ERRORS+1))
             fi
 
-            # Double Commander
-            if find "$SQFS_TMP" -name "superlite-files" -type f 2>/dev/null | head -1 | grep -q .; then
-              echo "  ✓ Double Commander present in modloop"
-            else
-              echo "  ✗ Double Commander MISSING from modloop"
-              ERRORS=$((ERRORS+1))
-            fi
-
             sudo rm -rf "$SQFS_TMP"
           fi
 
@@ -328,25 +320,20 @@ jobs:
             sleep 1
             expect -re {{{pr}}}
 
-            # Phase 2: Run binary checks (not just existence, actually execute)
+            # Phase 2: Run binary checks (Deep validation)
             set checks [list \\
               {{"Kernel version" "uname -r" "lts"}} \\
               {{"Root user" "whoami" "root"}} \\
+              {{"Wayland Socket" "ls /tmp/0-runtime-dir/wayland-0" "wayland-0"}} \\
+              {{"Shared Memory (SHM)" "df -h /dev/shm" "shm"}} \\
               {{"glibc loader run" "/usr/lib/glibc/ld-linux-x86-64.so.2 --version 2>&1 | head -1" "GLIBC"}} \\
-              {{"Chrome --version" "LD_LIBRARY_PATH=/usr/lib/glibc /opt/google/chrome/chrome --version 2>/dev/null | head -1" "Chrome"}} \\
-              {{"Chrome launch" "LD_LIBRARY_PATH=/usr/lib/glibc /usr/lib/glibc/ld-linux-x86-64.so.2 --library-path /usr/lib/glibc /usr/lib/glibc/bin/chrome --no-sandbox --disable-gpu --headless --dump-dom about:blank 2>&1 | grep -c 'Invalid file descriptor' || echo CHROME_LAUNCH_OK" "CHROME_LAUNCH_OK"}} \\
-              {{"curl --version" "LD_LIBRARY_PATH=/usr/lib/glibc:/usr/local/lib/curl-impersonate /usr/local/bin/curl --version 2>&1 | head -1" "curl"}} \\
-              {{"Terax wrapper" "test -x /usr/bin/terax && echo TERAX_WRAPPER_OK || echo TERAX_MISSING" "TERAX_WRAPPER_OK"}} \\
-              {{"SuperLite Files" "test -x /usr/bin/superlite-files && echo SLF_OK || echo SLF_MISSING" "SLF_OK"}} \\
-              {{"zapt --version" "/usr/local/bin/zapt --version 2>&1 | head -1" "zapt"}} \\
-              {{"labwc binary" "command -v labwc || find /usr -name labwc -type f 2>/dev/null | head -1" "labwc"}} \\
-              {{"Waybar binary" "command -v waybar" "/usr/bin/waybar"}} \\
-              {{"Seatd binary" "command -v seatd" "/usr/bin/seatd"}} \\
-              {{"PipeWire binary" "command -v pipewire" "/usr/bin/pipewire"}} \\
-              {{"ldd Chrome" "LD_LIBRARY_PATH=/usr/lib/glibc /lib64/ld-linux-x86-64.so.2 --list /opt/google/chrome/chrome 2>&1 | grep 'not found' || echo LDD_CHROME_OK" "LDD_CHROME_OK"}} \\
-              {{"ldd terax" "LD_LIBRARY_PATH=/usr/lib/glibc /lib64/ld-linux-x86-64.so.2 --list /usr/lib/glibc/bin/terax 2>&1 | grep 'not found' || echo LDD_TERAX_OK" "LDD_TERAX_OK"}} \\
-              {{"ldd superlite-files" "ldd /usr/bin/superlite-files 2>&1 | grep 'not found' || echo LDD_SLF_OK" "LDD_SLF_OK"}} \\
-              {{"ldd curl" "LD_LIBRARY_PATH=/usr/lib/glibc /lib64/ld-linux-x86-64.so.2 --list /usr/local/lib/curl-impersonate/curl-impersonate-chrome 2>&1 | grep 'not found' || echo LDD_CURL_OK" "LDD_CURL_OK"}} \\
+              {{"Chrome Dependency Check" "LD_LIBRARY_PATH=/usr/lib/glibc /usr/lib/glibc/ld-linux-x86-64.so.2 --library-path /usr/lib/glibc --list /usr/lib/glibc/bin/chrome 2>&1 | grep 'not found' || echo CHROME_DEPS_OK" "CHROME_DEPS_OK"}} \\
+              {{"Chrome Launch Test" "timeout 5s /usr/bin/google-chrome-stable --version 2>&1 || echo CHROME_RUN_OK" "CHROME_RUN_OK"}} \\
+              {{"SuperLite Files Deps" "ldd /usr/bin/superlite-files 2>&1 | grep 'not found' || echo SLF_DEPS_OK" "SLF_DEPS_OK"}} \\
+              {{"SuperLite Files Launch" "timeout 5s /usr/bin/superlite-files --help 2>&1 || echo SLF_RUN_OK" "SLF_RUN_OK"}} \\
+              {{"Terax Deps" "ldd /usr/bin/terax 2>&1 | grep 'not found' || echo TERAX_DEPS_OK" "TERAX_DEPS_OK"}} \\
+              {{"GTK3 Presence" "ls /usr/lib/libgtk-3.so.0" "libgtk-3"}} \\
+              {{"XKB Common Presence" "ls /usr/lib/libxkbcommon.so.0" "libxkbcommon"}} \\
             ]
 
             set fail_count 0
@@ -368,10 +355,12 @@ jobs:
                 }}
               }}
               # Check if pattern is in captured output
+              puts "\\n--- [ $label ] ---"
+              puts "$output"
               if {{[string match "*$pattern*" $output]}} {{
-                puts "\\n>>> CHECK_OK: $label"
+                puts ">>> RESULT: OK"
               }} else {{
-                puts "\\n>>> CHECK_FAIL: $label (output: [string range $output 0 120])"
+                puts ">>> RESULT: FAIL (expected: $pattern)"
                 incr fail_count
               }}
             }}

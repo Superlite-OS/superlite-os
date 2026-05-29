@@ -88,7 +88,7 @@ _docker_build() {
             set -e
             apk add --no-cache alpine-sdk build-base apk-tools alpine-conf \
                 busybox fakeroot syslinux xorriso squashfs-tools mtools dosfstools upx \
-                grub-efi grub-bios git go librsvg \
+                grub-efi grub-bios git go librsvg python3 \
                 qt5-qtbase-dev qt5-qtx11extras-dev
 
             adduser -D build
@@ -130,7 +130,7 @@ _docker_build() {
             "
 
             # Inject heavy binaries into modloop (Chrome, glibc, zapt, etc.)
-            # Terax and Double Commander are pre-built via separate workflows
+            # Terax is pre-built via separate workflows
             # and stored in prebuilt/ directory
             if [ -f /build/inject-modloop.sh ]; then
                 echo "[build] Injecting extras into modloop..."

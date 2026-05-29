@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<CONFIG>
-  <Compiler Value="/usr/bin/fpc" Date="1718845406"/>
-  <Params Value="-Px86_64 -MObjFPC -Scghi -CX -Cg -O3 -XX -k-z -krelro -k--as-needed -l -vewibq -vn-h- -Fi/build/vendor/doublecmd/sdk -Fi/build/vendor/doublecmd/plugins/wdx/audioinfo/lib -Fu/build/vendor/doublecmd/plugins/wdx/audioinfo/src/ -Fu/build/vendor/doublecmd/sdk -Fu/build/vendor/doublecmd/plugins/wdx/audioinfo/src/atl -Fu/build/vendor/doublecmd/components/doublecmd/lib/x86_64-linux -Fu/usr/local/share/lazarus/components/lazutils/lib/x86_64-linux -Fu/usr/local/share/lazarus/packager/units/x86_64-linux -FU/build/vendor/doublecmd/plugins/wdx/audioinfo/lib/ -FE/build/vendor/doublecmd/plugins/wdx/audioinfo/ -o/build/vendor/doublecmd/plugins/wdx/audioinfo/audioinfo.wdx -fPIC -fPIC AudioInfo.lpr"/>
-</CONFIG>

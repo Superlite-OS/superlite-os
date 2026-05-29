@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<CONFIG>
-  <Compiler Value="/usr/bin/fpc" Date="1718845406"/>
-  <Params Value="-Px86_64 -MDelphi -Scghi -CX -Cg -O3 -XX -k-z -krelro -k--as-needed -l -vewibq -vn-h- -Fi/build/vendor/doublecmd/plugins/wfx/ftp/lib -Fi/build/vendor/doublecmd/sdk -Fi/build/vendor/doublecmd/plugins/wfx/ftp/synapse -Fu/build/vendor/doublecmd/plugins/wfx/ftp/src/ -Fu/build/vendor/doublecmd/plugins/wfx/ftp/synapse -Fu/build/vendor/doublecmd/sdk -Fu/build/vendor/doublecmd/plugins/wfx/ftp/src/sftp -Fu/build/vendor/doublecmd/components/doublecmd/lib/x86_64-linux -Fu/usr/local/share/lazarus/components/lazutils/lib/x86_64-linux -Fu/usr/local/share/lazarus/packager/units/x86_64-linux -FU/build/vendor/doublecmd/plugins/wfx/ftp/lib/ -FE/build/vendor/doublecmd/plugins/wfx/ftp/ -o/build/vendor/doublecmd/plugins/wfx/ftp/ftp.wfx -fPIC -fPIC ftp.dpr"/>
-</CONFIG>

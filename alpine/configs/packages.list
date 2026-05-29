@@ -53,6 +53,7 @@ elogind
 dbus
 dbus-x11
 xwayland
+libxkbcommon
 
 # --- Desktop Components ---
 waybar
@@ -65,7 +66,10 @@ tofi
 brightnessctl
 gsettings-desktop-schemas
 webkit2gtk-4.1
+gtk+3.0
+libayatana-indicator
 gtk+2.0
+libnotify
 
 # --- Audio ---
 pipewire

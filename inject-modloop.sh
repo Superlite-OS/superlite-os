@@ -149,6 +149,8 @@ if [ -f "$_download_glibc_deps_py" ] && command -v python3 >/dev/null 2>&1; then
     python3 "$_download_glibc_deps_py" "$SQFS/usr/lib/glibc" "$PACKAGES_GZ" 2>&1 || {
         log "WARNING: webkit2gtk deps download failed"
     }
+elif [ -f "$_download_glibc_deps_py" ]; then
+    log "WARNING: python3 not found, cannot download webkit2gtk glibc deps"
 fi
 rm -f "$PACKAGES_GZ"
 
@@ -431,22 +433,49 @@ if [ "$TERAX_INSTALLED" = "0" ]; then
     fi
 fi
 
-# ── SuperLite Files (Tauri file manager, fully static) ───────────────────
-if [ -f "$REPO_DIR/prebuilt/superlite-files/usr/bin/superlite-files" ]; then
-    log "Installing SuperLite Files..."
-    mkdir -p "$SQFS/usr/lib/glibc/bin"
-    cp -v "$REPO_DIR/prebuilt/superlite-files/usr/bin/superlite-files" "$SQFS/usr/lib/glibc/bin/superlite-files"
-    chmod +x "$SQFS/usr/lib/glibc/bin/superlite-files"
-    # Create glibc wrapper (same pattern as Terax)
-    cat > "$SQFS/usr/bin/superlite-files" << 'SLFW'
+# ── SuperLite Files (Tauri file manager) ───────────────────────────────────
+# Priority: /tmp/superlite-files-musl (local) > prebuilt/ (CI) > glibc fallback
+SLF_INSTALLED=0
+if [ -d "/tmp/superlite-files-musl" ] && [ -f "/tmp/superlite-files-musl/usr/bin/superlite-files" ]; then
+    log "Installing SuperLite Files (musl native)..."
+    cp -a /tmp/superlite-files-musl/usr/bin/superlite-files "$SQFS/usr/bin/superlite-files"
+    chmod +x "$SQFS/usr/bin/superlite-files"
+    if [ -d "/tmp/superlite-files-musl/usr/lib/superlite-files" ]; then
+        mkdir -p "$SQFS/usr/lib/superlite-files"
+        cp -a /tmp/superlite-files-musl/usr/lib/superlite-files/* "$SQFS/usr/lib/superlite-files/" 2>/dev/null || true
+    fi
+    SLF_INSTALLED=1
+elif [ -f "$REPO_DIR/prebuilt/superlite-files/usr/bin/superlite-files" ]; then
+    # Check if prebuilt is musl or glibc
+    if file "$REPO_DIR/prebuilt/superlite-files/usr/bin/superlite-files" | grep -q "musl"; then
+        log "Installing SuperLite Files (prebuilt musl)..."
+        cp -a "$REPO_DIR/prebuilt/superlite-files/usr/bin/superlite-files" "$SQFS/usr/bin/superlite-files"
+        chmod +x "$SQFS/usr/bin/superlite-files"
+        if [ -d "$REPO_DIR/prebuilt/superlite-files/usr/lib/superlite-files" ]; then
+            mkdir -p "$SQFS/usr/lib/superlite-files"
+            # Use a loop to avoid shell expansion errors if directory is empty
+            for so in "$REPO_DIR/prebuilt/superlite-files/usr/lib/superlite-files/"*.so*; do
+                [ -e "$so" ] && cp -a "$so" "$SQFS/usr/lib/superlite-files/" 2>/dev/null || true
+            done
+        fi
+        SLF_INSTALLED=1
+    else
+        log "Installing SuperLite Files (prebuilt glibc) with wrapper..."
+        mkdir -p "$SQFS/usr/lib/glibc/bin"
+        cp -v "$REPO_DIR/prebuilt/superlite-files/usr/bin/superlite-files" "$SQFS/usr/lib/glibc/bin/superlite-files"
+        chmod +x "$SQFS/usr/lib/glibc/bin/superlite-files"
+        cat > "$SQFS/usr/bin/superlite-files" << 'SLFW'
 #!/bin/sh
 [ -z "$WAYLAND_DISPLAY" ] && export WAYLAND_DISPLAY=wayland-0
 [ -z "$XDG_RUNTIME_DIR" ] && export XDG_RUNTIME_DIR=/tmp/0-runtime-dir
 exec /usr/lib/glibc/ld-linux-x86-64.so.2 --library-path /usr/lib/glibc /usr/lib/glibc/bin/superlite-files "$@"
 SLFW
-    chmod +x "$SQFS/usr/bin/superlite-files"
-    log "  Installed SuperLite Files with glibc wrapper"
-else
+        chmod +x "$SQFS/usr/bin/superlite-files"
+        SLF_INSTALLED=1
+    fi
+fi
+
+if [ "$SLF_INSTALLED" = "0" ]; then
     log "WARNING: SuperLite Files prebuilt not found"
 fi
 

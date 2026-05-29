@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<CONFIG>
-  <Compiler Value="/usr/bin/fpc" Date="1718845406"/>
-  <Params Value="-Px86_64 -MObjFPC -Scgi -CX -Cg -O3 -XX -k-z -krelro -k--as-needed -l -vewnhibq -Fi/build/vendor/doublecmd/plugins/dsx/DSXLocate/lib -Fi/build/vendor/doublecmd/sdk -Fu/build/vendor/doublecmd/plugins/dsx/DSXLocate/src/ -Fu/build/vendor/doublecmd/sdk -FU/build/vendor/doublecmd/plugins/dsx/DSXLocate/lib/ -FE/build/vendor/doublecmd/plugins/dsx/DSXLocate/ -o/build/vendor/doublecmd/plugins/dsx/DSXLocate/dsxlocate.dsx -fPIC DSXLocate.lpr"/>
-</CONFIG>

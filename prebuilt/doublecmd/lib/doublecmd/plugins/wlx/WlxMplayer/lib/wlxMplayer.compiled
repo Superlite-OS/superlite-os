@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<CONFIG>
-  <Compiler Value="/usr/bin/fpc" Date="1718845406"/>
-  <Params Value="-Px86_64 -MObjFPC -Scgi -CX -Cg -O3 -OoUNCERTAIN -OoREGVAR -XX -k-z -krelro -k--as-needed -l -vewnhibq -Fi/build/vendor/doublecmd/sdk -Fu/build/vendor/doublecmd/plugins/wlx/WlxMplayer/src/ -Fu/usr/local/share/lazarus/lcl/units/x86_64-linux/gtk2 -Fu/build/vendor/doublecmd/sdk -Fu/usr/local/share/lazarus/lcl/units/x86_64-linux -Fu/usr/local/share/lazarus/components/freetype/lib/x86_64-linux -Fu/usr/local/share/lazarus/components/lazutils/lib/x86_64-linux -Fu/usr/local/share/lazarus/packager/units/x86_64-linux -FU/build/vendor/doublecmd/plugins/wlx/WlxMplayer/lib/ -FE/build/vendor/doublecmd/plugins/wlx/WlxMplayer/ -o/build/vendor/doublecmd/plugins/wlx/WlxMplayer/wlxmplayer.wlx -dLCL -dLCLgtk2 -dLCLgtk2 -fPIC wlxMplayer.lpr"/>
-</CONFIG>

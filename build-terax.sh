@@ -19,15 +19,15 @@ log() { echo "[terax-build] $*"; }
 # ── Stage 1: Install Rust via rustup ─────────────────────────────────────
 log "=== Stage 1: Install Rust ==="
 # Alpine's rust pkg lacks proc-macro/dylib support needed by Tauri
-apk add --no-cache curl gcc musl-dev 2>&1 | tail -3
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable 2>&1 | tail -5
+apk add --no-cache curl gcc musl-dev
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
 export PATH="$CARGO_HOME/bin:$PATH"
 log "Rust: $(rustc --version 2>&1)"
 
 # ── Stage 2: Install Node.js + pnpm ──────────────────────────────────────
 log "=== Stage 2: Install Node.js + pnpm ==="
-apk add --no-cache nodejs npm 2>&1 | tail -3
-npm install -g pnpm@9 2>&1 | tail -3
+apk add --no-cache nodejs npm
+npm install -g pnpm@9
 log "Node: $(node --version 2>&1), pnpm: $(pnpm --version 2>&1)"
 
 # ── Stage 3: Install Tauri system dependencies ──────────────────────────
@@ -58,8 +58,7 @@ apk add --no-cache \
     openssl-dev \
     pkgconf \
     file \
-    patchelf \
-    2>&1 | tail -5
+    patchelf
 
 # ── Stage 4: Configure cargo for musl dynamic linking ────────────────────
 log "=== Stage 4: Configure cargo ==="
