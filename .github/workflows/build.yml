@@ -295,6 +295,7 @@ jobs:
       - name: QEMU Boot + Login + Package Test
         timeout-minutes: 5
         run: |
+          sudo apt-get update -qq >/dev/null 2>&1
           sudo apt-get install -y qemu-system-x86 expect >/dev/null 2>&1 || true
 
           ISO=$(find output -name "*.iso" -type f | head -1)
