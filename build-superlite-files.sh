@@ -74,17 +74,8 @@ fi
 
 cd "$SRC"
 
-mkdir -p .cargo
-cat > .cargo/config.toml <<'CARGO'
-[target.x86_64-unknown-linux-musl]
-linker = "cc"
-rustflags = [
-    "-C", "target-feature=-crt-static",
-    "-C", "link-arg=-static",
-    "-C", "link-arg=-L/usr/lib",
-    "-C", "link-arg=-Wl,-Bstatic",
-]
-CARGO
+# Use default target (Alpine is already musl)
+# Apply static linking flags globally via RUSTFLAGS
 
 # ── Stage 5: Install frontend dependencies ───────────────────────────────
 log "=== Stage 5: pnpm install ==="
@@ -113,7 +104,7 @@ pnpm build 2>&1 | tail -5
 # Build Rust backend (Tauri) directly with cargo
 log "Building Rust backend..."
 cd src-tauri
-cargo build --release --target x86_64-unknown-linux-musl 2>&1 | tee "../$BUILDLOG"
+cargo build --release 2>&1 | tee "../$BUILDLOG"
 BUILD_RC=$?
 cd ..
 
@@ -126,10 +117,7 @@ fi
 # ── Stage 7: Package artifacts ───────────────────────────────────────────
 log "=== Stage 7: Package ==="
 
-BIN="src-tauri/target/x86_64-unknown-linux-musl/release/superlite-files"
-if [ ! -f "$BIN" ]; then
-    BIN="src-tauri/target/release/superlite-files"
-fi
+BIN="src-tauri/target/release/superlite-files"
 if [ ! -f "$BIN" ]; then
     BIN=$(find src-tauri/target -name "superlite-files" -type f -executable 2>/dev/null | head -1)
 fi
