@@ -1,47 +1,47 @@
-#!/bin/bash
-# build-superlite-files.sh — Build SuperLite Files on Ubuntu (glibc binary)
-# Produces a glibc binary that works with glibc webkit2gtk on Alpine
+#!/bin/sh
+# build-superlite-files.sh — Build SuperLite Files fully static on Alpine
+# All libraries (webkit2gtk, GTK3, etc.) are linked statically into the binary
+# Output: single static binary with zero runtime dependencies
 
-OUTPUT="/tmp/superlite-files-glibc"
+OUTPUT="/tmp/superlite-files-static"
 BUILDLOG="/tmp/superlite-files-build.log"
-SRC="${1:-${GITHUB_WORKSPACE:-$(pwd)}/vendor/superlite-files}"
+SRC="${1:-/build/vendor/superlite-files}"
 
-export RUSTUP_HOME=${RUSTUP_HOME:-$HOME/.rustup}
-export CARGO_HOME=${CARGO_HOME:-$HOME/.cargo}
+export RUSTUP_HOME=/root/.rustup
+export CARGO_HOME=/root/.cargo
 
 log() { echo "[slf-build] $*"; }
 
 # ── Stage 1: Install Rust via rustup ─────────────────────────────────────
 log "=== Stage 1: Install Rust ==="
-if ! command -v cargo &>/dev/null; then
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable 2>&1 | tail -5
-fi
+apk add --no-cache curl gcc musl-dev 2>&1 | tail -3
+# Add musl target for static builds
+rustup toolchain install stable 2>&1 | tail -3
+rustup target add x86_64-unknown-linux-musl 2>&1 | tail -3
 export PATH="$CARGO_HOME/bin:$PATH"
 log "Rust: $(rustc --version 2>&1)"
 
 # ── Stage 2: Install Node.js + pnpm ──────────────────────────────────────
 log "=== Stage 2: Install Node.js + pnpm ==="
-if ! command -v node &>/dev/null; then
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - 2>&1 | tail -3
-    apt-get install -y nodejs 2>&1 | tail -3
-fi
+apk add --no-cache nodejs npm 2>&1 | tail -3
 npm install -g pnpm@9 2>&1 | tail -3
 log "Node: $(node --version 2>&1), pnpm: $(pnpm --version 2>&1)"
 
-# ── Stage 3: Install Tauri system dependencies ──────────────────────────
-log "=== Stage 3: Install Tauri deps ==="
-apt-get update -qq 2>&1 | tail -3
-apt-get install -y \
-    libwebkit2gtk-4.1-dev \
-    libgtk-3-dev \
-    libglib2.0-dev \
-    libgdk-pixbuf-2.0-dev \
-    libpango1.0-dev \
-    libcairo2-dev \
-    libharfbuzz-dev \
-    libfontconfig-dev \
-    libsoup-3.0-dev \
+# ── Stage 3: Install Tauri system dependencies (static libs) ─────────────
+log "=== Stage 3: Install Tauri deps (static) ==="
+# Install -dev packages (include both .so and .a static libs)
+apk add --no-cache \
+    webkit2gtk-4.1-dev \
+    gtk+3.0-dev \
+    glib-dev \
+    gdk-pixbuf-dev \
+    pango-dev \
+    cairo-dev \
+    harfbuzz-dev \
+    fontconfig-dev \
+    libsoup3-dev \
     libxml2-dev \
+    xorgproto \
     libx11-dev \
     libxext-dev \
     libxrandr-dev \
@@ -50,22 +50,43 @@ apt-get install -y \
     libxcomposite-dev \
     libxdamage-dev \
     libxfixes-dev \
-    libatk1.0-dev \
-    libatspi2.0-dev \
-    libssl-dev \
-    build-essential \
-    pkg-config \
+    at-spi2-core-dev \
+    gcc \
+    musl-dev \
+    openssl-dev \
+    pkgconf \
     file \
     patchelf \
     2>&1 | tail -5
 
-# ── Stage 4: Find source ─────────────────────────────────────────────────
-log "=== Stage 4: Find source ==="
+# Verify static libraries exist
+log "Checking static libs..."
+ls /usr/lib/libwebkit2gtk*.a 2>/dev/null && log "  webkit2gtk: OK" || log "  WARNING: no webkit2gtk .a files"
+ls /usr/lib/libgtk-3.a 2>/dev/null && log "  gtk3: OK" || log "  WARNING: no gtk3 .a files"
+ls /usr/lib/libglib-2.0.a 2>/dev/null && log "  glib: OK" || log "  WARNING: no glib .a files"
+ls /usr/lib/libcairo.a 2>/dev/null && log "  cairo: OK" || log "  WARNING: no cairo .a files"
+
+# ── Stage 4: Configure cargo for FULLY STATIC linking ─────────────────────
+log "=== Stage 4: Configure cargo (static) ==="
+
 if [ ! -d "$SRC" ]; then
     log "ERROR: Source not found at $SRC"
     exit 1
 fi
+
 cd "$SRC"
+
+mkdir -p .cargo
+cat > .cargo/config.toml <<'CARGO'
+[target.x86_64-unknown-linux-musl]
+linker = "cc"
+rustflags = [
+    "-C", "target-feature=-crt-static",
+    "-C", "link-arg=-static",
+    "-C", "link-arg=-L/usr/lib",
+    "-C", "link-arg=-Wl,-Bstatic",
+]
+CARGO
 
 # ── Stage 5: Install frontend dependencies ───────────────────────────────
 log "=== Stage 5: pnpm install ==="
@@ -78,9 +99,10 @@ pnpm install 2>&1 | tail -10 || {
     exit 1
 }
 
-# ── Stage 6: Build Tauri app ─────────────────────────────────────────────
-log "=== Stage 6: Build SuperLite Files (release) ==="
+# ── Stage 6: Build Tauri app (static) ───────────────────────────────────
+log "=== Stage 6: Build SuperLite Files (static) ==="
 export PATH="$CARGO_HOME/bin:$PATH"
+export RUSTFLAGS="-C target-feature=-crt-static -C link-arg=-static -C link-arg=-Wl,-Bstatic"
 
 pnpm tauri build 2>&1 | tee "$BUILDLOG"
 BUILD_RC=$?
@@ -108,6 +130,18 @@ fi
 log "Found: $BIN"
 file "$BIN"
 
+# Check dynamic dependencies
+DEPS=$(ldd "$BIN" 2>&1)
+if echo "$DEPS" | grep -q "not a dynamic executable\|statically linked"; then
+    log "Binary is FULLY STATIC — no runtime dependencies!"
+elif echo "$DEPS" | grep -q "linux-vdso\|ld-musl"; then
+    log "WARNING: Binary still has dynamic deps:"
+    echo "$DEPS" | grep -v "linux-vdso\|ld-musl" | head -10
+else
+    log "Binary has dynamic deps:"
+    echo "$DEPS" | head -10
+fi
+
 rm -rf "$OUTPUT"
 mkdir -p "$OUTPUT/usr/bin"
 cp -v "$BIN" "$OUTPUT/usr/bin/superlite-files"
@@ -115,6 +149,7 @@ chmod +x "$OUTPUT/usr/bin/superlite-files"
 
 log "=== Done ==="
 ls -la "$OUTPUT/usr/bin/superlite-files"
+du -h "$OUTPUT/usr/bin/superlite-files"
 
 # Cleanup
 rm -rf src-tauri/target/release/build src-tauri/target/release/deps
