@@ -134,7 +134,7 @@ start() {
             [ -f "/.modloop/usr/local/bin/$_bin" ] && [ ! -f "/usr/local/bin/$_bin" ] && \
                 ln -sf "/.modloop/usr/local/bin/$_bin" "/usr/local/bin/$_bin"
         done
-        for _bin in terax doublecmd google-chrome-stable google-chrome; do
+        for _bin in terax superlite-files google-chrome-stable google-chrome; do
             [ -f "/.modloop/bin/$_bin" ] && [ ! -f "/bin/$_bin" ] && \
                 ln -sf "/.modloop/bin/$_bin" "/bin/$_bin"
         done

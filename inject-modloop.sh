@@ -104,7 +104,7 @@ CW
     rm -f /tmp/curl-imp.tar.gz
 fi
 
-# ── Download glibc deps FIRST (before Chrome/Terax/Doublecmd) ──────────────
+# ── Download glibc deps FIRST (before Chrome/Terax) ────────────────────────
 # zapt resolves dependencies from the Debian pool during install.
 # These deps must be available BEFORE the apps that need them.
 log "Downloading glibc deps (must be before app installs)..."
@@ -133,7 +133,7 @@ _download_deb_pkg() {
     fi
 }
 
-# Core glibc deps — installed BEFORE Chrome/Terax/Doublecmd
+# Core glibc deps — installed BEFORE Chrome/Terax
 for _pkg in libsystemd0 liblzma5 liblz4-1 libhwy1 libstdc++6 libgcc-s1 \
     libaom3 libdav1d6 libgav1-1 libsvtav1enc1 \
     libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-cursor0 \
