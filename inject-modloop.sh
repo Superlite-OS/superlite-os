@@ -418,12 +418,21 @@ if [ "$TERAX_INSTALLED" = "0" ]; then
     fi
 fi
 
-# ── SuperLite Files (Tauri file manager, musl binary) ────────────────────
+# ── SuperLite Files (Tauri file manager, glibc binary) ───────────────────
 if [ -f "$REPO_DIR/prebuilt/superlite-files/usr/bin/superlite-files" ]; then
     log "Installing SuperLite Files..."
-    cp -v "$REPO_DIR/prebuilt/superlite-files/usr/bin/superlite-files" "$SQFS/usr/bin/superlite-files"
+    mkdir -p "$SQFS/usr/lib/glibc/bin"
+    cp -v "$REPO_DIR/prebuilt/superlite-files/usr/bin/superlite-files" "$SQFS/usr/lib/glibc/bin/superlite-files"
+    chmod +x "$SQFS/usr/lib/glibc/bin/superlite-files"
+    # Create glibc wrapper (same pattern as Terax)
+    cat > "$SQFS/usr/bin/superlite-files" << 'SLFW'
+#!/bin/sh
+[ -z "$WAYLAND_DISPLAY" ] && export WAYLAND_DISPLAY=wayland-0
+[ -z "$XDG_RUNTIME_DIR" ] && export XDG_RUNTIME_DIR=/tmp/0-runtime-dir
+exec /usr/lib/glibc/ld-linux-x86-64.so.2 --library-path /usr/lib/glibc /usr/lib/glibc/bin/superlite-files "$@"
+SLFW
     chmod +x "$SQFS/usr/bin/superlite-files"
-    log "  Installed SuperLite Files"
+    log "  Installed SuperLite Files with glibc wrapper"
 else
     log "WARNING: SuperLite Files prebuilt not found"
 fi

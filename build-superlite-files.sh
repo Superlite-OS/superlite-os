@@ -2,7 +2,7 @@
 # build-superlite-files.sh — Build SuperLite Files from vendored source (Alpine musl)
 # Runs inside Alpine 3.23 Docker container (same as build-terax.sh)
 
-OUTPUT="/tmp/superlite-files-musl"
+OUTPUT="/tmp/superlite-files-glibc"
 BUILDLOG="/tmp/superlite-files-build.log"
 SRC="/build/vendor/superlite-files"
 

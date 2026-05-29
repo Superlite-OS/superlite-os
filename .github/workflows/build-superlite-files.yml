@@ -1,4 +1,4 @@
-name: Build SuperLite Files (musl)
+name: Build SuperLite Files
 
 on:
   workflow_dispatch:
@@ -21,25 +21,17 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Build SuperLite Files in Docker
+      - name: Build SuperLite Files
         run: |
           mkdir -p prebuilt/superlite-files
-          docker run --rm \
-            -v "${{ github.workspace }}:/build" \
-            -v "${{ github.workspace }}/prebuilt/superlite-files:/output" \
-            -w /build \
-            alpine:3.23 \
-            sh -c '
-              apk add --no-cache make build-base
-              sh /build/build-superlite-files.sh
-              if [ -d /tmp/superlite-files-musl ]; then
-                cp -a /tmp/superlite-files-musl/* /output/
-                echo "Copied to /output/"
-              else
-                echo "ERROR: /tmp/superlite-files-musl not found"
-                exit 1
-              fi
-            '
+          sudo bash build-superlite-files.sh
+          if [ -d /tmp/superlite-files-glibc ]; then
+            sudo cp -a /tmp/superlite-files-glibc/* prebuilt/superlite-files/
+            echo "Copied to prebuilt/"
+          else
+            echo "ERROR: /tmp/superlite-files-glibc not found"
+            exit 1
+          fi
 
       - name: Verify binary
         run: |
@@ -49,7 +41,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: superlite-files-musl
+          name: superlite-files-glibc
           path: prebuilt/superlite-files/
           retention-days: 30
 
