@@ -355,7 +355,7 @@ jobs:
                 }}
               }}
               # Check if pattern is in captured output
-              puts "\\n--- [ $label ] ---"
+              puts "\\n--- $label ---"
               puts "$output"
               if {{[string match "*$pattern*" $output]}} {{
                 puts ">>> RESULT: OK"
