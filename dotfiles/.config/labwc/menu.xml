@@ -27,6 +27,9 @@
 		<item label="Terminal">
 			<action name="Execute"><command>terax</command></action>
 		</item>
+		<item label="Task Manager">
+			<action name="Execute"><command>terax --task-manager</command></action>
+		</item>
 		<separator/>
 		<item label="Clear Terminals">
 			<action name="Execute"><command>/root/.config/scripts/tty-clear.sh</command></action>
