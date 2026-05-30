@@ -491,34 +491,10 @@ _command_strip() {
 }
 _command_strip
 
-# ── Chrome cleanup ─────────────────────────────────────────────────────────
-log "Cleaning up Chrome..."
-if [ -d "$SQFS/opt/google/chrome" ]; then
-    # Remove all locales except en-US (~30MB)
-    find "$SQFS/opt/google/chrome/locales" -name "*.pak" ! -name "en-US.pak" -delete 2>/dev/null || true
-    # Remove crashpad, updater, docs
-    rm -rf "$SQFS/opt/google/chrome/crashpad" 2>/dev/null || true
-    rm -rf "$SQFS/opt/google/chrome/debug" 2>/dev/null || true
-    rm -rf "$SQFS/usr/share/doc/google-chrome-stable" 2>/dev/null || true
-    # Remove debug symbols
-    find "$SQFS/opt/google/chrome" -name "*.debug" -delete 2>/dev/null || true
-    find "$SQFS/opt/google/chrome" -name "*.dbg" -delete 2>/dev/null || true
-fi
-
 # ── Remove docs/man/locale ─────────────────────────────────────────────────
 log "Removing docs/man/locale..."
 rm -rf "$SQFS/usr/share/doc" "$SQFS/usr/share/man" 2>/dev/null || true
 find "$SQFS/usr/share/locale" -mindepth 1 -maxdepth 1 ! -name "en" ! -name "en_US" -exec rm -rf {} \; 2>/dev/null || true
-
-# ── UPX compress static binaries ───────────────────────────────────────────
-if command -v upx >/dev/null 2>&1; then
-    log "Compressing binaries with UPX..."
-    for _bin in "$SQFS/usr/local/bin/zapt"; do
-        [ -f "$_bin" ] && file "$_bin" 2>/dev/null | grep -q "ELF" && {
-            upx --best "$_bin" 2>/dev/null || true
-        }
-    done
-fi
 
 # ── Repack squashfs with x86 BCJ filter ────────────────────────────────────
 log "Repacking modloop (xz + x86 BCJ filter)..."
