@@ -331,7 +331,7 @@ jobs:
               [list "Chrome Launch Test" "timeout 5s /usr/bin/google-chrome-stable --version 2>&1 || echo CHROME_RUN_OK" "CHROME_RUN_OK"] \\
               [list "SuperLite Files Deps" "ldd /usr/bin/superlite-files 2>&1 | grep 'not found' || echo SLF_DEPS_OK" "SLF_DEPS_OK"] \\
               [list "SuperLite Files Launch" "timeout 5s /usr/bin/superlite-files --help 2>&1 || echo SLF_RUN_OK" "SLF_RUN_OK"] \\
-              [list "Terax Deps" "ldd /usr/bin/terax 2>&1 | grep 'not found' || echo TERAX_DEPS_OK" "TERAX_DEPS_OK"] \\
+              [list "Terax Deps" "/usr/lib/glibc/ld-linux-x86-64.so.2 --library-path /usr/lib/glibc --list /usr/lib/glibc/bin/terax 2>&1 | grep 'not found' || echo TERAX_DEPS_OK" "TERAX_DEPS_OK"] \\
               [list "GTK3 Presence" "ls /usr/lib/libgtk-3.so.0" "libgtk-3"] \\
               [list "XKB Common Presence" "ls /usr/lib/libxkbcommon.so.0" "libxkbcommon"] \\
             ]
