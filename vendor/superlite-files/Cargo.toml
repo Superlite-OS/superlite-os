@@ -1,0 +1,18 @@
+[package]
+name = "superlite-files"
+version = "0.2.0"
+edition = "2021"
+
+[dependencies]
+eframe = "0.34"
+egui = "0.34"
+walkdir = "2"
+mime_guess = "2"
+chrono = { version = "0.4", features = ["serde"] }
+dirs = "6"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true

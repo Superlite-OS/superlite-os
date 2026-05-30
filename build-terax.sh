@@ -104,12 +104,11 @@ pnpm install 2>&1 | tail -10 || {
 log "=== Stage 6: Build Terax (release) ==="
 export PATH="$CARGO_HOME/bin:$PATH"
 
-pnpm tauri build 2>&1 | tee "$BUILDLOG"
+pnpm tauri build
 TAURI_RC=$?
 
 if [ $TAURI_RC -ne 0 ]; then
     log "ERROR: tauri build failed (exit=$TAURI_RC)"
-    tail -50 "$BUILDLOG"
     exit 1
 fi
 
@@ -132,13 +131,13 @@ fi
 
 if [ -z "$TAURI_BIN" ] || [ ! -f "$TAURI_BIN" ]; then
     log "ERROR: terax binary not found"
-    find src-tauri/target -name "terax*" -type f 2>/dev/null | head -10
+    find src-tauri/target -name "terax*" -type f 2>/dev/null
     exit 1
 fi
 
 log "Found: $TAURI_BIN"
 file "$TAURI_BIN"
-ldd "$TAURI_BIN" 2>&1 | head -10 || true
+ldd "$TAURI_BIN" 2>&1 || true
 
 rm -rf "$OUTPUT"
 mkdir -p "$OUTPUT/usr/bin" "$OUTPUT/usr/lib/terax"
