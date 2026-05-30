@@ -104,7 +104,7 @@ pnpm install 2>&1 | tail -10 || {
 log "=== Stage 6: Build Terax (release) ==="
 export PATH="$CARGO_HOME/bin:$PATH"
 
-pnpm tauri build --bundles deb
+pnpm tauri build --bundles none
 TAURI_RC=$?
 
 if [ $TAURI_RC -ne 0 ]; then
