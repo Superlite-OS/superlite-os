@@ -104,11 +104,11 @@ pnpm install 2>&1 | tail -10 || {
 log "=== Stage 6: Build Terax (release) ==="
 export PATH="$CARGO_HOME/bin:$PATH"
 
-pnpm tauri build --bundles none
+cargo build --release --manifest-path src-tauri/Cargo.toml
 TAURI_RC=$?
 
 if [ $TAURI_RC -ne 0 ]; then
-    log "ERROR: tauri build failed (exit=$TAURI_RC)"
+    log "ERROR: cargo build failed (exit=$TAURI_RC)"
     exit 1
 fi
 
